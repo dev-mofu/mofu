@@ -39,26 +39,26 @@ mofu -m qwen/qwen3.7-flash    # pick a model for this run
 
 In chat:
 
-| Command | What it does |
-|---|---|
-| `/help` | List commands |
+| Command       | What it does                              |
+| ------------- | ----------------------------------------- |
+| `/help`       | List commands                             |
 | `/model [id]` | Show or switch the model for this session |
-| `/clear` | Start a fresh conversation |
-| `/memory` | Show what Mofu remembers about you |
-| `/forget` | Clear that memory |
-| `/exit` | Quit |
+| `/clear`      | Start a fresh conversation                |
+| `/memory`     | Show what Mofu remembers about you        |
+| `/forget`     | Clear that memory                         |
+| `/exit`       | Quit                                      |
 
 Ctrl+C stops a reply that's running. At the prompt, it quits.
 
 ## What Mofu can do
 
-| Tool | Needs your approval |
-|---|---|
-| List, read and search files | No |
-| Create, overwrite or edit files (you see a diff first) | Yes |
-| Run a command (PowerShell on Windows, `sh` elsewhere) | Yes |
-| Look up Wikipedia summaries and dictionary definitions | No |
-| Remember a fact you ask it to (`~/.mofu/memory.md`) | Yes |
+| Tool                                                   | Needs your approval |
+| ------------------------------------------------------ | ------------------- |
+| List, read and search files                            | No                  |
+| Create, overwrite or edit files (you see a diff first) | Yes                 |
+| Run a command (PowerShell on Windows, `sh` elsewhere)  | Yes                 |
+| Look up Wikipedia summaries and dictionary definitions | No                  |
+| Remember a fact you ask it to (`~/.mofu/memory.md`)    | Yes                 |
 
 File and command tools only work inside the folder you started Mofu in. Paths that escape it (`..`, absolute paths elsewhere, symlinks pointing outside) are refused.
 
