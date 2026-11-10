@@ -1,0 +1,28 @@
+{
+  "name": "@mofu/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "mofu-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "ai": "^7.0.166",
+    "diff": "^9.0.0",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.14",
+    "zod": "^4.6.7"
+  },
+  "sideEffects": false
+}

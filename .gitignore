@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.dev.vars
+*.log
+mofu-output/
+# Large reference video, kept locally only
+*.mp4

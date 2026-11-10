@@ -1,0 +1,24 @@
+{
+  "name": "mofu",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mofu: an AI agent that does real work on your files.",
+  "type": "module",
+  "bin": {
+    "mofu": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@mofu/core": "workspace:*",
+    "picocolors": "^1.1.1",
+    "zod": "^4.6.7"
+  }
+}

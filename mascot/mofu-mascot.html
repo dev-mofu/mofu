@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mofu Mascot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Raleway:wght@400;500&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0d0e;
+    --card: #1a1718;
+    --card-border: #2c2829;
+    --text: #f4f0f1;
+    --muted: #9b9496;
+    --pink: #ff4f9a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 6px 6px;
+    color: var(--text);
+    font-family: 'Lato', system-ui, sans-serif;
+    padding: 48px 16px 64px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-family: 'Raleway', sans-serif; font-weight: 500; font-size: 44px; margin: 0; text-align: center; }
+  .sub { text-align: center; color: var(--muted); margin: 8px 0 40px; }
+  .hero { display: flex; justify-content: center; margin-bottom: 48px; }
+  .section-title { font-family: 'Raleway', sans-serif; font-weight: 500; font-size: 22px; margin: 0 0 16px; }
+  .states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 48px; }
+  .state {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+    padding: 24px 16px 20px; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .led {
+    font-family: 'Silkscreen', monospace; font-size: 14px; letter-spacing: 2px;
+    color: var(--pink); background: #120f10; border: 1px solid #3a3335; border-radius: 8px;
+    padding: 4px 10px; text-shadow: 0 0 6px rgba(255,79,154,0.7);
+  }
+  .state p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+  .row2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+  .peek-stage { position: relative; padding-top: 112px; }
+  .peek-stage canvas { position: absolute; top: 0; left: 28px; z-index: 2; }
+  .peek-stage .card { z-index: 1; }
+  .card {
+    position: relative; background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
+    padding: 22px; min-height: 170px;
+  }
+  .card .led { position: absolute; top: -14px; right: 18px; }
+  .chip { display: inline-block; background: #262223; border-radius: 10px; padding: 6px 12px; font-size: 14px; }
+  .card h3 { font-family: 'Raleway', sans-serif; font-weight: 500; margin: 14px 0 6px; font-size: 20px; }
+  .card .muted { color: var(--muted); font-size: 14px; margin: 0; }
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 56px; margin-top: 14px; }
+  .bars span { width: 14px; background: repeating-linear-gradient(0deg, #e9e3e5 0 3px, transparent 3px 5px); border-radius: 2px; }
+  .bars span.hi { background: repeating-linear-gradient(0deg, var(--pink) 0 3px, transparent 3px 5px); }
+  .dotbox { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  .palette { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 40px; }
+  .sw { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .sw i { width: 18px; height: 18px; border-radius: 4px; display: inline-block; border: 1px solid #333; }
+  @media (max-width: 760px) {
+    .states, .row2 { grid-template-columns: 1fr; }
+    h1 { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Meet Mofu.</h1>
+  <p class="sub">Mascot concept v1 · pixel art · for the landing page</p>
+
+  <div class="hero"><canvas id="hero"></canvas></div>
+
+  <h2 class="section-title">States</h2>
+  <div class="states">
+    <div class="state"><canvas id="s-ready"></canvas><span class="led">READY</span><p>Idle. Waiting for a file or a question.</p></div>
+    <div class="state"><canvas id="s-focus"></canvas><span class="led">SCANNING</span><p>Working. Glasses on while it analyzes, scans or studies.</p></div>
+    <div class="state"><canvas id="s-found"></canvas><span class="led">FOUND</span><p>Done. Happy face when results are ready.</p></div>
+  </div>
+
+  <h2 class="section-title">On the landing page</h2>
+  <div class="row2">
+    <div class="peek-stage">
+      <canvas id="peek"></canvas>
+      <div class="card">
+        <span class="led">ANALYZING</span>
+        <span class="chip">sales.csv · 2,431 rows</span>
+        <h3>March revenue dropped 18%</h3>
+        <p class="muted">Mostly from two regions. Public holidays explain about a third of it.</p>
+        <div class="bars">
+          <span style="height:60%"></span><span style="height:72%"></span><span class="hi" style="height:42%"></span>
+          <span style="height:80%"></span><span style="height:88%"></span><span style="height:95%"></span>
+        </div>
+      </div>
+    </div>
+    <div class="state dotbox">
+      <canvas id="dots"></canvas>
+      <span class="led">DOT-MATRIX</span>
+      <p>LED version for badges, loaders and the favicon.</p>
+    </div>
+  </div>
+
+  <div class="palette">
+    <span class="sw"><i style="background:#f6eff3"></i>Fur</span>
+    <span class="sw"><i style="background:#dccfd8"></i>Shade</span>
+    <span class="sw"><i style="background:#e8c3d6"></i>Spots</span>
+    <span class="sw"><i style="background:#ff8fc0"></i>Ears & blush</span>
+    <span class="sw"><i style="background:#ff4f9a"></i>Accent</span>
+    <span class="sw"><i style="background:#3a2a35"></i>Outline</span>
+  </div>
+</div>
+
+<script>
+// Left half of the sprite (13 columns); mirrored to 26 columns.
+const HALF = [
+  "....OO.......",
+  "...OEEO......",
+  "...OEEWOOOOOO",
+  "...OEWWWWWWWW",
+  "..OWWWWWWWWWW",
+  "..OWWWWWWWWWW",
+  ".OWWWWWWWWWWW",
+  ".OWWWWWWWWWWW",
+  ".OWWWKKWWWWWW",
+  ".OWWKHKKWWWWW",
+  "OWWWKKKKWWWWW",
+  "OWWWKKKKWWWWW",
+  ".OWWWKKWWWWWW",
+  ".OWppWWWWWWKW",
+  ".OWppWWWWWWWK",
+  ".OWWWWWWWWWWW",
+  "OWWWWWWWWWWWW",
+  ".OLWWWWWWWWWW",
+  ".OLWWWWWWWWWW",
+  "..OLWWWWWWWWW",
+  "..OLLWWWWWWWW",
+  "...OLLLWWWWWW",
+  "....OOLLLLLLL",
+  "......OOOOOOO",
+];
+const W = 26, H = HALF.length;
+const COLORS = {
+  O: "#3a2a35", W: "#f6eff3", L: "#dccfd8", E: "#ff8fc0", K: "#1d1519",
+  H: "#ffffff", p: "#ff9ccb", P: "#ff4f9a", S: "#f2c6dc", G: "#ff4f9a",
+};
+
+function baseGrid() {
+  const g = HALF.map(r => (r + [...r].reverse().join("")).split(""));
+  // Put the right eye's highlight on the same side as the left one.
+  g[9][20] = "K"; g[9][19] = "H";
+  // Little hair tuft on top (asymmetric).
+  g[1][12] = "O"; g[0][13] = "O"; g[0][14] = "O";
+  // Round fur spots.
+  [[5,17],[6,17],[5,18],[6,18],[19,19],[20,19],[19,20],[20,20],[12,20],[13,20]].forEach(([x,y]) => g[y][x] = "S");
+  return g;
+}
+
+function applyState(g, state) {
+  const set = (x, y, c) => { if (g[y] && g[y][x] !== undefined) g[y][x] = c; };
+  if (state === "focus") {
+    // Half-closed eyes.
+    [[5,8],[6,8],[19,8],[20,8]].forEach(([x,y]) => set(x, y, "L"));
+    // Pink glasses frames + bridge.
+    for (const x0 of [3, 17]) {
+      for (let x = x0; x <= x0 + 5; x++) { set(x, 7, "G"); set(x, 13, "G"); }
+      for (let y = 7; y <= 13; y++) { set(x0, y, "G"); set(x0 + 5, y, "G"); }
+    }
+    for (let x = 9; x <= 16; x++) set(x, 9, "G");
+    // Neutral mouth.
+    set(11, 13, "W"); set(14, 13, "W"); set(12, 14, "K"); set(13, 14, "K");
+  }
+  if (state === "found") {
+    // Clear the eyes, draw happy ^ ^ eyes.
+    for (let y = 8; y <= 12; y++) for (const x of [4,5,6,7,18,19,20,21]) set(x, y, "W");
+    [[5,9],[6,9],[4,10],[7,10],[19,9],[20,9],[18,10],[21,10]].forEach(([x,y]) => set(x, y, "K"));
+    // Open smile.
+    set(11, 13, "K"); set(12, 13, "P"); set(13, 13, "P"); set(14, 13, "K");
+    set(11, 14, "W"); set(12, 14, "K"); set(13, 14, "K"); set(14, 14, "W");
+  }
+  return g;
+}
+
+function draw(id, { px = 8, state = "ready", pad = 2, crop = H, paws = false, dots = false, sparkles = false } = {}) {
+  const g = applyState(baseGrid(), state);
+  const cols = W + pad * 2, rows = crop + pad * 2 + (paws ? 2 : 0);
+  const c = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  c.width = cols * px * dpr; c.height = rows * px * dpr;
+  c.style.width = cols * px + "px"; c.style.height = rows * px + "px";
+  const ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+  const plot = (x, y, color) => {
+    ctx.fillStyle = color;
+    const X = (x + pad) * px, Y = (y + pad) * px;
+    if (dots) { ctx.beginPath(); ctx.arc(X + px / 2, Y + px / 2, px * 0.42, 0, Math.PI * 2); ctx.fill(); }
+    else ctx.fillRect(X, Y, px, px);
+  };
+  for (let y = 0; y < crop; y++) for (let x = 0; x < W; x++) {
+    const ch = g[y][x];
+    if (ch !== ".") plot(x, y, COLORS[ch]);
+  }
+  if (paws) {
+    // Little paws resting on the card edge.
+    const pawRows = ["OWWO", "OOOO"];
+    for (const x0 of [5, 17]) pawRows.forEach((r, dy) => [...r].forEach((ch, dx) => plot(x0 + dx, crop + dy, COLORS[ch])));
+  }
+  if (sparkles) {
+    const s = (x, y, col) => { plot(x, y, col); plot(x-1, y, col); plot(x+1, y, col); plot(x, y-1, col); plot(x, y+1, col); };
+    s(-1, 2, COLORS.P); s(26, 4, COLORS.H); plot(24, 0, COLORS.P); plot(0, 6, COLORS.H);
+  }
+}
+
+draw("hero",    { px: 14, state: "ready" });
+draw("s-ready", { px: 7,  state: "ready" });
+draw("s-focus", { px: 7,  state: "focus" });
+draw("s-found", { px: 7,  state: "found", pad: 3, sparkles: true });
+draw("peek",    { px: 7,  state: "focus", crop: 16, paws: true, pad: 1 });
+// Card top lines up with where the body is cut, so the paws rest on its edge.
+document.querySelector(".peek-stage").style.paddingTop = (1 + 16) * 7 + "px";
+draw("dots",    { px: 7,  state: "ready", dots: true });
+</script>
+</body>
