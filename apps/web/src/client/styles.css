@@ -1177,3 +1177,116 @@ textarea {
   font-size: 0.85rem;
   color: #c48a1e;
 }
+
+/* ---------- Data Analyst ---------- */
+.data-drop {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+}
+
+.data-drop--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.data-drop p {
+  margin: 0 0 0.35rem;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.data-card {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.data-card-main {
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+
+.data-card-main p {
+  margin: 0.15rem 0 0.4rem;
+}
+
+.data-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.col {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col--numeric {
+  border-color: #3d9b6c;
+  color: #3d9b6c;
+}
+
+.col--datetime {
+  border-color: #c48a1e;
+  color: #c48a1e;
+}
+
+.col--categorical {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.data-problems {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: #c48a1e;
+}
+
+.chart {
+  margin: 0.5rem 0 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  max-width: 44rem;
+}
+
+.chart img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart figcaption {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}

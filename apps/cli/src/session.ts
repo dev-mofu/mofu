@@ -10,6 +10,7 @@ import {
   type MemoryStore,
   type ModelMessage,
   type MofuError,
+  type MofuTool,
   type ToolSet,
 } from "@mofu/core";
 import { formatApproval, Printer } from "./ui.js";
@@ -26,6 +27,10 @@ export interface SessionOptions {
   /** Extra system instructions, e.g. the RepoPilot task flow. */
   modeSection?: string;
   limits?: Partial<AgentLimits>;
+  /** Session-specific tools, e.g. the Data Analyst tools bound to a sandbox. */
+  extraTools?: MofuTool[];
+  /** Tools whose approval prompt offers "a" (yes to all for this session). */
+  approveAllOffer?: string[];
 }
 
 /** One chat conversation in the terminal. */
@@ -39,6 +44,7 @@ export class ChatSession {
   constructor(private readonly opts: SessionOptions) {
     this.model = opts.model;
     const registry = createDefaultRegistry();
+    for (const t of opts.extraTools ?? []) registry.register(t);
     for (const t of registry.forSurface("cli")) {
       if (t.summarize) this.summaries.set(t.name, t.summarize as (input: never) => string);
     }
@@ -77,12 +83,28 @@ export class ChatSession {
       );
       return false;
     }
+    if (this.approvedForSession.has(req.toolName)) {
+      printer.line(pc.dim(`  approved (yes to all ${req.toolName} this session)`));
+      return true;
+    }
     printer.line();
     printer.line(formatApproval(req));
-    const ok = await terminal.confirm(pc.yellow("Apply? (y/n) "));
+    const offerAll = this.opts.approveAllOffer?.includes(req.toolName) ?? false;
+    const answer = offerAll
+      ? await terminal.choose(
+          pc.yellow("Apply? (y/n, a = yes to all analysis code this session) "),
+          ["y", "n", "a"],
+        )
+      : (await terminal.confirm(pc.yellow("Apply? (y/n) ")))
+        ? "y"
+        : "n";
+    if (answer === "a") this.approvedForSession.add(req.toolName);
+    const ok = answer !== "n";
     printer.line(ok ? pc.green("  approved") : pc.dim("  declined"));
     return ok;
   }
+
+  private readonly approvedForSession = new Set<string>();
 
   private summarize(toolName: string, input: unknown): string {
     const fn = this.summaries.get(toolName);

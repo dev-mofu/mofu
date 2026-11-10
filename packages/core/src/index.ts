@@ -39,6 +39,7 @@ export {
   REPOPILOT_TASK_SECTION,
   DEPS_SUMMARY_SECTION,
   DEPS_FIX_SECTION,
+  DATA_SECTION,
 } from "./prompts/system.js";
 export { readLocalManifests, scanWorkspace } from "./tools/deps-tool.js";
 export { ALL_TOOLS, createDefaultRegistry } from "./tools/all.js";
@@ -47,3 +48,7 @@ export { WEB_SAFE_TOOLS, createWebRegistry } from "./tools/web-tools.js";
 export type { ModelMessage, ToolSet } from "ai";
 
 export * from "./deps/index.js";
+export * from "./data/specs.js";
+export * from "./data/enrich.js";
+export { NodePythonSandbox, SandboxTimeoutError } from "./data/node-sandbox.js";
+export { createDataTools } from "./data/cli-tools.js";

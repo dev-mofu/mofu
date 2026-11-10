@@ -1,7 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
-import { evaluateUsage, nextUtcMidnight, type UsageResult, type UsageState } from "./usage.js";
+import {
+  evaluateUsage,
+  nextUtcMidnight,
+  type UsageBucket,
+  type UsageResult,
+  type UsageState,
+} from "./usage.js";
 
-const KEY = "usage";
 /** Delete per-IP state an hour after the daily reset, so nothing IP-derived lingers. */
 const CLEANUP_DELAY_MS = 60 * 60 * 1000;
 
@@ -10,8 +15,13 @@ const CLEANUP_DELAY_MS = 60 * 60 * 1000;
  * time, so concurrent messages can't slip past the limit.
  */
 export class UsageLimiter extends DurableObject<Env> {
-  async check(limit: number, consume: boolean): Promise<UsageResult> {
+  async check(
+    limit: number,
+    consume: boolean,
+    bucket: UsageBucket = "messages",
+  ): Promise<UsageResult> {
     const now = Date.now();
+    const KEY = `usage:${bucket}`;
     const stored = await this.ctx.storage.get<UsageState>(KEY);
     const { state, result } = evaluateUsage(stored, now, limit, consume);
     if (consume && result.allowed) {

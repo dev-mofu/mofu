@@ -37,6 +37,18 @@ src/shared/   Types and limits shared by both
 | `POST /api/key/check` | Checks a user's own OpenRouter key against OpenRouter's free key-info endpoint  |
 | `POST /api/chat`      | Streams the agent's reply (AI SDK UI message stream)                            |
 
+## Data Analyst
+
+The file never leaves the browser. Pyodide (pinned to 314.0.7, loaded from jsDelivr the first time the mode is used) runs pandas and matplotlib in a Web Worker:
+
+1. The worker loads the file and builds a profile (columns, types, missing values, problems). The profile, capped at 12,000 characters, is sent as `context` of kind `dataset`; the Worker wraps it in `<dataset_profile>` tags.
+2. The model calls `run_python`, the enrichment tools (`fx_rates`, `public_holidays`, `historical_weather`, `country_info`, `economic_indicator`) and `export_csv`. The Worker declares them **without** `execute`, so the AI SDK sends the call to the browser; `onToolCall` runs it (Python in the worker, public APIs via `fetch`, which all allow CORS) and `addToolOutput` returns the result. `sendAutomaticallyWhen` continues the turn.
+3. Charts and CSV exports stay in the page. The model only gets text: printed output, the truncated value of the last line, errors and a chart count.
+
+Safety: after packages load, the worker deletes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `importScripts` and `WebTransport`, so model-written Python can't send data anywhere. A run longer than 30 seconds terminates the worker; the next call starts a fresh one and reloads the file. Files are limited to 20 MB.
+
+Cost: tool results come back as follow-up requests. They don't use a free message, but they're capped at 10 per free message per IP per day (a separate `followups` counter in the same Durable Object).
+
 ## Dev Tools: explain a public GitHub repository
 
 In Dev Tools mode the user pastes a GitHub URL. The **browser** (not the Worker) reads it:

@@ -58,6 +58,20 @@ export class Terminal {
     }
   }
 
+  /** Asks until one of the options is typed (case-insensitive). Empty or ended input picks the second ("no"). */
+  async choose<T extends string>(prompt: string, options: T[]): Promise<T> {
+    const fallback = options[1] ?? options[0]!;
+    if (!this.interactive) return fallback;
+    for (;;) {
+      const answer = await this.ask(prompt);
+      if (answer === null) return fallback;
+      const a = answer.trim().toLowerCase();
+      if (!a) return fallback;
+      const hit = options.find((o) => o === a || (a.length > 1 && o === a[0]));
+      if (hit) return hit;
+    }
+  }
+
   /** y/n question. Non-interactive sessions always answer no. */
   async confirm(prompt: string): Promise<boolean> {
     if (!this.interactive) return false;

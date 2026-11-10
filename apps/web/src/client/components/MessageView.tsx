@@ -7,7 +7,21 @@ const TOOL_LABELS: Record<string, string> = {
   wikipedia_summary: "Wikipedia",
   define_word: "Dictionary",
   save_memory: "Memory",
+  run_python: "Python",
+  export_csv: "Export",
+  fx_rates: "Exchange rates",
+  public_holidays: "Holidays",
+  historical_weather: "Weather",
+  country_info: "Countries",
+  economic_indicator: "World Bank",
 };
+
+/** Charts and exports from browser-run tools, by tool call. */
+export interface ToolArtifacts {
+  figures: Map<string, string[]>;
+  exports: Map<string, { filename: string; csv: string }>;
+  download: (filename: string, text: string) => void;
+}
 
 type ToolPart = Extract<UIMessage["parts"][number], { toolCallId: string }>;
 
@@ -29,11 +43,20 @@ function shorten(value: unknown, max = 2000): string {
 
 function toolSubject(name: string, input: unknown): string {
   const i = (input ?? {}) as Record<string, unknown>;
-  const subject = i.title ?? i.word ?? i.fact;
+  if (name === "run_python" && typeof i.code === "string") {
+    return (
+      i.code
+        .split("\n")
+        .find((l) => l.trim() && !l.trim().startsWith("#"))
+        ?.trim() ?? ""
+    );
+  }
+  const subject =
+    i.title ?? i.word ?? i.fact ?? i.filename ?? i.place ?? i.indicator ?? i.base ?? i.country;
   return typeof subject === "string" ? subject : "";
 }
 
-function ToolRow({ part }: { part: ToolPart }) {
+function ToolRow({ part, artifacts }: { part: ToolPart; artifacts?: ToolArtifacts }) {
   const name = getToolName(part);
   const label = TOOL_LABELS[name] ?? name;
   const subject = toolSubject(name, part.input);
@@ -60,8 +83,12 @@ function ToolRow({ part }: { part: ToolPart }) {
           <span className="visually-hidden">({state})</span>
         </summary>
         <div className="tool-detail">
-          <div className="tool-detail-heading">Input</div>
-          <pre>{shorten(part.input)}</pre>
+          <div className="tool-detail-heading">{name === "run_python" ? "Code" : "Input"}</div>
+          <pre>
+            {name === "run_python" && typeof (part.input as { code?: unknown })?.code === "string"
+              ? (part.input as { code: string }).code
+              : shorten(part.input)}
+          </pre>
           {part.state === "output-available" && (
             <>
               <div className="tool-detail-heading">Result</div>
@@ -71,6 +98,31 @@ function ToolRow({ part }: { part: ToolPart }) {
           {part.state === "output-error" && <p className="tool-error">{part.errorText}</p>}
         </div>
       </details>
+      {(artifacts?.figures.get(part.toolCallId) ?? []).map((png, i) => (
+        <figure key={i} className="chart">
+          <img src={`data:image/png;base64,${png}`} alt={`Chart ${i + 1} from the analysis`} />
+          <figcaption>
+            <a
+              href={`data:image/png;base64,${png}`}
+              download={`mofu-chart-${part.toolCallId.slice(-6)}-${i + 1}.png`}
+            >
+              Download PNG
+            </a>
+          </figcaption>
+        </figure>
+      ))}
+      {artifacts?.exports.get(part.toolCallId) && (
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() => {
+            const file = artifacts.exports.get(part.toolCallId)!;
+            artifacts.download(file.filename, file.csv);
+          }}
+        >
+          Download {artifacts.exports.get(part.toolCallId)!.filename}
+        </button>
+      )}
       {wikiUrl && (
         <p className="attribution">
           Source:{" "}
@@ -88,9 +140,10 @@ interface MessageViewProps {
   message: UIMessage;
   /** Returns IDs/versions in the text that the source data doesn't contain. */
   verify?: (text: string) => { ids: string[]; versions: string[] };
+  artifacts?: ToolArtifacts;
 }
 
-export function MessageView({ message, verify }: MessageViewProps) {
+export function MessageView({ message, verify, artifacts }: MessageViewProps) {
   const text = message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
   if (message.role === "user") {
     return (
@@ -105,7 +158,8 @@ export function MessageView({ message, verify }: MessageViewProps) {
     <div className="message message--assistant">
       {message.parts.map((part, i) => {
         if (part.type === "text") return <Markdown key={i} text={part.text} />;
-        if (isToolUIPart(part)) return <ToolRow key={part.toolCallId} part={part} />;
+        if (isToolUIPart(part))
+          return <ToolRow key={part.toolCallId} part={part} {...(artifacts && { artifacts })} />;
         return null;
       })}
       {flagged.length > 0 && (

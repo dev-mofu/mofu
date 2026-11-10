@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, getToolName, isToolUIPart, type UIMessage } from "ai";
+import {
+  DefaultChatTransport,
+  getToolName,
+  isToolUIPart,
+  lastAssistantMessageIsCompleteWithToolCalls,
+  type UIMessage,
+} from "ai";
 import {
   AVAILABLE_MODES,
   BYOK_HEADER,
@@ -18,7 +24,22 @@ import { GitHubError, loadGitHubRepo, type LoadedRepo } from "./lib/github.js";
 import { RepoPanel } from "./components/RepoPanel.js";
 import { DepsPanel } from "./components/DepsPanel.js";
 import { ScanResults } from "./components/ScanResults.js";
-import { findUnverifiedReferences, formatScanForModel, type ScanReport } from "@mofu/core/web";
+import {
+  findUnverifiedReferences,
+  formatProfileForModel,
+  formatScanForModel,
+  suggestQuestions,
+  type PythonSandbox,
+  type ScanReport,
+} from "@mofu/core/web";
+import { DataPanel, MAX_DATA_BYTES, type LoadedDataset } from "./components/DataPanel.js";
+import {
+  CLIENT_TOOL_NAMES,
+  createBrowserSandbox,
+  downloadText,
+  runClientTool,
+  type Artifacts,
+} from "./lib/data-tools.js";
 import {
   addMemoryItem,
   loadMemory,
@@ -40,6 +61,9 @@ const SUGGESTIONS = [
   "What does “serendipity” mean?",
   "Remember that I prefer short answers",
 ];
+
+const REPORT_PROMPT =
+  "Write a short Markdown report of this analysis: the questions asked, the key findings with the exact numbers from the Python results, the charts made (refer to them as Chart 1, Chart 2…), and caveats about the data.";
 
 const DEPS_SUGGESTIONS = [
   "Give me a prioritized upgrade plan",
@@ -97,8 +121,13 @@ export function App() {
   const [depScan, setDepScan] = useState<{ report: ScanReport; source: string } | null>(null);
   const [scanning, setScanning] = useState(false);
 
-  const latest = useRef({ settings, memory, mode, repo, devTool, depScan });
-  latest.current = { settings, memory, mode, repo, devTool, depScan };
+  const [dataset, setDataset] = useState<LoadedDataset | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataProgress, setDataProgress] = useState("");
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  const latest = useRef({ settings, memory, mode, repo, devTool, depScan, dataset });
+  latest.current = { settings, memory, mode, repo, devTool, depScan, dataset };
 
   const effectiveTheme =
     settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
@@ -156,6 +185,13 @@ export function App() {
               title: "dependency scan",
               text: formatScanForModel(scan.report),
             };
+          } else if (m === "data" && latest.current.dataset) {
+            const d = latest.current.dataset;
+            context = {
+              kind: "dataset",
+              title: d.name,
+              text: formatProfileForModel(d.name, d.profile),
+            };
           }
           return { mode: m, memory: mem.map((x) => x.text), ...(context && { context }) };
         },
@@ -163,20 +199,128 @@ export function App() {
     [],
   );
 
-  const { messages, sendMessage, status, stop, error, regenerate, clearError, setMessages } =
-    useChat({
-      transport,
-      onFinish: ({ message, isError, isAbort }) => {
-        captureMemory(message);
-        refreshUsage();
-        if (!isError && !isAbort) {
-          setCelebrating(true);
-          window.setTimeout(() => setCelebrating(false), 2500);
-        }
-      },
-    });
+  // --- Data Analyst: Python runs in a Web Worker in this browser ------------------
+  const sandboxRef = useRef<PythonSandbox | null>(null);
+  const artifactsRef = useRef<Artifacts>({ figures: new Map(), exports: new Map() });
+  const [, setArtifactsVersion] = useState(0);
+  const [toolsRunning, setToolsRunning] = useState(0);
+  const addToolOutputRef = useRef<
+    ((arg: { tool: string; toolCallId: string; output: unknown }) => unknown) | null
+  >(null);
 
-  const busy = status === "submitted" || status === "streaming";
+  const {
+    messages,
+    sendMessage,
+    status,
+    stop,
+    error,
+    regenerate,
+    clearError,
+    setMessages,
+    addToolOutput,
+  } = useChat({
+    transport,
+    // Browser-run tools: when every tool call has a result, send them back automatically.
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    onToolCall: async ({ toolCall }) => {
+      if (toolCall.dynamic || !CLIENT_TOOL_NAMES.has(toolCall.toolName)) return;
+      const sandbox = sandboxRef.current;
+      setToolsRunning((n) => n + 1);
+      let output: unknown;
+      try {
+        if (!sandbox || !latest.current.dataset)
+          throw new Error("No file is loaded. Ask the user to load one.");
+        output = await runClientTool(
+          toolCall.toolName,
+          toolCall.toolCallId,
+          toolCall.input,
+          sandbox,
+          artifactsRef.current,
+        );
+        setArtifactsVersion((v) => v + 1);
+      } catch (err) {
+        output = { error: err instanceof Error ? err.message : String(err) };
+      } finally {
+        setToolsRunning((n) => n - 1);
+      }
+      // Not awaited, as the AI SDK docs advise, to avoid deadlocks.
+      void addToolOutputRef.current?.({
+        tool: toolCall.toolName,
+        toolCallId: toolCall.toolCallId,
+        output,
+      });
+    },
+    onFinish: ({ message, isError, isAbort }) => {
+      captureMemory(message);
+      refreshUsage();
+      if (!isError && !isAbort) {
+        setCelebrating(true);
+        window.setTimeout(() => setCelebrating(false), 2500);
+      }
+    },
+  });
+  addToolOutputRef.current = addToolOutput as unknown as typeof addToolOutputRef.current;
+
+  const busy = status === "submitted" || status === "streaming" || toolsRunning > 0;
+
+  const loadDataset = async (file: File) => {
+    if (file.size > MAX_DATA_BYTES) {
+      setDataError(
+        `That file is ${Math.round(file.size / 1e6)} MB; the limit here is 20 MB. The CLI (npx mofu analyze) handles bigger files.`,
+      );
+      return;
+    }
+    setDataError(null);
+    setDataLoading(true);
+    try {
+      sandboxRef.current ??= createBrowserSandbox(setDataProgress);
+      const profile = await sandboxRef.current.load(
+        file.name,
+        new Uint8Array(await file.arrayBuffer()),
+      );
+      artifactsRef.current = { figures: new Map(), exports: new Map() };
+      setDataset({ name: file.name, profile });
+      if (messages.length > 0) {
+        if (busy) void stop();
+        clearError();
+        setMessages([]);
+      }
+      setCelebrating(true);
+      window.setTimeout(() => setCelebrating(false), 2500);
+    } catch (err) {
+      setDataError(
+        `Couldn't read ${file.name}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setDataLoading(false);
+      setDataProgress("");
+    }
+  };
+
+  /** The latest answer plus every chart, as one Markdown file. */
+  const downloadReport = () => {
+    const charts = [...artifactsRef.current.figures.values()].flat();
+    const text = [
+      `# Analysis of ${dataset?.name ?? "dataset"}`,
+      "",
+      lastAssistantText ?? "",
+      ...(charts.length
+        ? [
+            "",
+            "## Charts",
+            "",
+            ...charts.map((png, i) => `![Chart ${i + 1}](data:image/png;base64,${png})`),
+          ]
+        : []),
+      "",
+      "_Generated by Mofu. Numbers come from Python run on your file in the browser._",
+    ].join("\n");
+    downloadText(
+      `${(dataset?.name ?? "data").replace(/\.\w+$/, "")}-report.md`,
+      text,
+      "text/markdown",
+    );
+  };
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -258,19 +402,29 @@ export function App() {
   // --- Derived UI state ------------------------------------------------------
 
   const apiError = parseApiError(error);
-  const led = busy
-    ? "THINKING"
-    : repoLoading || scanning
-      ? "SCANNING"
-      : error
-        ? "ERROR"
-        : celebrating
-          ? "DONE"
-          : "READY";
+  const led =
+    toolsRunning > 0 || dataLoading
+      ? "ANALYZING"
+      : busy
+        ? "THINKING"
+        : repoLoading || scanning
+          ? "SCANNING"
+          : error
+            ? "ERROR"
+            : celebrating
+              ? "DONE"
+              : "READY";
   const mascotState: MascotState =
-    busy || repoLoading || scanning ? "focus" : celebrating ? "found" : "ready";
+    busy || repoLoading || scanning || dataLoading ? "focus" : celebrating ? "found" : "ready";
 
   const depsMode = mode === "dev" && devTool === "deps";
+  const dataMode = mode === "data";
+  const toolArtifacts = dataMode
+    ? {
+        ...artifactsRef.current,
+        download: (name: string, text: string) => downloadText(name, text),
+      }
+    : undefined;
   const lastAssistantText =
     messages
       .filter((m) => m.role === "assistant")
@@ -282,35 +436,47 @@ export function App() {
       ? (text: string) => findUnverifiedReferences(text, depScan.report)
       : undefined;
 
-  const emptyCopy = depsMode
-    ? depScan
+  const emptyCopy = dataMode
+    ? dataset
       ? {
-          title: "Ask about this scan",
-          body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu deps --fix.",
-          suggestions: DEPS_SUGGESTIONS,
+          title: `Ask about ${dataset.name}`,
+          body: "Every number comes from Python run on your file, right here in the browser. Charts appear in the chat.",
+          suggestions: suggestQuestions(dataset.profile),
         }
       : {
-          title: "Scan your dependencies",
-          body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
+          title: "Analyze a spreadsheet",
+          body: "Drop a CSV, Excel or JSON file above. Mofu profiles it, answers questions with real calculations, draws charts and can pull in exchange rates, holidays, weather or World Bank data.",
           suggestions: [],
         }
-    : mode === "dev"
-      ? repo
+    : depsMode
+      ? depScan
         ? {
-            title: `Ask about ${repo.fullName}`,
-            body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu task "…".',
-            suggestions: DEV_SUGGESTIONS,
+            title: "Ask about this scan",
+            body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu deps --fix.",
+            suggestions: DEPS_SUGGESTIONS,
           }
         : {
-            title: "Explain any public GitHub repository",
-            body: "Paste a GitHub URL above. Mofu reads its structure, manifests and key files in your browser, then explains how it works.",
+            title: "Scan your dependencies",
+            body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
             suggestions: [],
           }
-      : {
-          title: "What can I help with?",
-          body: "Mofu can look things up on Wikipedia, define words and remember your preferences. Explain a GitHub repository in Dev Tools. Data Analyst and Study Buddy are on the way.",
-          suggestions: SUGGESTIONS,
-        };
+      : mode === "dev"
+        ? repo
+          ? {
+              title: `Ask about ${repo.fullName}`,
+              body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu task "…".',
+              suggestions: DEV_SUGGESTIONS,
+            }
+          : {
+              title: "Explain any public GitHub repository",
+              body: "Paste a GitHub URL above. Mofu reads its structure, manifests and key files in your browser, then explains how it works.",
+              suggestions: [],
+            }
+        : {
+            title: "What can I help with?",
+            body: "Mofu can look things up on Wikipedia, define words and remember your preferences. Analyze a spreadsheet in Data Analyst, or explain a repository and scan dependencies in Dev Tools. Study Buddy is on the way.",
+            suggestions: SUGGESTIONS,
+          };
 
   const usageLabel = settings.byokKey
     ? `Your key · ${shortModel(settings.byokModel || config?.defaultModel || "")}`
@@ -370,6 +536,23 @@ export function App() {
 
       {/* Always rendered (empty outside Dev Tools) so the grid rows stay stable. */}
       <div className="repo-bar">
+        {mode === "data" && (
+          <DataPanel
+            dataset={dataset}
+            loading={dataLoading}
+            progress={dataProgress}
+            error={dataError}
+            busy={busy}
+            canDownloadReport={Boolean(lastAssistantText)}
+            onFile={(f) => void loadDataset(f)}
+            onClear={() => {
+              setDataset(null);
+              if (messages.length > 0) newChat();
+            }}
+            onReport={() => void send(REPORT_PROMPT)}
+            onDownloadReport={downloadReport}
+          />
+        )}
         {mode === "dev" && (
           <>
             <div className="segmented dev-tabs" role="tablist" aria-label="Dev Tools">
@@ -460,6 +643,7 @@ export function App() {
               key={m.id}
               message={m}
               {...(verifyAgainstScan && status !== "streaming" && { verify: verifyAgainstScan })}
+              {...(toolArtifacts && { artifacts: toolArtifacts })}
             />
           ))
         )}

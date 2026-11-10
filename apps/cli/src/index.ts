@@ -8,6 +8,7 @@ import {
   type ScanReport,
 } from "@mofu/core";
 import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
+import { startAnalysis } from "./analyze.js";
 import { ArgsError, HELP, parseArgs } from "./args.js";
 import {
   loadConfig,
@@ -140,17 +141,24 @@ async function main(): Promise<number> {
     return (await summarizeScan(depsReport, { apiKey, model, printer })) ? 0 : 1;
   }
 
-  // Chat, task and deps --fix all run as an interactive session.
+  // mofu analyze: load the file into a Python sandbox before the chat starts.
+  const analysis =
+    args.command === "chat" && args.analyze ? await startAnalysis(args.analyze, printer) : null;
+  if (args.command === "chat" && args.analyze && !analysis) return 1;
+
+  // Chat, task, analyze and deps --fix all run as an interactive session.
   const chat =
     args.command === "deps"
       ? { initialPrompt: fixPrompt(depsReport!), modeSection: DEPS_FIX_SECTION, maxSteps: 40 }
-      : {
-          prompt: args.prompt,
-          initialPrompt: args.initialPrompt,
-          // Coding tasks need room for edits, test runs and fixes in one turn.
-          modeSection: args.task ? REPOPILOT_TASK_SECTION : undefined,
-          maxSteps: args.task ? 40 : 20,
-        };
+      : analysis
+        ? { modeSection: analysis.modeSection, maxSteps: 30 }
+        : {
+            prompt: args.prompt,
+            initialPrompt: args.initialPrompt,
+            // Coding tasks need room for edits, test runs and fixes in one turn.
+            modeSection: args.task ? REPOPILOT_TASK_SECTION : undefined,
+            maxSteps: args.task ? 40 : 20,
+          };
 
   const terminal = new Terminal();
   const memory = new FileMemoryStore(memoryPath());
@@ -163,6 +171,7 @@ async function main(): Promise<number> {
     printer,
     limits: { maxSteps: chat.maxSteps },
     ...(chat.modeSection && { modeSection: chat.modeSection }),
+    ...(analysis && { extraTools: analysis.tools, approveAllOffer: ["run_python"] }),
   });
 
   // Ctrl+C stops a running reply; at the prompt it closes input, which ends the loop below.
@@ -202,6 +211,7 @@ async function main(): Promise<number> {
     return 0;
   } finally {
     terminal.close();
+    await analysis?.sandbox.close();
   }
 }
 

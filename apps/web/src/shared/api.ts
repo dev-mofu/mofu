@@ -11,7 +11,7 @@ export const MODE_LABELS: Record<Mode, string> = {
 };
 
 /** Modes that work today. The rest show "Coming soon" until their phase ships. */
-export const AVAILABLE_MODES: readonly Mode[] = ["general", "dev"];
+export const AVAILABLE_MODES: readonly Mode[] = ["general", "data", "dev"];
 
 /** Header carrying a user's own OpenRouter key. Never logged or stored server-side. */
 export const BYOK_HEADER = "X-OpenRouter-Key";
@@ -68,7 +68,9 @@ export type ChatContext =
       title: string;
       text: string;
     }
-  | { kind: "dep-scan"; title: string; text: string };
+  | { kind: "dep-scan"; title: string; text: string }
+  /** Profile of the user's file, built in the browser. */
+  | { kind: "dataset"; title: string; text: string };
 
 export interface UsageInfo {
   freeTierEnabled: boolean;

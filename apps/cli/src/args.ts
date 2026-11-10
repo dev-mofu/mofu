@@ -7,6 +7,8 @@ export type ChatArgs = {
   initialPrompt?: string;
   /** RepoPilot task mode (plan first, branch, tests, commit). */
   task?: boolean;
+  /** Data Analyst: the file to load into the Python sandbox. */
+  analyze?: string;
 };
 
 export type DepsArgs = { command: "deps"; model?: string; json: boolean; fix: boolean };
@@ -79,6 +81,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       throw new ArgsError('mofu task needs an instruction, e.g. mofu task "add a --verbose flag"');
     return { command: "chat", ...withModel, task: true, initialPrompt: tail };
   }
+  if (first === "analyze") {
+    if (!tail)
+      throw new ArgsError(
+        "mofu analyze needs a CSV, Excel or JSON file, e.g. mofu analyze sales.csv",
+      );
+    return { command: "chat", ...withModel, analyze: tail };
+  }
   if (first === "tests") {
     if (!tail)
       throw new ArgsError("mofu tests needs a file or folder, e.g. mofu tests src/utils.ts");
@@ -96,6 +105,7 @@ Usage:
   mofu task "<instruction>"   Do a coding task: plan, branch, edit, test, commit (and PR if you want)
   mofu explain                Explain the repository in the current directory
   mofu tests <path>           Write and run unit tests for a file or folder
+  mofu analyze <file>         Analyze a CSV, Excel or JSON file with Python (charts in ./mofu-output)
   mofu deps                   Scan dependencies for vulnerabilities and outdated packages
   mofu deps --json            Print the raw scan report as JSON (no AI involved)
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit

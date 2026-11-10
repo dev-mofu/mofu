@@ -90,6 +90,18 @@ Safety rules, enforced in code rather than just asked of the model:
 
 Pull requests need the [GitHub CLI](https://cli.github.com) installed and logged in (`gh auth login`).
 
+## Data Analyst
+
+```sh
+mofu analyze sales.csv     # also .tsv, .json, .xlsx
+```
+
+Mofu loads the file into a Python sandbox ([Pyodide](https://pyodide.org): pandas, numpy, matplotlib) and prints a profile: columns and types, missing values, duplicates, mixed types, outliers and mixed date formats. Then ask questions in plain English. It answers by running Python on the data; every number comes from that code. Charts are saved as `./mofu-output/figure-N.png`, and `export_csv` writes cleaned tables to `./mofu-output/` (asking first).
+
+It can pull in public data to join with yours: daily exchange rates (Frankfurter/ECB), public holidays (Nager.Date), historical weather (Open-Meteo, non-commercial use), and country facts and indicators like GDP or inflation (World Bank).
+
+The sandbox runs in a separate worker thread with an empty environment (no API keys) and no network access once its packages are loaded; it sees only your file and the data Mofu fetched for it. Runs are stopped after 30 seconds. When asked to approve analysis code you can answer `a` to approve all analysis code for the rest of the session. The first run downloads Pyodide's packages (about 30 MB) into `~/.mofu/pyodide-cache`.
+
 ## DependencyGuard: dependency security
 
 ```sh

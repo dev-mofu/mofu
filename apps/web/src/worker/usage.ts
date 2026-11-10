@@ -6,6 +6,9 @@ export interface UsageState {
   count: number;
 }
 
+/** Separate daily counters: user messages, and automatic tool follow-ups. */
+export type UsageBucket = "messages" | "followups";
+
 export interface UsageResult {
   allowed: boolean;
   remaining: number;
