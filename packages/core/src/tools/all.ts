@@ -15,6 +15,7 @@ import {
   gitDiffTool,
   gitStatusTool,
 } from "./git.js";
+import { scanDependenciesTool } from "./deps-tool.js";
 
 /** Every built-in tool. Each declares which surfaces may use it. */
 export const ALL_TOOLS: MofuTool[] = [
@@ -32,6 +33,7 @@ export const ALL_TOOLS: MofuTool[] = [
   gitCreateBranchTool,
   gitCommitTool,
   createPullRequestTool,
+  scanDependenciesTool,
   ...WEB_SAFE_TOOLS,
 ] as MofuTool[];
 

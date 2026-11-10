@@ -16,6 +16,9 @@ import {
 import { createSession, fetchConfig, fetchUsage } from "./lib/api.js";
 import { GitHubError, loadGitHubRepo, type LoadedRepo } from "./lib/github.js";
 import { RepoPanel } from "./components/RepoPanel.js";
+import { DepsPanel } from "./components/DepsPanel.js";
+import { ScanResults } from "./components/ScanResults.js";
+import { findUnverifiedReferences, formatScanForModel, type ScanReport } from "@mofu/core/web";
 import {
   addMemoryItem,
   loadMemory,
@@ -36,6 +39,12 @@ const SUGGESTIONS = [
   "Explain photosynthesis simply, using Wikipedia",
   "What does “serendipity” mean?",
   "Remember that I prefer short answers",
+];
+
+const DEPS_SUGGESTIONS = [
+  "Give me a prioritized upgrade plan",
+  "Which issue should I fix first, and why?",
+  "Explain the worst vulnerability in plain language",
 ];
 
 const DEV_SUGGESTIONS = [
@@ -84,8 +93,12 @@ export function App() {
   const [repoError, setRepoError] = useState<GitHubError | null>(null);
 
   // The transport reads the latest settings through a ref, so it's created once.
-  const latest = useRef({ settings, memory, mode, repo });
-  latest.current = { settings, memory, mode, repo };
+  const [devTool, setDevTool] = useState<"repo" | "deps">("repo");
+  const [depScan, setDepScan] = useState<{ report: ScanReport; source: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const latest = useRef({ settings, memory, mode, repo, devTool, depScan });
+  latest.current = { settings, memory, mode, repo, devTool, depScan };
 
   const effectiveTheme =
     settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
@@ -133,19 +146,18 @@ export function App() {
           return { [BYOK_HEADER]: s.byokKey, ...(s.byokModel && { [MODEL_HEADER]: s.byokModel }) };
         },
         body: () => {
-          const { mode: m, memory: mem, repo: r } = latest.current;
-          return {
-            mode: m,
-            memory: mem.map((x) => x.text),
-            ...(m === "dev" &&
-              r && {
-                context: {
-                  kind: "github-repo",
-                  title: r.fullName,
-                  text: r.contextText,
-                } satisfies ChatContext,
-              }),
-          };
+          const { mode: m, memory: mem, repo: r, devTool: tool, depScan: scan } = latest.current;
+          let context: ChatContext | undefined;
+          if (m === "dev" && tool === "repo" && r) {
+            context = { kind: "github-repo", title: r.fullName, text: r.contextText };
+          } else if (m === "dev" && tool === "deps" && scan) {
+            context = {
+              kind: "dep-scan",
+              title: "dependency scan",
+              text: formatScanForModel(scan.report),
+            };
+          }
+          return { mode: m, memory: mem.map((x) => x.text), ...(context && { context }) };
         },
       }),
     [],
@@ -248,17 +260,41 @@ export function App() {
   const apiError = parseApiError(error);
   const led = busy
     ? "THINKING"
-    : repoLoading
+    : repoLoading || scanning
       ? "SCANNING"
       : error
         ? "ERROR"
         : celebrating
           ? "DONE"
           : "READY";
-  const mascotState: MascotState = busy || repoLoading ? "focus" : celebrating ? "found" : "ready";
+  const mascotState: MascotState =
+    busy || repoLoading || scanning ? "focus" : celebrating ? "found" : "ready";
 
-  const emptyCopy =
-    mode === "dev"
+  const depsMode = mode === "dev" && devTool === "deps";
+  const lastAssistantText =
+    messages
+      .filter((m) => m.role === "assistant")
+      .at(-1)
+      ?.parts.map((p) => (p.type === "text" ? p.text : ""))
+      .join("") ?? null;
+  const verifyAgainstScan =
+    depsMode && depScan
+      ? (text: string) => findUnverifiedReferences(text, depScan.report)
+      : undefined;
+
+  const emptyCopy = depsMode
+    ? depScan
+      ? {
+          title: "Ask about this scan",
+          body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu deps --fix.",
+          suggestions: DEPS_SUGGESTIONS,
+        }
+      : {
+          title: "Scan your dependencies",
+          body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
+          suggestions: [],
+        }
+    : mode === "dev"
       ? repo
         ? {
             title: `Ask about ${repo.fullName}`,
@@ -332,22 +368,73 @@ export function App() {
         })}
       </nav>
 
-      {mode === "dev" && (
-        <div className="repo-bar">
-          <RepoPanel
-            repo={repo}
-            loading={repoLoading}
-            error={repoError}
-            onLoad={(url) => void loadRepo(url)}
-            onClear={() => {
-              setRepo(null);
-              setRepoError(null);
-            }}
-          />
-        </div>
-      )}
+      {/* Always rendered (empty outside Dev Tools) so the grid rows stay stable. */}
+      <div className="repo-bar">
+        {mode === "dev" && (
+          <>
+            <div className="segmented dev-tabs" role="tablist" aria-label="Dev Tools">
+              {(["repo", "deps"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={devTool === t}
+                  className={devTool === t ? "active" : ""}
+                  onClick={() => setDevTool(t)}
+                >
+                  {t === "repo" ? "Explain a repo" : "Scan dependencies"}
+                </button>
+              ))}
+            </div>
+            {devTool === "repo" ? (
+              <RepoPanel
+                repo={repo}
+                loading={repoLoading}
+                error={repoError}
+                onLoad={(url) => void loadRepo(url)}
+                onClear={() => {
+                  setRepo(null);
+                  setRepoError(null);
+                }}
+              />
+            ) : (
+              !depScan && (
+                <DepsPanel
+                  scanning={scanning}
+                  onScanStart={() => setScanning(true)}
+                  onError={() => setScanning(false)}
+                  onScanned={(report, source) => {
+                    setScanning(false);
+                    setDepScan({ report, source });
+                    if (messages.length > 0) {
+                      if (busy) void stop();
+                      clearError();
+                      setMessages([]);
+                    }
+                    setCelebrating(true);
+                    window.setTimeout(() => setCelebrating(false), 2500);
+                  }}
+                />
+              )
+            )}
+          </>
+        )}
+      </div>
 
       <main className="thread" aria-live="polite">
+        {depsMode && depScan && (
+          <ScanResults
+            report={depScan.report}
+            source={depScan.source}
+            summary={lastAssistantText}
+            busy={busy}
+            onAskPlan={() => void send("Give me a prioritized upgrade plan for these findings.")}
+            onClear={() => {
+              setDepScan(null);
+              if (messages.length > 0) newChat();
+            }}
+          />
+        )}
         {messages.length === 0 ? (
           <section className="empty">
             <Mascot state={mascotState} px={7} className="empty-mascot" />
@@ -368,7 +455,13 @@ export function App() {
             </div>
           </section>
         ) : (
-          messages.map((m) => <MessageView key={m.id} message={m} />)
+          messages.map((m) => (
+            <MessageView
+              key={m.id}
+              message={m}
+              {...(verifyAgainstScan && status !== "streaming" && { verify: verifyAgainstScan })}
+            />
+          ))
         )}
         {status === "submitted" && <div className="thinking">Mofu is thinking…</div>}
 

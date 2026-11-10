@@ -84,15 +84,23 @@ function ToolRow({ part }: { part: ToolPart }) {
   );
 }
 
-export function MessageView({ message }: { message: UIMessage }) {
+interface MessageViewProps {
+  message: UIMessage;
+  /** Returns IDs/versions in the text that the source data doesn't contain. */
+  verify?: (text: string) => { ids: string[]; versions: string[] };
+}
+
+export function MessageView({ message, verify }: MessageViewProps) {
+  const text = message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
   if (message.role === "user") {
-    const text = message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
     return (
       <div className="message message--user">
         <div className="bubble">{text}</div>
       </div>
     );
   }
+  const unverified = verify ? verify(text) : null;
+  const flagged = unverified ? [...unverified.ids, ...unverified.versions] : [];
   return (
     <div className="message message--assistant">
       {message.parts.map((part, i) => {
@@ -100,6 +108,11 @@ export function MessageView({ message }: { message: UIMessage }) {
         if (isToolUIPart(part)) return <ToolRow key={part.toolCallId} part={part} />;
         return null;
       })}
+      {flagged.length > 0 && (
+        <p className="verify-warning" role="note">
+          ⚠ Not in the scan data, so double-check: {flagged.join(", ")}
+        </p>
+      )}
     </div>
   );
 }

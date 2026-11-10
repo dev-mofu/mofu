@@ -8,7 +8,7 @@ export { createModel, DEFAULT_MODEL } from "./provider.js";
 export type { ModelOptions } from "./provider.js";
 export { MofuError, toMofuError, redactSecrets } from "./errors.js";
 export type { MofuErrorKind } from "./errors.js";
-export { buildSystemPrompt } from "./prompts/system.js";
+export { buildSystemPrompt, DEPS_SUMMARY_SECTION } from "./prompts/system.js";
 export type { SystemPromptOptions } from "./prompts/system.js";
 export { RequestMemoryStore, memoryForPrompt, MAX_MEMORY_CHARS } from "./memory.js";
 export type { MemoryStore } from "./memory.js";
@@ -22,3 +22,5 @@ export {
   formatOverview,
 } from "./repo/overview.js";
 export type { RepoOverview, RepoSnapshot, TestCommand } from "./repo/overview.js";
+
+export * from "./deps/index.js";

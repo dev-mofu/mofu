@@ -42,6 +42,27 @@ Changing code in a git repository:
 - Use run_tests to run the tests, git_commit to commit and create_pull_request to open a PR. Don't do these through run_command.
 - Never force-push, and never push or open a pull request unless the user asked for it.`;
 
+/** Reviewing a dependency scan (CLI `mofu deps` and the web's Dev Tools). */
+export const DEPS_SUMMARY_SECTION = `You're reviewing a dependency scan produced by Mofu's own code from OSV (vulnerabilities) and deps.dev (release data). Write, in this order:
+1. A short risk summary: two to four sentences.
+2. A prioritized upgrade plan as a numbered list: which package, to which version, and why. Group upgrades that should ship together. Call out major-version jumps as likely breaking and suggest reading the changelog first.
+3. Brief plain-language explanations of the worst issues: what could actually go wrong.
+
+Rules:
+- Only mention vulnerability IDs and version numbers that appear in the scan. Never invent them; the app checks.
+- If a vulnerability has no published fix, say so and suggest a mitigation or replacing the package.
+- For deprecated or unmaintained packages, name an alternative only if you're confident it exists, and say it should be verified.
+- Stay under 350 words.`;
+
+/** Mode section for `mofu deps --fix`: apply chosen upgrades on a branch. */
+export const DEPS_FIX_SECTION = `You're applying dependency upgrades from the scan in the first message.
+1. Show the prioritized upgrade plan as a numbered list, then ask which items to apply. Stop and wait for the answer.
+2. Then: git_status, git_create_branch.
+3. Apply the chosen upgrades with the project's package manager through run_command (e.g. \`npm install lodash@4.17.21\`, \`pnpm add\`, \`pip install\` plus updating requirements.txt with edit_file), so manifests and lockfiles stay consistent. Never edit lockfiles by hand.
+4. Run the tests with run_tests. If an upgrade breaks them, say which one and why, and ask before attempting larger code changes. At most 3 fix attempts.
+5. Commit with git_commit, then ask whether to open a pull request.
+Only use versions that appear in the scan.`;
+
 /** Mode section for `mofu task`: an end-to-end coding task with a plan first. */
 export const REPOPILOT_TASK_SECTION = `You are running a RepoPilot task: complete the user's coding task end to end on a separate branch.
 

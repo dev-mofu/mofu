@@ -170,3 +170,46 @@ export async function loadGitHubRepo(
     truncatedTree: tree.truncated,
   };
 }
+
+export interface GitHubFiles {
+  fullName: string;
+  branch: string;
+  files: Array<{ path: string; text: string }>;
+}
+
+/**
+ * Fetches files matching `pattern` from a public repository (2 API calls,
+ * contents from raw.githubusercontent.com). Used for dependency manifests.
+ */
+export async function fetchGitHubFiles(
+  input: string,
+  pattern: RegExp,
+  maxFiles = 20,
+  fetchFn: typeof fetch = fetch,
+): Promise<GitHubFiles> {
+  const ref = parseGitHubUrl(input);
+  if (!ref) throw new GitHubError("That doesn't look like a GitHub repository URL.", "bad_url");
+  const repo = await githubApi<RepoResponse>(`/repos/${ref.owner}/${ref.repo}`, fetchFn);
+  const branch = ref.ref ?? repo.default_branch;
+  const tree = await githubApi<TreeResponse>(
+    `/repos/${ref.owner}/${ref.repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    fetchFn,
+  );
+  const paths = tree.tree
+    .filter((e) => e.type === "blob" && !IGNORED.test(e.path) && pattern.test(e.path))
+    .map((e) => e.path)
+    .slice(0, maxFiles);
+  const files: Array<{ path: string; text: string }> = [];
+  for (const path of paths) {
+    const encoded = path.split("/").map(encodeURIComponent).join("/");
+    try {
+      const res = await fetchFn(
+        `https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${encodeURIComponent(branch)}/${encoded}`,
+      );
+      if (res.ok) files.push({ path, text: await res.text() });
+    } catch {
+      // Skip unreadable files; the scan reports what it got.
+    }
+  }
+  return { fullName: repo.full_name, branch, files };
+}

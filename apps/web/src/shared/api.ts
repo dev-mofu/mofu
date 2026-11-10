@@ -61,12 +61,14 @@ export interface ApiError {
 }
 
 /** Extra material the browser gathered for the model, e.g. a GitHub repository overview. */
-export interface ChatContext {
-  kind: "github-repo";
-  /** owner/repo */
-  title: string;
-  text: string;
-}
+export type ChatContext =
+  | {
+      kind: "github-repo";
+      /** owner/repo */
+      title: string;
+      text: string;
+    }
+  | { kind: "dep-scan"; title: string; text: string };
 
 export interface UsageInfo {
   freeTierEnabled: boolean;

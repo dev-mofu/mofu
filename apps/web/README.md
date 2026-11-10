@@ -47,6 +47,12 @@ In Dev Tools mode the user pastes a GitHub URL. The **browser** (not the Worker)
 
 It's read-only: no editing, cloning or pull requests on the web. For those, the model points people to `npx mofu task`.
 
+## Dev Tools: dependency scan
+
+The "Scan dependencies" tab takes uploaded manifests or a public GitHub URL (manifests fetched in the browser as above). The scan itself, `scanDependencies` from `@mofu/core/web`, also runs **in the browser**: OSV, deps.dev and GitHub all allow cross-origin requests, and a Worker on the free plan may make only 50 outbound requests per invocation, which a real project's vulnerability lookups can exceed. So the Worker never sees the files and spends nothing on the scan.
+
+The results table is rendered from the deterministic report. "Get upgrade plan" sends a compact version of it (findings and totals only) as `context` of kind `dep-scan`; the Worker wraps it in `<dependency_scan>` tags with the same review instructions the CLI uses. The UI flags any vulnerability ID or version in the model's answer that isn't in the scan. "Export Markdown" downloads the table plus the latest plan.
+
 ## Free tier protection
 
 - **Turnstile** before the first message; the session cookie is required for chat and key checks.

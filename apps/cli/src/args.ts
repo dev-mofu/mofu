@@ -9,8 +9,10 @@ export type ChatArgs = {
   task?: boolean;
 };
 
+export type DepsArgs = { command: "deps"; model?: string; json: boolean; fix: boolean };
+
 export type ParsedArgs =
-  { command: "help" } | { command: "version" } | { command: "auth" } | ChatArgs;
+  { command: "help" } | { command: "version" } | { command: "auth" } | DepsArgs | ChatArgs;
 
 export class ArgsError extends Error {
   override name = "ArgsError";
@@ -55,6 +57,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const tail = others.join(" ").trim();
 
   if (first === "auth" && others.length === 0) return { command: "auth" };
+  if (first === "deps") {
+    const unknown = others.filter((o) => o !== "--json" && o !== "--fix");
+    if (unknown.length)
+      throw new ArgsError(`mofu deps takes --json or --fix, not: ${unknown.join(" ")}`);
+    if (others.includes("--json") && others.includes("--fix")) {
+      throw new ArgsError("Use either --json or --fix, not both.");
+    }
+    return {
+      command: "deps",
+      ...withModel,
+      json: others.includes("--json"),
+      fix: others.includes("--fix"),
+    };
+  }
   if (first === "explain" && others.length === 0) {
     return { command: "chat", ...withModel, initialPrompt: EXPLAIN_PROMPT };
   }
@@ -80,6 +96,9 @@ Usage:
   mofu task "<instruction>"   Do a coding task: plan, branch, edit, test, commit (and PR if you want)
   mofu explain                Explain the repository in the current directory
   mofu tests <path>           Write and run unit tests for a file or folder
+  mofu deps                   Scan dependencies for vulnerabilities and outdated packages
+  mofu deps --json            Print the raw scan report as JSON (no AI involved)
+  mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit
   mofu auth                   Save your OpenRouter API key to ~/.mofu/config.json
 
 Options:

@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import pc from "picocolors";
-import { FileMemoryStore, REPOPILOT_TASK_SECTION } from "@mofu/core";
+import {
+  DEPS_FIX_SECTION,
+  FileMemoryStore,
+  REPOPILOT_TASK_SECTION,
+  type ScanReport,
+} from "@mofu/core";
+import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
 import { ArgsError, HELP, parseArgs } from "./args.js";
 import {
   loadConfig,
@@ -108,25 +114,55 @@ async function main(): Promise<number> {
   }
 
   const config = await loadConfig();
+  const printer = new Printer();
+
+  // `mofu deps --json` is fully deterministic: no key, no model.
+  let depsReport: ScanReport | null = null;
+  if (args.command === "deps") {
+    depsReport = await scanCurrentDirectory(printer, args.json);
+    if (!depsReport) return 1;
+    if (args.json) {
+      console.log(JSON.stringify(depsReport, null, 2));
+      return 0;
+    }
+    printScanReport(depsReport, printer);
+    if (depsReport.findings.length === 0) return 0;
+  }
+
   const apiKey = resolveApiKey(process.env, config);
   if (!apiKey) {
     console.error("No OpenRouter API key. Run `mofu auth` or set OPENROUTER_API_KEY.");
     return 1;
   }
+  const model = resolveModel(args.model, process.env, config);
 
-  const printer = new Printer();
+  if (args.command === "deps" && depsReport && !args.fix) {
+    return (await summarizeScan(depsReport, { apiKey, model, printer })) ? 0 : 1;
+  }
+
+  // Chat, task and deps --fix all run as an interactive session.
+  const chat =
+    args.command === "deps"
+      ? { initialPrompt: fixPrompt(depsReport!), modeSection: DEPS_FIX_SECTION, maxSteps: 40 }
+      : {
+          prompt: args.prompt,
+          initialPrompt: args.initialPrompt,
+          // Coding tasks need room for edits, test runs and fixes in one turn.
+          modeSection: args.task ? REPOPILOT_TASK_SECTION : undefined,
+          maxSteps: args.task ? 40 : 20,
+        };
+
   const terminal = new Terminal();
   const memory = new FileMemoryStore(memoryPath());
   const session = new ChatSession({
     apiKey,
-    model: resolveModel(args.model, process.env, config),
+    model,
     workspaceRoot: process.cwd(),
     memory,
     terminal,
     printer,
-    // Coding tasks need room for edits, test runs and fixes in one turn.
-    limits: { maxSteps: args.task ? 40 : 20 },
-    ...(args.task && { modeSection: REPOPILOT_TASK_SECTION }),
+    limits: { maxSteps: chat.maxSteps },
+    ...(chat.modeSection && { modeSection: chat.modeSection }),
   });
 
   // Ctrl+C stops a running reply; at the prompt it closes input, which ends the loop below.
@@ -139,7 +175,7 @@ async function main(): Promise<number> {
   });
 
   try {
-    if (args.prompt) return (await session.send(args.prompt)) ? 0 : 1;
+    if (chat.prompt) return (await session.send(chat.prompt)) ? 0 : 1;
 
     printer.line(
       `${pc.bold(pc.magenta("mofu"))} ${pc.dim(`· ${session.model} · ${process.cwd()}`)}`,
@@ -147,10 +183,11 @@ async function main(): Promise<number> {
     printer.line(
       pc.dim("Ask anything, or type /help. Mofu asks before changing files or running commands."),
     );
-    if (args.initialPrompt) {
+    if (chat.initialPrompt) {
       printer.line();
-      printer.line(`${pc.magenta("›")} ${args.initialPrompt}`);
-      await session.send(args.initialPrompt);
+      // The deps --fix prompt carries the whole report; show just its first line.
+      printer.line(`${pc.magenta("›")} ${chat.initialPrompt.split("\n")[0]}`);
+      await session.send(chat.initialPrompt);
     }
     // The blank line is printed separately: prompts must stay single-line (see Terminal.ask).
     for await (const input of terminal.lines(`${pc.magenta("›")} `, () => printer.line())) {

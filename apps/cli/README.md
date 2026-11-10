@@ -90,6 +90,22 @@ Safety rules, enforced in code rather than just asked of the model:
 
 Pull requests need the [GitHub CLI](https://cli.github.com) installed and logged in (`gh auth login`).
 
+## DependencyGuard: dependency security
+
+```sh
+mofu deps          # scan, show a table, then a prioritized upgrade plan (one model call)
+mofu deps --json   # the raw scan report as JSON; no API key or model needed
+mofu deps --fix    # choose upgrades, apply them on a branch, run tests, commit
+```
+
+Mofu reads `package.json` + `package-lock.json` (lockfile v2/v3) and `requirements*.txt` / `pyproject.toml` (`[project].dependencies`) in the current folder, then:
+
+- checks every installed package, transitive ones included, against [OSV](https://osv.dev) in one batch request;
+- checks direct dependencies on [deps.dev](https://deps.dev) for the latest version, deprecation and the last release date (no release in 24 months is flagged as possibly unmaintained);
+- computes, per package, the smallest version that fixes every known vulnerability, skipping releases that are themselves deprecated, and flags fixes that cross a major version.
+
+All of that is plain code; the model only explains and prioritizes. Any vulnerability ID or version in its answer that isn't in the scan is flagged in yellow. Without a lockfile, versions are the lowest each range allows and are marked as guesses. Only package names and versions leave your machine.
+
 ## Choosing a model
 
 The model comes from, in order: `--model`, the `MOFU_MODEL` environment variable, `"model"` in `~/.mofu/config.json`, then the default (`anthropic/claude-haiku-5.5`, chosen because it's cheap and reliable with tools). The model must support tool calling. Browse models and prices at <https://openrouter.ai/models>.

@@ -35,8 +35,15 @@ export {
 export type { RepoOverview, RepoSnapshot, TestCommand } from "./repo/overview.js";
 export { localSnapshot, summarizeTestOutput } from "./tools/repo-tools.js";
 export { branchNameFor, defaultBranch, currentBranch, isProtectedBranch } from "./tools/git.js";
-export { REPOPILOT_TASK_SECTION } from "./prompts/system.js";
+export {
+  REPOPILOT_TASK_SECTION,
+  DEPS_SUMMARY_SECTION,
+  DEPS_FIX_SECTION,
+} from "./prompts/system.js";
+export { readLocalManifests, scanWorkspace } from "./tools/deps-tool.js";
 export { ALL_TOOLS, createDefaultRegistry } from "./tools/all.js";
 export { WEB_SAFE_TOOLS, createWebRegistry } from "./tools/web-tools.js";
 
 export type { ModelMessage, ToolSet } from "ai";
+
+export * from "./deps/index.js";

@@ -352,3 +352,33 @@ describe("Dev Tools context", () => {
     expect(modelCalls).toHaveLength(0);
   });
 });
+
+describe("Dependency scan context", () => {
+  it("accepts a dep-scan context in Dev Tools mode and rejects oversized ones", async () => {
+    const { app } = setup();
+    const ok = await chat(app, testEnv(), {
+      body: {
+        messages: [userMessage("plan")],
+        mode: "dev",
+        context: { kind: "dep-scan", title: "dependency scan", text: "# Dependency scan" },
+      },
+    });
+    expect(ok.status).toBe(200);
+    const big = await chat(app, testEnv(), {
+      body: {
+        messages: [userMessage("plan")],
+        mode: "dev",
+        context: { kind: "dep-scan", title: "x", text: "y".repeat(16_001) },
+      },
+    });
+    expect(big.status).toBe(400);
+    const unknownKind = await chat(app, testEnv(), {
+      body: {
+        messages: [userMessage("plan")],
+        mode: "dev",
+        context: { kind: "shell", title: "x", text: "rm -rf /" },
+      },
+    });
+    expect(unknownKind.status).toBe(400);
+  });
+});
