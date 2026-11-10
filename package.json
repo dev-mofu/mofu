@@ -8,12 +8,13 @@
   },
   "scripts": {
     "build": "pnpm -r --filter ./packages/** --filter ./apps/** run build",
-    "typecheck": "tsc -p packages/core --noEmit && tsc -p apps/cli --noEmit",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p apps/cli --noEmit && pnpm --filter @mofu/web typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "mofu": "tsx --conditions=mofu-source apps/cli/src/index.ts"
+    "mofu": "tsx --conditions=mofu-source apps/cli/src/index.ts",
+    "dev:web": "pnpm --filter @mofu/web dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

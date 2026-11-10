@@ -6,9 +6,15 @@ import { searchFilesTool } from "./search-files.js";
 import { writeFileTool } from "./write-file.js";
 import { editFileTool } from "./edit-file.js";
 import { runCommandTool } from "./run-command.js";
-import { wikipediaSummaryTool } from "./wikipedia.js";
-import { defineWordTool } from "./define-word.js";
-import { saveMemoryTool } from "./save-memory.js";
+import { WEB_SAFE_TOOLS } from "./web-tools.js";
+import { detectTestCommandTool, repoOverviewTool, runTestsTool } from "./repo-tools.js";
+import {
+  createPullRequestTool,
+  gitCommitTool,
+  gitCreateBranchTool,
+  gitDiffTool,
+  gitStatusTool,
+} from "./git.js";
 
 /** Every built-in tool. Each declares which surfaces may use it. */
 export const ALL_TOOLS: MofuTool[] = [
@@ -18,9 +24,15 @@ export const ALL_TOOLS: MofuTool[] = [
   writeFileTool,
   editFileTool,
   runCommandTool,
-  wikipediaSummaryTool,
-  defineWordTool,
-  saveMemoryTool,
+  repoOverviewTool,
+  detectTestCommandTool,
+  runTestsTool,
+  gitStatusTool,
+  gitDiffTool,
+  gitCreateBranchTool,
+  gitCommitTool,
+  createPullRequestTool,
+  ...WEB_SAFE_TOOLS,
 ] as MofuTool[];
 
 export function createDefaultRegistry(): ToolRegistry {

@@ -32,9 +32,12 @@ $env:OPENROUTER_API_KEY = "sk-or-..."
 ## Use it
 
 ```sh
-mofu                          # interactive chat in the current folder
-mofu "what does this repo do?"  # one question, then exit
-mofu -m qwen/qwen3.7-flash    # pick a model for this run
+mofu                                # interactive chat in the current folder
+mofu "what does this repo do?"      # one question, then exit
+mofu task "add a --verbose flag"    # a coding task, end to end (see RepoPilot below)
+mofu explain                        # explain the repository you're in
+mofu tests src/utils.ts             # write and run unit tests for a file or folder
+mofu -m qwen/qwen3.7-flash          # pick a model for this run
 ```
 
 In chat:
@@ -59,8 +62,33 @@ Ctrl+C stops a reply that's running. At the prompt, it quits.
 | Run a command (PowerShell on Windows, `sh` elsewhere)  | Yes                 |
 | Look up Wikipedia summaries and dictionary definitions | No                  |
 | Remember a fact you ask it to (`~/.mofu/memory.md`)    | Yes                 |
+| Map the repository (languages, tests, entry points…)   | No                  |
+| Show git status and diffs                              | No                  |
+| Create a `mofu/...` branch, run tests, commit          | Yes                 |
+| Push and open a GitHub pull request (needs `gh`)       | Yes                 |
 
 File and command tools only work inside the folder you started Mofu in. Paths that escape it (`..`, absolute paths elsewhere, symlinks pointing outside) are refused.
+
+## RepoPilot: coding tasks in a git repository
+
+`mofu task "<instruction>"` works through a task the way a careful colleague would:
+
+1. Maps the repository and reads only the files it needs.
+2. Shows a short plan and **waits for you** to accept or change it.
+3. Creates a branch named `mofu/<task>` (if you have uncommitted changes, it asks before stashing them).
+4. Makes the edits and adds or updates unit tests.
+5. Runs the tests; if they fail it tries to fix them, at most three times, then stops and explains.
+6. Commits only the files it changed.
+7. Asks whether you want a pull request, and opens one with the GitHub CLI only if you say yes.
+
+Safety rules, enforced in code rather than just asked of the model:
+
+- Never commits on your default branch (or `main`, `master`, `develop`, `trunk`).
+- Never force-pushes, including through `run_command`.
+- Every branch, commit, push and pull request needs your approval in that step.
+- Git runs with argument lists, never through a shell, so file names and messages can't inject commands.
+
+Pull requests need the [GitHub CLI](https://cli.github.com) installed and logged in (`gh auth login`).
 
 ## Choosing a model
 

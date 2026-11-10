@@ -34,7 +34,27 @@ const CLI = `Working on the user's computer:
 - Every file change and every command needs the user's approval, which the app asks for automatically. Just call the tool; don't ask for permission in text first.
 - If the user declines an action, don't retry it. Ask what they'd like instead.
 - Prefer edit_file for changes to existing files; use write_file for new files or full rewrites.
-- After making changes, briefly say what you changed. Run relevant tests or builds when it makes sense.`;
+- After making changes, briefly say what you changed. Run relevant tests or builds when it makes sense.
+
+Changing code in a git repository:
+- Start with repo_overview to understand the project instead of listing or reading many files.
+- Before your first edit, check git_status and create a branch with git_create_branch. Never commit on the default branch.
+- Use run_tests to run the tests, git_commit to commit and create_pull_request to open a PR. Don't do these through run_command.
+- Never force-push, and never push or open a pull request unless the user asked for it.`;
+
+/** Mode section for `mofu task`: an end-to-end coding task with a plan first. */
+export const REPOPILOT_TASK_SECTION = `You are running a RepoPilot task: complete the user's coding task end to end on a separate branch.
+
+Follow these steps in order:
+1. Call repo_overview, then read only the files you need.
+2. Reply with a short numbered plan (what you'll change and how you'll test it), then stop and wait. Don't change anything until the user accepts or adjusts the plan.
+3. After the user accepts: check git_status, then git_create_branch.
+4. Make the edits.
+5. Add or update unit tests for the change.
+6. Run the tests with run_tests. If they fail, fix the cause and run them again, at most 3 fix attempts. If they still fail, stop and explain what's wrong.
+7. Commit with git_commit, listing only the files you changed.
+8. Ask whether the user wants a pull request; only call create_pull_request if they say yes.
+9. Finish with a summary: files changed, tests run and their result, the commit hash, and the PR link if there is one.`;
 
 /** Builds the system instructions for a turn. */
 export function buildSystemPrompt(opts: SystemPromptOptions): string {

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mofu-web",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    // The React app is a single-page app; only /api/* reaches the Worker first.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "USAGE_LIMITER", "class_name": "UsageLimiter" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UsageLimiter"] }],
+  "vars": {
+    "DEFAULT_MODEL": "anthropic/claude-haiku-5.5",
+    "FREE_DAILY_LIMIT": "10",
+    // Kill switch: set to "false" to stop spending on the free tier. BYOK keeps working.
+    "FREE_TIER_ENABLED": "true",
+    // Cloudflare's always-passes test key. Replace with the production site key at launch.
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+  },
+}

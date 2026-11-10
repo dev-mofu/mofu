@@ -3,6 +3,7 @@ packages:
   - apps/*
 allowBuilds:
   esbuild: true
+  workerd: true
 minimumReleaseAgeExclude:
   - "@typescript-eslint/eslint-plugin@8.72.2"
   - "@typescript-eslint/parser@8.72.2"
@@ -15,3 +16,23 @@ minimumReleaseAgeExclude:
   - "@typescript-eslint/utils@8.72.2"
   - "@typescript-eslint/visitor-keys@8.72.2"
   - typescript-eslint@8.72.2
+  - "@cloudflare/vite-plugin@1.68.0"
+  - "@rolldown/binding-android-arm-eabi@1.2.18"
+  - "@rolldown/binding-android-arm64@1.2.18"
+  - "@rolldown/binding-darwin-arm64@1.2.18"
+  - "@rolldown/binding-darwin-x64@1.2.18"
+  - "@rolldown/binding-freebsd-x64@1.2.18"
+  - "@rolldown/binding-linux-arm-gnueabihf@1.2.18"
+  - "@rolldown/binding-linux-arm64-gnu@1.2.18"
+  - "@rolldown/binding-linux-arm64-musl@1.2.18"
+  - "@rolldown/binding-linux-ppc64-gnu@1.2.18"
+  - "@rolldown/binding-linux-s390x-gnu@1.2.18"
+  - "@rolldown/binding-linux-x64-gnu@1.2.18"
+  - "@rolldown/binding-linux-x64-musl@1.2.18"
+  - "@rolldown/binding-openharmony-arm64@1.2.18"
+  - "@rolldown/binding-win32-arm64-msvc@1.2.18"
+  - "@rolldown/binding-win32-x64-msvc@1.2.18"
+  - miniflare@5.20261109.0-beta
+  - rolldown@1.2.18
+  - vite@8.3.7
+  - wrangler@4.159.0

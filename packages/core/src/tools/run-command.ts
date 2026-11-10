@@ -87,6 +87,18 @@ export function runShellCommand(
   });
 }
 
+/** Force-pushing can destroy other people's work; Mofu never does it, approved or not. */
+const FORCE_PUSH =
+  /\bgit\b[^\n;&|]*\bpush\b[^\n;&|]*(\s--force(-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S)/;
+
+export function assertAllowedCommand(command: string): void {
+  if (FORCE_PUSH.test(command)) {
+    throw new Error(
+      "Force-pushing isn't allowed. Push normally or ask the user to do it themselves.",
+    );
+  }
+}
+
 export const runCommandTool = defineTool({
   name: "run_command",
   description:
@@ -108,6 +120,7 @@ export const runCommandTool = defineTool({
   summarize: (input) => `run_command ${input.command}`,
   async describeApproval(input, ctx) {
     const root = requireWorkspace(ctx);
+    assertAllowedCommand(input.command);
     return {
       toolName: "run_command",
       kind: "exec",

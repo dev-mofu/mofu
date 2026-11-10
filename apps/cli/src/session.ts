@@ -5,6 +5,7 @@ import {
   createModel,
   runTurn,
   SHELL_NAME,
+  type AgentLimits,
   type ApprovalRequest,
   type MemoryStore,
   type ModelMessage,
@@ -13,6 +14,7 @@ import {
 } from "@mofu/core";
 import { formatApproval, Printer } from "./ui.js";
 import type { Terminal } from "./terminal.js";
+import { createSerialQueue } from "./queue.js";
 
 export interface SessionOptions {
   apiKey: string;
@@ -21,6 +23,9 @@ export interface SessionOptions {
   memory: MemoryStore;
   terminal: Terminal;
   printer: Printer;
+  /** Extra system instructions, e.g. the RepoPilot task flow. */
+  modeSection?: string;
+  limits?: Partial<AgentLimits>;
 }
 
 /** One chat conversation in the terminal. */
@@ -57,7 +62,14 @@ export class ChatSession {
     this.messages = [];
   }
 
-  private async approve(req: ApprovalRequest): Promise<boolean> {
+  /** Parallel tool calls each ask for approval; the terminal asks them one at a time. */
+  private readonly approvals = createSerialQueue();
+
+  private approve(req: ApprovalRequest): Promise<boolean> {
+    return this.approvals(() => this.askApproval(req));
+  }
+
+  private async askApproval(req: ApprovalRequest): Promise<boolean> {
     const { printer, terminal } = this.opts;
     if (!terminal.interactive) {
       printer.line(
@@ -86,6 +98,7 @@ export class ChatSession {
       workspaceRoot: this.opts.workspaceRoot,
       shell: SHELL_NAME,
       platform: process.platform,
+      ...(this.opts.modeSection && { modeSection: this.opts.modeSection }),
     });
     const history = [...this.messages, { role: "user", content: text } satisfies ModelMessage];
     this.current = new AbortController();
@@ -95,6 +108,7 @@ export class ChatSession {
         instructions,
         messages: history,
         tools: this.tools,
+        ...(this.opts.limits && { limits: this.opts.limits }),
         abortSignal: this.current.signal,
         onEvent: (event) => {
           if (event.type === "text-delta") printer.write(event.text);

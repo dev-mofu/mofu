@@ -1,10 +1,16 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
+const core = (file: string) => path.resolve(import.meta.dirname, "packages/core/src", file);
+
 export default defineConfig({
   resolve: {
-    // Test against the TypeScript sources, not built output.
-    alias: { "@mofu/core": path.resolve(import.meta.dirname, "packages/core/src/index.ts") },
+    // Test against the TypeScript sources, not built output. Exact matches only,
+    // so "@mofu/core" doesn't swallow "@mofu/core/web".
+    alias: [
+      { find: /^@mofu\/core$/, replacement: core("index.ts") },
+      { find: /^@mofu\/core\/web$/, replacement: core("web.ts") },
+    ],
   },
   test: {
     include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],

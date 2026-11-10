@@ -9,3 +9,4 @@ coverage/
 mofu-output/
 # Large reference video, kept locally only
 *.mp4
+.wrangler/

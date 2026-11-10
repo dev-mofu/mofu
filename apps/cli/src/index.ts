@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import pc from "picocolors";
-import { FileMemoryStore } from "@mofu/core";
+import { FileMemoryStore, REPOPILOT_TASK_SECTION } from "@mofu/core";
 import { ArgsError, HELP, parseArgs } from "./args.js";
 import {
   loadConfig,
@@ -124,6 +124,9 @@ async function main(): Promise<number> {
     memory,
     terminal,
     printer,
+    // Coding tasks need room for edits, test runs and fixes in one turn.
+    limits: { maxSteps: args.task ? 40 : 20 },
+    ...(args.task && { modeSection: REPOPILOT_TASK_SECTION }),
   });
 
   // Ctrl+C stops a running reply; at the prompt it closes input, which ends the loop below.
@@ -144,6 +147,11 @@ async function main(): Promise<number> {
     printer.line(
       pc.dim("Ask anything, or type /help. Mofu asks before changing files or running commands."),
     );
+    if (args.initialPrompt) {
+      printer.line();
+      printer.line(`${pc.magenta("›")} ${args.initialPrompt}`);
+      await session.send(args.initialPrompt);
+    }
     // The blank line is printed separately: prompts must stay single-line (see Terminal.ask).
     for await (const input of terminal.lines(`${pc.magenta("›")} `, () => printer.line())) {
       const text = input.trim();

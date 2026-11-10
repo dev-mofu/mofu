@@ -47,22 +47,31 @@ function errorText(error: unknown): string {
 }
 
 /**
- * Runs one user turn: the model may call tools for up to `maxSteps` steps.
- * Streams events to `onEvent`; throws MofuError on failure.
+ * Starts one agent turn and returns the raw AI SDK result. The web app
+ * converts its stream into a UI message stream; the CLI uses runTurn.
  */
-export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
+export function startAgentStream(opts: Omit<RunTurnOptions, "onEvent">) {
   const limits = { ...DEFAULT_LIMITS, ...opts.limits };
-  const result = streamText({
+  return streamText({
     model: opts.model,
     instructions: opts.instructions,
     messages: opts.messages,
     tools: opts.tools,
     stopWhen: isStepCount(limits.maxSteps),
     maxOutputTokens: limits.maxOutputTokens,
-    // We surface errors ourselves; don't let the SDK print them.
+    // Callers surface errors themselves; don't let the SDK print them.
     onError: () => {},
     ...(opts.abortSignal && { abortSignal: opts.abortSignal }),
   });
+}
+
+/**
+ * Runs one user turn: the model may call tools for up to `maxSteps` steps.
+ * Streams events to `onEvent`; throws MofuError on failure.
+ */
+export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
+  const limits = { ...DEFAULT_LIMITS, ...opts.limits };
+  const result = startAgentStream(opts);
 
   let text = "";
   let steps = 0;

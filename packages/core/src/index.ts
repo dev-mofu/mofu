@@ -1,4 +1,4 @@
-export { runTurn, DEFAULT_LIMITS } from "./agent.js";
+export { runTurn, startAgentStream, DEFAULT_LIMITS } from "./agent.js";
 export type { AgentEvent, AgentLimits, RunTurnOptions, TurnResult, TurnUsage } from "./agent.js";
 export { createModel, DEFAULT_MODEL } from "./provider.js";
 export type { ModelOptions } from "./provider.js";
@@ -6,7 +6,8 @@ export { MofuError, toMofuError, redactSecrets } from "./errors.js";
 export type { MofuErrorKind } from "./errors.js";
 export { buildSystemPrompt } from "./prompts/system.js";
 export type { SystemPromptOptions } from "./prompts/system.js";
-export { FileMemoryStore, memoryForPrompt, MAX_MEMORY_CHARS } from "./memory.js";
+export { RequestMemoryStore, memoryForPrompt, MAX_MEMORY_CHARS } from "./memory.js";
+export { FileMemoryStore } from "./memory-file.js";
 export type { MemoryStore } from "./memory.js";
 
 export { ToolRegistry, runTool, capResult, MAX_RESULT_CHARS } from "./tools/registry.js";
@@ -24,7 +25,18 @@ export type {
 export { truncateText, truncateList } from "./tools/truncate.js";
 export { resolveInWorkspace, WorkspaceError } from "./tools/workspace.js";
 export { applyEdit, EditError } from "./tools/edit-file.js";
-export { SHELL_NAME } from "./tools/run-command.js";
+export { SHELL_NAME, assertAllowedCommand } from "./tools/run-command.js";
+export {
+  buildRepoOverview,
+  buildTree,
+  detectTestCommand,
+  formatOverview,
+} from "./repo/overview.js";
+export type { RepoOverview, RepoSnapshot, TestCommand } from "./repo/overview.js";
+export { localSnapshot, summarizeTestOutput } from "./tools/repo-tools.js";
+export { branchNameFor, defaultBranch, currentBranch, isProtectedBranch } from "./tools/git.js";
+export { REPOPILOT_TASK_SECTION } from "./prompts/system.js";
 export { ALL_TOOLS, createDefaultRegistry } from "./tools/all.js";
+export { WEB_SAFE_TOOLS, createWebRegistry } from "./tools/web-tools.js";
 
 export type { ModelMessage, ToolSet } from "ai";

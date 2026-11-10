@@ -86,3 +86,51 @@ describe("ui", () => {
     expect(colorizeDiff("+a\n-b")).toContain("a");
   });
 });
+
+describe("createSerialQueue", () => {
+  it("runs tasks one at a time in call order, even after a failure", async () => {
+    const { createSerialQueue } = await import("../src/queue.js");
+    const enqueue = createSerialQueue();
+    const log: string[] = [];
+    let running = 0;
+    const task = (name: string, ms: number, fail = false) =>
+      enqueue(async () => {
+        running++;
+        expect(running).toBe(1);
+        log.push(`start ${name}`);
+        await new Promise((r) => setTimeout(r, ms));
+        log.push(`end ${name}`);
+        running--;
+        if (fail) throw new Error(name);
+        return name;
+      });
+    const results = await Promise.allSettled([task("a", 30), task("b", 5, true), task("c", 1)]);
+    expect(log).toEqual(["start a", "end a", "start b", "end b", "start c", "end c"]);
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "rejected", "fulfilled"]);
+  });
+});
+
+describe("RepoPilot commands", () => {
+  it("parses task, explain and tests into interactive sessions", async () => {
+    const { EXPLAIN_PROMPT } = await import("../src/args.js");
+    expect(parseArgs(["task", "add", "a", "flag"])).toEqual({
+      command: "chat",
+      task: true,
+      initialPrompt: "add a flag",
+    });
+    expect(parseArgs(["explain", "-m", "x/y"])).toEqual({
+      command: "chat",
+      model: "x/y",
+      initialPrompt: EXPLAIN_PROMPT,
+    });
+    expect(parseArgs(["tests", "src/a.ts"])).toMatchObject({
+      command: "chat",
+      initialPrompt: expect.stringContaining("Write unit tests for src/a.ts"),
+    });
+  });
+
+  it("requires an instruction or path", () => {
+    expect(() => parseArgs(["task"])).toThrow(/needs an instruction/);
+    expect(() => parseArgs(["tests"])).toThrow(/needs a file or folder/);
+  });
+});
