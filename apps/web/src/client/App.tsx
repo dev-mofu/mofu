@@ -370,7 +370,7 @@ export function App() {
   const loadDataset = async (file: File) => {
     if (file.size > MAX_DATA_BYTES) {
       setDataError(
-        `That file is ${Math.round(file.size / 1e6)} MB; the limit here is 20 MB. The CLI (npx mofu analyze) handles bigger files.`,
+        `That file is ${Math.round(file.size / 1e6)} MB; the limit here is 20 MB. The CLI (npx mofu-cli analyze) handles bigger files.`,
       );
       return;
     }
@@ -450,7 +450,8 @@ export function App() {
   const loadApiText = async (name: string, text: string) => {
     if (text.length > MAX_SPEC_BYTES) {
       setSpecError({
-        message: "That spec is over 2 MB. The CLI handles bigger files: npx mofu api docs <file>.",
+        message:
+          "That spec is over 2 MB. The CLI handles bigger files: npx mofu-cli api docs <file>.",
         problems: [],
       });
       return;
@@ -677,7 +678,7 @@ export function App() {
         }
       : {
           title: "Understand an API from its spec",
-          body: "Load an OpenAPI or Swagger spec above. Mofu validates it, lists every endpoint, writes test cases and docs, and finds breaking changes between versions. Running tests against your server is in the CLI: npx mofu api test.",
+          body: "Load an OpenAPI or Swagger spec above. Mofu validates it, lists every endpoint, writes test cases and docs, and finds breaking changes between versions. Running tests against your server is in the CLI: npx mofu-cli api test.",
           suggestions: [],
         }
     : mode === "study"
@@ -708,7 +709,7 @@ export function App() {
           ? depScan
             ? {
                 title: "Ask about this scan",
-                body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu deps --fix.",
+                body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu-cli deps --fix.",
                 suggestions: DEPS_SUGGESTIONS,
               }
             : {
@@ -720,7 +721,7 @@ export function App() {
             ? repo
               ? {
                   title: `Ask about ${repo.fullName}`,
-                  body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu task "…".',
+                  body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu-cli task "…".',
                   suggestions: DEV_SUGGESTIONS,
                 }
               : {

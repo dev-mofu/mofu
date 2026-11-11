@@ -419,7 +419,7 @@ describe("APIForge context", () => {
     const { devModeSection } = await import("../src/worker/app.js");
     const spec = devModeSection({ kind: "api-spec", title: "Petstore", text: "# Petstore 1.0.0" });
     expect(spec).toContain("<api_spec>\n# Petstore 1.0.0\n</api_spec>");
-    expect(spec).toContain("npx mofu api test");
+    expect(spec).toContain("npx mofu-cli api test");
   });
 });
 

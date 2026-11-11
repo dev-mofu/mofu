@@ -2,7 +2,7 @@ import type { z } from "zod";
 import type { ToolContext } from "./types.js";
 
 /** Identifies Mofu to public APIs that ask for a descriptive client name. */
-export const USER_AGENT = "Mofu/0.1 (open-source AI agent; https://www.npmjs.com/package/mofu)";
+export const USER_AGENT = "Mofu/0.1 (open-source AI agent; https://www.npmjs.com/package/mofu-cli)";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 

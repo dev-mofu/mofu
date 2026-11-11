@@ -6,8 +6,19 @@ Mofu uses [OpenRouter](https://openrouter.ai), so you can pick almost any model.
 
 ## Requirements
 
-- Node.js 22 or newer
+- Node.js 22.13 or newer
 - An OpenRouter API key: <https://openrouter.ai/keys>
+
+## Install
+
+The npm package is called `mofu-cli`; the command it installs is `mofu`.
+
+```sh
+npm install -g mofu-cli   # then run: mofu
+npx mofu-cli              # or run it without installing
+```
+
+The examples below use `mofu`; with npx, write `npx mofu-cli` instead.
 
 ## Set up your key
 

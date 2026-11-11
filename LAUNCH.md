@@ -98,7 +98,7 @@ Check: the domain shows the landing page over HTTPS; sharing the link in a chat 
 
 1. `npm login` (or create an account at <https://www.npmjs.com/signup>).
 2. Turn on two-factor auth: `npm profile enable-2fa auth-and-writes`.
-3. Check the name is still free: `npm view mofu` should say **404 Not Found**. If it's taken, tell Claude; the package needs a new name (e.g. `mofu-cli` or `@yourname/mofu`).
+3. Check the name is still free: `npm view mofu-cli` should say **404 Not Found**. If it's taken, tell Claude; the package needs a new name (e.g. `mofu-agent` or `@yourname/mofu`). (npm refused plain `mofu` as too similar to `mobx` and `defu`, which is why the package is `mofu-cli`.)
 4. Publish:
 
    ```sh
@@ -109,9 +109,9 @@ Check: the domain shows the landing page over HTTPS; sharing the link in a chat 
 Check, in a new empty folder:
 
 ```sh
-npx mofu@latest --version          # 0.1.0
-npx mofu@latest auth               # paste a key
-npx mofu@latest "say hi"
+npx mofu-cli@latest --version          # 0.1.0
+npx mofu-cli@latest auth               # paste a key
+npx mofu-cli@latest "say hi"
 ```
 
 ## 8. First week
@@ -148,7 +148,7 @@ npx wrangler rollback <version-id> # or just: npx wrangler rollback (previous ve
 **A bad CLI release**
 
 ```sh
-npm deprecate mofu@0.1.1 "Broken release, use 0.1.0"
+npm deprecate mofu-cli@0.1.1 "Broken release, use 0.1.0"
 ```
 
 then publish a fixed version. (`npm unpublish` only works within 72 hours and blocks the version number forever; prefer deprecate.)

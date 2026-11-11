@@ -165,7 +165,7 @@ export function ApiResults({ api, diff, busy, onExplainDiff, onClearDiff }: ApiR
             into <code>mofu-output/</code> and use the CLI:
           </p>
           <pre className="cli-command">
-            npx mofu api test {api.name.endsWith("spec") ? "openapi.yaml" : api.name} --base-url{" "}
+            npx mofu-cli api test {api.name.endsWith("spec") ? "openapi.yaml" : api.name} --base-url{" "}
             {server}
           </pre>
         </div>

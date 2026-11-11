@@ -2,7 +2,7 @@
 
 **The AI agent that does the work.** Drop a spreadsheet, a PDF, a project or an API spec, and Mofu works on it with real tools: Python for the numbers, page-cited study notes and quizzes, vulnerability databases for your dependencies, and your own tests for code changes.
 
-Use it free in your browser (no account), or in your terminal with `npx mofu`.
+Use it free in your browser (no account), or in your terminal with `npx mofu-cli`.
 
 ![Mofu landing page](assets/screenshots/landing.png)
 
@@ -24,11 +24,11 @@ Use it free in your browser (no account), or in your terminal with `npx mofu`.
 **CLI** (Node.js 22.13+ and an OpenRouter key):
 
 ```sh
-npx mofu auth                 # save your key once
-npx mofu                      # chat in the current folder
-npx mofu task "add a --verbose flag"
-npx mofu study notes.pdf
-npx mofu deps
+npx mofu-cli auth                 # save your key once
+npx mofu-cli                      # chat in the current folder
+npx mofu-cli task "add a --verbose flag"
+npx mofu-cli study notes.pdf
+npx mofu-cli deps
 ```
 
 Full documentation: the `/docs/` page of the web app ([source](apps/web/docs/index.html)) and the [CLI README](apps/cli/README.md).

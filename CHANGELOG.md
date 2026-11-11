@@ -11,7 +11,7 @@
 - Landing page and docs.
 - Free-tier protection: Turnstile, per-IP daily limit in a Durable Object, kill switch, server-side caps.
 
-**CLI** (`npx mofu`)
+**CLI** (`npx mofu-cli`)
 
 - Interactive chat and one-shot questions in your project folder, with approval before any file change, command or git action.
 - `mofu task` (plan, branch, edit, test, commit, optional pull request), `mofu explain`, `mofu tests`.

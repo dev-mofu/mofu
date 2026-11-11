@@ -79,7 +79,7 @@ The "API spec" tab takes an uploaded, pasted or linked OpenAPI 3.x / Swagger 2.0
 - Each message sends the endpoint list (and the diff, when there is one) as `context` of kind `api-spec`, wrapped in `<api_spec>` tags, at most 16,000 characters.
 - The model calls `get_endpoint_group`, `create_test_cases` and `write_endpoint_docs`. The Worker declares them without `execute`; the browser runs them against the loaded spec, rejecting invalid cases with reasons so only those are regenerated.
 - Results are tables with downloads: the suite as JSON, a Vitest file and an `.http` file; Markdown docs; the diff as Markdown. Tables, examples and breaking/non-breaking classification come from code.
-- The web app never sends requests to the user's API. It shows the `npx mofu api test` command instead.
+- The web app never sends requests to the user's API. It shows the `npx mofu-cli api test` command instead.
 - Spec links are fetched by `/api/fetch-page` with `kind: "document"`, behind the same public-address checks as Study Buddy links (up to 2 MB).
 
 ## Dev Tools: explain a public GitHub repository
@@ -90,7 +90,7 @@ In Dev Tools mode the user pastes a GitHub URL. The **browser** (not the Worker)
 - Manifests, the README and up to 4 entry-point excerpts come from `raw.githubusercontent.com`, which doesn't count against that limit (12 files at most).
 - `buildRepoOverview` from `@mofu/core/web` turns that into a compact overview (capped at 15,000 characters), sent with each message as `context`. The Worker accepts at most 16,000 characters and wraps it in `<repository_overview>` tags, telling the model it's data, not instructions, so a README can't steer the agent.
 
-It's read-only: no editing, cloning or pull requests on the web. For those, the model points people to `npx mofu task`.
+It's read-only: no editing, cloning or pull requests on the web. For those, the model points people to `npx mofu-cli task`.
 
 ## Dev Tools: dependency scan
 

@@ -200,7 +200,7 @@ export function devModeSection(context: DevContext): string {
   const intro =
     "You are in Dev Tools mode. On the web you can explain public GitHub repositories, review " +
     "dependency scans and work with OpenAPI specs (tests, docs, breaking changes). You can't read files beyond what's below, edit code or open pull requests here; " +
-    'for that, suggest the Mofu CLI (`npx mofu task "..."` or `npx mofu deps --fix`).';
+    'for that, suggest the Mofu CLI (`npx mofu-cli task "..."` or `npx mofu-cli deps --fix`).';
   if (!context) {
     return `${intro}\n\nNothing is loaded yet. Ask the user to paste a public GitHub URL or scan their dependency files with the panel above the chat.`;
   }
@@ -210,7 +210,7 @@ export function devModeSection(context: DevContext): string {
       intro,
       APIFORGE_SECTION,
       "On the web, test cases and docs are shown with downloads; running tests against a server is CLI-only " +
-        "(`npx mofu api test <spec> --base-url <url>`). Never claim you ran requests.",
+        "(`npx mofu-cli api test <spec> --base-url <url>`). Never claim you ran requests.",
       `<api_spec>\n${context.text}\n</api_spec>`,
     ].join("\n\n");
   }

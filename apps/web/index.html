@@ -6,7 +6,7 @@
     <title>Mofu: the AI agent that does the work</title>
     <meta
       name="description"
-      content="Drop a spreadsheet, a PDF or a project and Mofu does the work with real tools: data analysis with Python, study notes and quizzes, dependency and API checks. Free in your browser, or in your terminal with npx mofu."
+      content="Drop a spreadsheet, a PDF or a project and Mofu does the work with real tools: data analysis with Python, study notes and quizzes, dependency and API checks. Free in your browser, or in your terminal with npx mofu-cli."
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#0f0d0e" />
@@ -15,7 +15,7 @@
     <meta property="og:title" content="Meet Mofu, the AI agent that does the work" />
     <meta
       property="og:description"
-      content="An AI agent with real tools for data, study and code. Free in your browser, or npx mofu in your terminal."
+      content="An AI agent with real tools for data, study and code. Free in your browser, or npx mofu-cli in your terminal."
     />
     <meta property="og:image" content="/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -141,10 +141,10 @@
               <button
                 class="code-chip"
                 type="button"
-                data-copy="npx mofu"
-                aria-label="Copy npx mofu"
+                data-copy="npx mofu-cli"
+                aria-label="Copy npx mofu-cli"
               >
-                <span aria-hidden="true">$</span> npx mofu
+                <span aria-hidden="true">$</span> npx mofu-cli
                 <svg
                   viewBox="0 0 16 16"
                   width="14"
@@ -214,9 +214,9 @@
             <div class="feature-text">
               <h3>In your terminal</h3>
               <p>
-                <code>npx mofu</code> works on the folder you're in: coding tasks on a branch with
-                your tests, dependency upgrades, API test runs. It asks before changing a file or
-                running a command.
+                <code>npx mofu-cli</code> works on the folder you're in: coding tasks on a branch
+                with your tests, dependency upgrades, API test runs. It asks before changing a file
+                or running a command.
               </p>
             </div>
             <div class="feature-art">
@@ -292,7 +292,7 @@
           <div class="terminal-bar" aria-hidden="true">
             <i></i><i></i><i></i><span>~/shop-api</span>
           </div>
-          <pre aria-hidden="true"><span class="t-prompt">$</span> npx mofu deps
+          <pre aria-hidden="true"><span class="t-prompt">$</span> npx mofu-cli deps
 Scanning package.json + package-lock.json (214 packages)…
 
   <span class="t-bad">critical</span>  minimist 1.2.5    GHSA-xvch-5gv4-984h  fix: 1.2.6
@@ -303,12 +303,17 @@ Scanning package.json + package-lock.json (214 packages)…
 
 <span class="t-accent">mofu</span> Upgrade minimist first: it's pulled in by mkdirp and the
      fix is a patch release. Then lodash and axios together…
-<span class="t-prompt">$</span> npx mofu deps --fix<span class="caret"></span></pre>
+<span class="t-prompt">$</span> npx mofu-cli deps --fix<span class="caret"></span></pre>
         </div>
         <div class="cta-row cta-row--left">
           <div class="copy-wrap">
-            <button class="code-chip" type="button" data-copy="npx mofu" aria-label="Copy npx mofu">
-              <span aria-hidden="true">$</span> npx mofu
+            <button
+              class="code-chip"
+              type="button"
+              data-copy="npx mofu-cli"
+              aria-label="Copy npx mofu-cli"
+            >
+              <span aria-hidden="true">$</span> npx mofu-cli
               <svg
                 viewBox="0 0 16 16"
                 width="14"

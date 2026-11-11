@@ -6,7 +6,7 @@
     <title>Mofu docs: how to use the web app and the CLI</title>
     <meta
       name="description"
-      content="How to use Mofu: the web app's modes (Data Analyst, Study Buddy, Dev Tools), the npx mofu CLI and its commands, your own OpenRouter key, limits and privacy."
+      content="How to use Mofu: the web app's modes (Data Analyst, Study Buddy, Dev Tools), the npx mofu-cli CLI and its commands, your own OpenRouter key, limits and privacy."
     />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#0f0d0e" />
@@ -130,14 +130,14 @@
             <a href="https://openrouter.ai/keys">openrouter.ai/keys</a>.
           </p>
           <div class="code-block">
-            <pre><code>npx mofu auth     # save your key once (~/.mofu/config.json)
-npx mofu          # chat in the current folder</code></pre>
+            <pre><code>npx mofu-cli auth     # save your key once (~/.mofu/config.json)
+npx mofu-cli          # chat in the current folder</code></pre>
             <div class="copy-wrap">
               <button
                 class="code-chip code-chip--small"
                 type="button"
-                data-copy="npx mofu auth"
-                aria-label="Copy npx mofu auth"
+                data-copy="npx mofu-cli auth"
+                aria-label="Copy npx mofu-cli auth"
               >
                 Copy
               </button>
@@ -276,7 +276,7 @@ npx mofu          # chat in the current folder</code></pre>
           </ul>
           <p>
             The web app never sends requests to your API. To run the tests, use
-            <code>npx mofu api test</code>.
+            <code>npx mofu-cli api test</code>.
           </p>
         </section>
 
@@ -286,6 +286,11 @@ npx mofu          # chat in the current folder</code></pre>
             Run Mofu inside a project folder. It can only read and change files inside that folder,
             and it asks before it edits a file (showing you the diff), runs a command or touches
             git.
+          </p>
+          <p>
+            Install it once with <code>npm install -g mofu-cli</code> and the command is
+            <code>mofu</code>. Without installing, write <code>npx mofu-cli</code> wherever the
+            table says <code>mofu</code>.
           </p>
           <div class="table-wrap">
             <table>
@@ -533,7 +538,7 @@ npx mofu          # chat in the current folder</code></pre>
               >) and load the file.
             </dd>
             <dt>"No OpenRouter API key" in the CLI</dt>
-            <dd>Run <code>npx mofu auth</code> or set <code>OPENROUTER_API_KEY</code>.</dd>
+            <dd>Run <code>npx mofu-cli auth</code> or set <code>OPENROUTER_API_KEY</code>.</dd>
           </dl>
         </section>
       </main>

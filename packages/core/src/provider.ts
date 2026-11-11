@@ -17,7 +17,7 @@ export function createModel({ apiKey, modelId }: ModelOptions): LanguageModel {
   const openrouter = createOpenRouter({
     apiKey,
     // OpenRouter uses these to attribute traffic to the app.
-    headers: { "X-Title": "Mofu", "HTTP-Referer": "https://www.npmjs.com/package/mofu" },
+    headers: { "X-Title": "Mofu", "HTTP-Referer": "https://www.npmjs.com/package/mofu-cli" },
   });
   return openrouter(modelId);
 }

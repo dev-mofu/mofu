@@ -1,5 +1,5 @@
 {
-  "name": "mofu",
+  "name": "mofu-cli",
   "version": "0.1.0",
   "description": "An AI agent in your terminal that does real work on your files: coding tasks, data analysis, study notes, dependency and API checks.",
   "license": "MIT",
