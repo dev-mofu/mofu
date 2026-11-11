@@ -720,7 +720,7 @@ export function App() {
     : usage && !usage.freeTierEnabled
       ? "Free tier paused"
       : usage
-        ? `${usage.remaining} of ${usage.limit} free messages left today`
+        ? `${usage.remaining} of ${usage.limit} ${usage.holder?.eligible ? "holder" : "free"} messages left today`
         : "";
 
   return (
@@ -736,7 +736,19 @@ export function App() {
           </span>
         </div>
         <div className="topbar-actions">
-          {usageLabel && <span className="usage">{usageLabel}</span>}
+          {usageLabel &&
+            (config?.holder && !settings.byokKey ? (
+              <button
+                type="button"
+                className="usage usage-button"
+                title="Daily limit and $MOFU holder perks"
+                onClick={() => setDialog("settings")}
+              >
+                {usageLabel}
+              </button>
+            ) : (
+              <span className="usage">{usageLabel}</span>
+            ))}
           <button
             type="button"
             className="ghost-button"
@@ -1001,6 +1013,14 @@ export function App() {
         settings={settings}
         defaultModel={config?.defaultModel ?? ""}
         ensureSession={ensureSession}
+        holderPerks={config?.holder ?? null}
+        holder={usage?.holder ?? null}
+        freeDailyLimit={config?.freeDailyLimit ?? 10}
+        onHolderChange={() => {
+          fetchUsage()
+            .then(setUsage)
+            .catch(() => {});
+        }}
         onClose={() => setDialog(null)}
         onSave={(next) => {
           setSettings(next);

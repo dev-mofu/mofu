@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
@@ -37,13 +37,34 @@ import {
   type ApiError,
   type ApiErrorCode,
   type FetchedPageResponse,
+  type HolderChallengeResponse,
+  type HolderStatus,
   type KeyCheckResponse,
   type PublicConfig,
   type SessionResponse,
   type UsageInfo,
 } from "../shared/api.js";
 import { trimHistory } from "./history.js";
-import { createSessionToken, SESSION_COOKIE, verifySessionToken } from "./session.js";
+import {
+  challengeMessage,
+  CHALLENGE_TTL_MS,
+  HOLDER_COOKIE,
+  HOLDER_TTL_MS,
+  holderConfig,
+  isAddress,
+  minUnits,
+  randomNonce,
+  readTokenBalance,
+  recoverSigner,
+  wholeTokens,
+} from "./holder.js";
+import {
+  createSessionToken,
+  createSignedToken,
+  readSignedToken,
+  SESSION_COOKIE,
+  verifySessionToken,
+} from "./session.js";
 import { verifyTurnstile } from "./turnstile.js";
 import type { UsageBucket, UsageResult } from "./usage.js";
 
@@ -260,17 +281,60 @@ export function createApp(deps: AppDeps = defaultDeps) {
       defaultModel: c.env.DEFAULT_MODEL,
       freeDailyLimit: freeDailyLimit(c.env),
       freeTierEnabled: freeTierEnabled(c.env),
+      holder: (() => {
+        const cfg = holderConfig(c.env);
+        return cfg
+          ? {
+              token: cfg.token,
+              chainName: "Robinhood Chain",
+              minTokens: cfg.minTokens.toString(),
+              dailyLimit: cfg.dailyLimit,
+            }
+          : null;
+      })(),
     } satisfies PublicConfig),
   );
 
+  /**
+   * Which daily counter applies: a connected wallet that holds enough $MOFU is counted per
+   * wallet with the holder limit; everyone else per IP with the free limit. If the balance
+   * can't be read, the free limit applies, so an RPC outage never blocks anyone.
+   */
+  const usageTier = async (
+    c: AppContext,
+  ): Promise<{ key: string; limit: number; holder: HolderStatus | null }> => {
+    const free = { key: clientIp(c), limit: freeDailyLimit(c.env) };
+    const cfg = holderConfig(c.env);
+    if (!cfg) return { ...free, holder: null };
+    const data = await readSignedToken(
+      c.env.SESSION_SECRET,
+      "holder",
+      getCookie(c, HOLDER_COOKIE),
+      deps.now(),
+    );
+    const address = isAddress(data?.a) ? data.a.toLowerCase() : null;
+    if (!address) return { ...free, holder: null };
+    try {
+      const units = await readTokenBalance(cfg, address, deps.fetch, deps.now());
+      const eligible = units >= minUnits(cfg);
+      const holder = { address, balance: wholeTokens(cfg, units), eligible };
+      return eligible
+        ? { key: `holder:${address}`, limit: cfg.dailyLimit, holder }
+        : { ...free, holder };
+    } catch {
+      return { ...free, holder: { address, balance: null, eligible: false } };
+    }
+  };
+
   app.get("/usage", async (c) => {
-    const limit = freeDailyLimit(c.env);
-    const usage = await deps.getLimiter(c.env).check(clientIp(c), limit, false);
+    const tier = await usageTier(c);
+    const usage = await deps.getLimiter(c.env).check(tier.key, tier.limit, false);
     return c.json({
       freeTierEnabled: freeTierEnabled(c.env),
-      limit,
+      limit: tier.limit,
       remaining: usage.remaining,
       resetAt: usage.resetAt,
+      holder: tier.holder,
     } satisfies UsageInfo);
   });
 
@@ -363,12 +427,13 @@ export function createApp(deps: AppDeps = defaultDeps) {
       // A new user message uses one of the daily messages. Automatic follow-ups (sending a
       // browser-run tool's result back) don't, but they're capped separately: each one is a model call.
       const last = validated.data.at(-1);
-      const limit = freeDailyLimit(c.env);
+      const tier = await usageTier(c);
+      const limit = tier.limit;
       const followUp = last?.role !== "user";
       const usage = await deps
         .getLimiter(c.env)
         .check(
-          clientIp(c),
+          tier.key,
           followUp ? limit * FOLLOW_UPS_PER_MESSAGE : limit,
           true,
           followUp ? "followups" : "messages",
@@ -379,7 +444,9 @@ export function createApp(deps: AppDeps = defaultDeps) {
           "daily_limit",
           followUp
             ? "You've reached today's limit for automatic analysis steps."
-            : `You've used all ${limit} free messages for today.`,
+            : tier.holder?.eligible
+              ? `You've used all ${limit} holder messages for today.`
+              : `You've used all ${limit} free messages for today.`,
           { resetAt: usage.resetAt, limit },
         );
       }
@@ -443,9 +510,10 @@ export function createApp(deps: AppDeps = defaultDeps) {
     const url = typeof body?.url === "string" ? body.url.trim() : "";
     if (!url || url.length > 2_000) return apiError(c, "bad_request", "Paste a link to fetch.");
     // Each fetch counts toward the follow-up budget, so the endpoint can't be used as a free proxy.
+    const tier = await usageTier(c);
     const usage = await deps
       .getLimiter(c.env)
-      .check(clientIp(c), freeDailyLimit(c.env) * FOLLOW_UPS_PER_MESSAGE, true, "followups");
+      .check(tier.key, tier.limit * FOLLOW_UPS_PER_MESSAGE, true, "followups");
     if (!usage.allowed)
       return apiError(c, "daily_limit", "You've reached today's limit for fetching pages.", {
         resetAt: usage.resetAt,
@@ -475,6 +543,86 @@ export function createApp(deps: AppDeps = defaultDeps) {
         err instanceof Error ? err.message : "Couldn't fetch that page.",
       );
     }
+  });
+
+  // $MOFU holder perks: connect a wallet by signing a message; its balance decides the limit.
+  app.post("/holder/challenge", async (c) => {
+    if (!(await hasSession(c))) return apiError(c, "session_required", "Please verify first.");
+    if (!holderConfig(c.env)) return apiError(c, "bad_request", "Holder perks aren't available.");
+    const body = (await c.req.json().catch(() => null)) as { address?: unknown } | null;
+    if (!isAddress(body?.address)) {
+      return apiError(c, "bad_request", "That wallet address isn't valid.");
+    }
+    const address = body.address.toLowerCase();
+    const host = new URL(c.req.url).host;
+    const nonce = randomNonce();
+    const challenge = await createSignedToken(
+      c.env.SESSION_SECRET,
+      "holder-challenge",
+      { a: address, n: nonce, h: host },
+      deps.now(),
+      CHALLENGE_TTL_MS,
+    );
+    return c.json({
+      message: challengeMessage(host, address, nonce),
+      challenge,
+    } satisfies HolderChallengeResponse);
+  });
+
+  app.post("/holder/verify", async (c) => {
+    if (!(await hasSession(c))) return apiError(c, "session_required", "Please verify first.");
+    const cfg = holderConfig(c.env);
+    if (!cfg) return apiError(c, "bad_request", "Holder perks aren't available.");
+    const body = (await c.req.json().catch(() => null)) as {
+      challenge?: unknown;
+      signature?: unknown;
+    } | null;
+    const data = await readSignedToken(
+      c.env.SESSION_SECRET,
+      "holder-challenge",
+      typeof body?.challenge === "string" ? body.challenge : undefined,
+      deps.now(),
+    );
+    const host = new URL(c.req.url).host;
+    if (!data || !isAddress(data.a) || typeof data.n !== "string" || data.h !== host) {
+      return apiError(c, "bad_request", "That request expired. Please connect again.");
+    }
+    const signature = typeof body?.signature === "string" ? body.signature : "";
+    const signer = recoverSigner(challengeMessage(host, data.a, data.n), signature);
+    if (!signer || signer !== data.a.toLowerCase()) {
+      return apiError(c, "bad_request", "The signature doesn't match this wallet.");
+    }
+    const token = await createSignedToken(
+      c.env.SESSION_SECRET,
+      "holder",
+      { a: signer },
+      deps.now(),
+      HOLDER_TTL_MS,
+    );
+    setCookie(c, HOLDER_COOKIE, token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      path: "/api",
+      maxAge: Math.floor(HOLDER_TTL_MS / 1000),
+    });
+    let status: HolderStatus;
+    try {
+      const units = await readTokenBalance(cfg, signer, deps.fetch, deps.now());
+      status = {
+        address: signer,
+        balance: wholeTokens(cfg, units),
+        eligible: units >= minUnits(cfg),
+      };
+    } catch {
+      status = { address: signer, balance: null, eligible: false };
+    }
+    return c.json(status satisfies HolderStatus);
+  });
+
+  app.post("/holder/disconnect", (c) => {
+    deleteCookie(c, HOLDER_COOKIE, { path: "/api", secure: true });
+    return c.json({ ok: true });
   });
 
   app.notFound((c) => apiError(c, "bad_request", "Unknown API route."));

@@ -3,6 +3,8 @@ import {
   parseApiError,
   type ApiError,
   type FetchedPageResponse,
+  type HolderChallengeResponse,
+  type HolderStatus,
   type KeyCheckResponse,
   type PublicConfig,
   type SessionResponse,
@@ -49,3 +51,20 @@ export const fetchPage = (url: string, kind: "page" | "document" = "page") =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url, kind }),
   });
+
+export const holderChallenge = (address: string) =>
+  request<HolderChallengeResponse>("/api/holder/challenge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  });
+
+export const holderVerify = (challenge: string, signature: string) =>
+  request<HolderStatus>("/api/holder/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ challenge, signature }),
+  });
+
+export const holderDisconnect = () =>
+  request<{ ok: true }>("/api/holder/disconnect", { method: "POST" });

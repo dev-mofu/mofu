@@ -30,5 +30,12 @@
     // Cloudflare's always-passes test key. Replace with the production site key at launch.
     // Production site key (public). Local development uses the test key from .dev.vars.
     "TURNSTILE_SITE_KEY": "0x4AAAAAAF8ddGpy3ROnj6Tt",
+    // $MOFU holder perks: a wallet holding at least HOLDER_MIN_TOKENS (whole tokens) gets
+    // HOLDER_DAILY_LIMIT messages a day instead of FREE_DAILY_LIMIT. Balance is read on Robinhood Chain.
+    "HOLDER_TOKEN": "0xf76593c1c321c2a2f77775025e9677999ce7ea8c",
+    "HOLDER_RPC_URL": "https://rpc.mainnet.chain.robinhood.com",
+    "HOLDER_DECIMALS": "18",
+    "HOLDER_MIN_TOKENS": "1000000",
+    "HOLDER_DAILY_LIMIT": "30",
   },
 }

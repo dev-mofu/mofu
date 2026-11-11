@@ -17,6 +17,8 @@
   "dependencies": {
     "@ai-sdk/react": "4.0.170",
     "@mofu/core": "workspace:*",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "ai": "7.0.166",
     "hono": "^4.13.17",
     "pdfjs-dist": "6.5.438",

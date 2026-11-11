@@ -94,6 +94,32 @@ export interface UsageInfo {
   limit: number;
   remaining: number;
   resetAt: string;
+  /** Set when a wallet is connected for $MOFU holder perks. */
+  holder?: HolderStatus | null;
+}
+
+/** A connected wallet and whether it currently qualifies for holder perks. */
+export interface HolderStatus {
+  address: string;
+  /** Whole tokens, or null when the balance couldn't be read right now. */
+  balance: string | null;
+  eligible: boolean;
+}
+
+/** Holder perks as configured on the server; null when they're off. */
+export interface HolderPerks {
+  token: string;
+  chainName: string;
+  /** Whole tokens needed. */
+  minTokens: string;
+  dailyLimit: number;
+}
+
+export interface HolderChallengeResponse {
+  /** Text for the wallet to sign (personal_sign). */
+  message: string;
+  /** Opaque token to send back with the signature. */
+  challenge: string;
 }
 
 export interface PublicConfig {
@@ -101,6 +127,7 @@ export interface PublicConfig {
   defaultModel: string;
   freeDailyLimit: number;
   freeTierEnabled: boolean;
+  holder: HolderPerks | null;
 }
 
 export interface SessionResponse {

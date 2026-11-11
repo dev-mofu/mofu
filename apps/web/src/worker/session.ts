@@ -71,3 +71,37 @@ export async function verifySessionToken(
     return false;
   }
 }
+
+/**
+ * General signed token for other short-lived data (a wallet challenge, a holder cookie).
+ * `purpose` is part of what's signed, so a token made for one use can't stand in for another.
+ */
+export async function createSignedToken(
+  secret: string,
+  purpose: string,
+  data: Record<string, unknown>,
+  now: number,
+  ttlMs: number,
+): Promise<string> {
+  const payload = base64url(encoder.encode(JSON.stringify({ ...data, exp: now + ttlMs })));
+  return `${payload}.${await sign(secret, `${purpose}:${payload}`)}`;
+}
+
+/** Returns the token's data if the signature, purpose and expiry check out, else null. */
+export async function readSignedToken(
+  secret: string,
+  purpose: string,
+  token: string | undefined,
+  now: number,
+): Promise<Record<string, unknown> | null> {
+  if (!token || token.length > 2048) return null;
+  const [payload, signature, extra] = token.split(".");
+  if (!payload || !signature || extra !== undefined) return null;
+  if (!constantTimeEqual(signature, await sign(secret, `${purpose}:${payload}`))) return null;
+  try {
+    const data = JSON.parse(fromBase64url(payload)) as Record<string, unknown>;
+    return typeof data.exp === "number" && data.exp > now ? data : null;
+  } catch {
+    return null;
+  }
+}

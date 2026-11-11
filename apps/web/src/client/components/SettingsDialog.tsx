@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { CURATED_MODELS } from "../../shared/api.js";
+import { CURATED_MODELS, type HolderPerks, type HolderStatus } from "../../shared/api.js";
 import { ApiRequestError, checkKey } from "../lib/api.js";
 import type { Settings } from "../lib/storage.js";
+import { HolderSection } from "./HolderSection.js";
 import { Modal } from "./Modal.js";
 
 interface SettingsDialogProps {
@@ -12,6 +13,11 @@ interface SettingsDialogProps {
   onSave: (settings: Settings) => void;
   /** Gets a session first if needed (the key check endpoint requires one). */
   ensureSession: () => Promise<boolean>;
+  /** $MOFU holder perks, when the server has them on. */
+  holderPerks: HolderPerks | null;
+  holder: HolderStatus | null;
+  freeDailyLimit: number;
+  onHolderChange: () => void;
 }
 
 type KeyStatus =
@@ -29,6 +35,10 @@ export function SettingsDialog({
   onClose,
   onSave,
   ensureSession,
+  holderPerks,
+  holder,
+  freeDailyLimit,
+  onHolderChange,
 }: SettingsDialogProps) {
   const [draft, setDraft] = useState(settings);
   const [showKey, setShowKey] = useState(false);
@@ -86,6 +96,16 @@ export function SettingsDialog({
           });
         }}
       >
+        {holderPerks && (
+          <HolderSection
+            perks={holderPerks}
+            status={holder}
+            freeDailyLimit={freeDailyLimit}
+            ensureSession={ensureSession}
+            onChange={onHolderChange}
+          />
+        )}
+
         <section>
           <h3>Your own OpenRouter key</h3>
           <p className="muted">

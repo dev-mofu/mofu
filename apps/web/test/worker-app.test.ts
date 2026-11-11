@@ -290,6 +290,7 @@ describe("GET /api/usage and /api/config", () => {
       defaultModel: "test/default",
       freeDailyLimit: 2,
       freeTierEnabled: true,
+      holder: null,
     });
     expect(text).not.toContain("sk-or-owner");
     expect(text).not.toContain(SECRET);
