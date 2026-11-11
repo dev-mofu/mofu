@@ -9,6 +9,10 @@ export default defineConfig({
     // Use the core package's TypeScript sources directly, in both the browser and the Worker.
     alias: {
       "@mofu/core/web": path.resolve(import.meta.dirname, "../../packages/core/src/web.ts"),
+      "@mofu/core/apiforge": path.resolve(
+        import.meta.dirname,
+        "../../packages/core/src/apiforge.ts",
+      ),
     },
   },
 });

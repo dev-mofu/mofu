@@ -42,9 +42,10 @@ export const createSession = (token: string) =>
 export const checkKey = (key: string) =>
   request<KeyCheckResponse>("/api/key/check", { method: "POST", headers: { [BYOK_HEADER]: key } });
 
-export const fetchPage = (url: string) =>
+/** kind "document" returns raw JSON/YAML (an API spec) instead of readable page text. */
+export const fetchPage = (url: string, kind: "page" | "document" = "page") =>
   request<FetchedPageResponse>("/api/fetch-page", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, kind }),
   });

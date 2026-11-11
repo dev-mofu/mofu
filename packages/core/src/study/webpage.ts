@@ -91,18 +91,25 @@ export interface FetchedPage {
   text: string;
 }
 
-/** Fetches a public page, checking every redirect hop, with size and time limits. */
-export async function fetchPublicPage(
+interface FetchRule {
+  accept: string;
+  allowed: RegExp;
+  wrongType: string;
+}
+
+/** Fetches a public URL, checking every redirect hop, with size and time limits. */
+async function fetchPublic(
   raw: string,
   resolve: Resolver,
-  fetchFn: typeof fetch = fetch,
-): Promise<FetchedPage> {
+  fetchFn: typeof fetch,
+  rule: FetchRule,
+): Promise<{ url: URL; type: string; body: string }> {
   let url = await assertPublicUrl(raw, resolve);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const res = await fetchFn(url.toString(), {
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { Accept: "text/html,text/plain;q=0.9", "User-Agent": "Mofu/0.1 (study helper)" },
+      headers: { Accept: rule.accept, "User-Agent": "Mofu/0.1" },
     });
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get("location");
@@ -112,23 +119,48 @@ export async function fetchPublicPage(
     }
     if (!res.ok) throw new Error(`The page returned HTTP ${res.status}.`);
     const type = res.headers.get("content-type") ?? "";
-    if (!/text\/(html|plain)|application\/xhtml/.test(type)) {
-      throw new Error(
-        "That link isn't a web page or text (for PDFs, download the file and upload it).",
-      );
-    }
+    if (!rule.allowed.test(type)) throw new Error(rule.wrongType);
     const declared = Number(res.headers.get("content-length") ?? 0);
     if (declared > MAX_PAGE_BYTES) throw new Error("That page is too large.");
-    const body = await readCapped(res, MAX_PAGE_BYTES);
-    if (/text\/plain/.test(type))
-      return {
-        url: url.toString(),
-        title: url.pathname.split("/").pop() || url.hostname,
-        text: body,
-      };
-    return { url: url.toString(), ...htmlToText(body, url.hostname) };
+    return { url, type, body: await readCapped(res, MAX_PAGE_BYTES) };
   }
   throw new Error("Too many redirects.");
+}
+
+/** Fetches a public web page or text file as readable text. */
+export async function fetchPublicPage(
+  raw: string,
+  resolve: Resolver,
+  fetchFn: typeof fetch = fetch,
+): Promise<FetchedPage> {
+  const { url, type, body } = await fetchPublic(raw, resolve, fetchFn, {
+    accept: "text/html,text/plain;q=0.9",
+    allowed: /text\/(html|plain)|application\/xhtml/,
+    wrongType: "That link isn't a web page or text (for PDFs, download the file and upload it).",
+  });
+  if (/text\/plain/.test(type)) {
+    return {
+      url: url.toString(),
+      title: url.pathname.split("/").pop() || url.hostname,
+      text: body,
+    };
+  }
+  return { url: url.toString(), ...htmlToText(body, url.hostname) };
+}
+
+/** Fetches a public JSON or YAML document (an API spec) as raw text. */
+export async function fetchPublicDocument(
+  raw: string,
+  resolve: Resolver,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ url: string; text: string }> {
+  const { url, body } = await fetchPublic(raw, resolve, fetchFn, {
+    accept: "application/json,application/yaml,text/yaml,text/plain;q=0.9,*/*;q=0.5",
+    // Many hosts serve YAML as text/plain or octet-stream; the spec parser decides what it is.
+    allowed: /json|yaml|yml|text\/plain|octet-stream|^$/,
+    wrongType: "That link isn't a JSON or YAML document.",
+  });
+  return { url: url.toString(), text: body };
 }
 
 async function readCapped(res: Response, max: number): Promise<string> {

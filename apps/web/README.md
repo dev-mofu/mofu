@@ -29,14 +29,14 @@ src/client/   React app: chat, settings (own key, model, theme), memory
 src/shared/   Types and limits shared by both
 ```
 
-| Route                  | Purpose                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------- |
-| `GET /api/config`      | Public settings: Turnstile site key, default model, free limit                  |
-| `GET /api/usage`       | Free messages left today for this IP (doesn't use one up)                       |
-| `POST /api/session`    | Verifies a Turnstile token and sets a signed, HttpOnly session cookie (2 hours) |
-| `POST /api/key/check`  | Checks a user's own OpenRouter key against OpenRouter's free key-info endpoint  |
-| `POST /api/chat`       | Streams the agent's reply (AI SDK UI message stream)                            |
-| `POST /api/fetch-page` | Fetches a public web page for Study Buddy and returns its readable text         |
+| Route                  | Purpose                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GET /api/config`      | Public settings: Turnstile site key, default model, free limit                                                 |
+| `GET /api/usage`       | Free messages left today for this IP (doesn't use one up)                                                      |
+| `POST /api/session`    | Verifies a Turnstile token and sets a signed, HttpOnly session cookie (2 hours)                                |
+| `POST /api/key/check`  | Checks a user's own OpenRouter key against OpenRouter's free key-info endpoint                                 |
+| `POST /api/chat`       | Streams the agent's reply (AI SDK UI message stream)                                                           |
+| `POST /api/fetch-page` | Fetches a public web page for Study Buddy (readable text), or with `kind: "document"` a raw JSON/YAML API spec |
 
 ## Data Analyst
 
@@ -59,6 +59,16 @@ Documents are read **in the browser**. PDFs use pdf.js (6.5.438, loaded only whe
 - **Flashcards and quizzes** are tool calls (`create_flashcards`, `create_quiz`) validated with zod in the browser; invalid ones go back to the model as errors to fix. The deck flips, tracks "knew it / didn't" on a Leitner schedule in `localStorage`, and exports a TSV for Anki. Multiple choice is graded in code with the choices shuffled per quiz; short answers are sent to the model with the model answer and page.
 - **Links:** `POST /api/fetch-page` (session required; each fetch counts as a follow-up) fetches the page from the Worker. Before every request and every redirect hop it resolves the host over DNS-over-HTTPS and refuses localhost, private, link-local, CGNAT, multicast and metadata addresses, non-http(s) URLs and URLs with credentials. Only HTML or plain text up to 2 MB is accepted; scripts, navigation and footers are stripped.
 - **Reference tools** (`wikipedia_summary`, `define_word`, `related_words`, `search_papers`, `find_books`, `cite_doi`) run in the Worker, because arXiv doesn't allow cross-origin requests. Citations are formatted by code from Crossref data.
+
+## Dev Tools: APIForge (OpenAPI specs)
+
+The "API spec" tab takes an uploaded, pasted or linked OpenAPI 3.x / Swagger 2.0 spec. Parsing, validation (`@scalar/openapi-parser`), `$ref` resolution, the endpoint index, request-body checks (`@cfworker/json-schema`, no `eval`) and the breaking-change diff all run **in the browser** from `@mofu/core/apiforge`, a separate chunk (about 110 KB gzipped) loaded only when the tab is used. The Worker bundle doesn't include it.
+
+- Each message sends the endpoint list (and the diff, when there is one) as `context` of kind `api-spec`, wrapped in `<api_spec>` tags, at most 16,000 characters.
+- The model calls `get_endpoint_group`, `create_test_cases` and `write_endpoint_docs`. The Worker declares them without `execute`; the browser runs them against the loaded spec, rejecting invalid cases with reasons so only those are regenerated.
+- Results are tables with downloads: the suite as JSON, a Vitest file and an `.http` file; Markdown docs; the diff as Markdown. Tables, examples and breaking/non-breaking classification come from code.
+- The web app never sends requests to the user's API. It shows the `npx mofu api test` command instead.
+- Spec links are fetched by `/api/fetch-page` with `kind: "document"`, behind the same public-address checks as Study Buddy links (up to 2 MB).
 
 ## Dev Tools: explain a public GitHub repository
 

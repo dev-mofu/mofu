@@ -1,0 +1,69 @@
+{
+  "swagger": "2.0",
+  "info": { "title": "Petstore (Swagger 2)", "version": "1.0.0" },
+  "host": "localhost:4010",
+  "basePath": "/",
+  "schemes": ["http"],
+  "securityDefinitions": {
+    "apiKey": { "type": "apiKey", "in": "header", "name": "X-API-Key" }
+  },
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "listPets",
+        "tags": ["pets"],
+        "parameters": [{ "name": "limit", "in": "query", "type": "integer", "maximum": 100 }],
+        "responses": {
+          "200": {
+            "description": "A list of pets.",
+            "schema": { "type": "array", "items": { "$ref": "#/definitions/Pet" } }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPet",
+        "tags": ["pets"],
+        "security": [{ "apiKey": [] }],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "pet",
+            "in": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/NewPet" }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Created.", "schema": { "$ref": "#/definitions/Pet" } },
+          "401": { "description": "No key." }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "operationId": "getPet",
+        "tags": ["pets"],
+        "produces": ["application/json"],
+        "parameters": [{ "name": "petId", "in": "path", "required": true, "type": "integer" }],
+        "responses": {
+          "200": { "description": "The pet.", "schema": { "$ref": "#/definitions/Pet" } },
+          "404": { "description": "Missing." }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "NewPet": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" }, "tag": { "type": "string" } }
+    },
+    "Pet": {
+      "allOf": [
+        { "$ref": "#/definitions/NewPet" },
+        { "type": "object", "required": ["id"], "properties": { "id": { "type": "integer" } } }
+      ]
+    }
+  }
+}

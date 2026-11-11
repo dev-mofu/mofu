@@ -79,7 +79,9 @@ export type ChatContext =
   /** Profile of the user's file, built in the browser. */
   | { kind: "dataset"; title: string; text: string }
   /** Outline of a study document; the browser serves the pages through read_document. */
-  | { kind: "document"; title: string; text: string };
+  | { kind: "document"; title: string; text: string }
+  /** APIForge: the endpoint list of a spec parsed in the browser, plus a breaking-change diff when one was made. */
+  | { kind: "api-spec"; title: string; text: string };
 
 export interface FetchedPageResponse {
   url: string;

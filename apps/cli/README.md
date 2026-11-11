@@ -38,6 +38,7 @@ mofu task "add a --verbose flag"    # a coding task, end to end (see RepoPilot b
 mofu explain                        # explain the repository you're in
 mofu tests src/utils.ts             # write and run unit tests for a file or folder
 mofu study notes.pdf                # summaries, flashcards and quizzes (see Study Buddy below)
+mofu api tests openapi.yaml         # test cases from an API spec (see APIForge below)
 mofu -m qwen/qwen3.7-flash          # pick a model for this run
 ```
 
@@ -124,6 +125,24 @@ Mofu reads the document locally (PDFs with [pdf.js](https://mozilla.github.io/pd
 Ask anything else too. Reference tools: Wikipedia, `define_word`, `related_words` (Datamuse), `search_papers` (arXiv), `find_books` (Open Library) and `cite_doi` (Crossref; APA and MLA are formatted by code, not the model).
 
 Web links are fetched only from public addresses: every redirect hop is checked, and localhost, private, link-local and metadata addresses are refused. Pages are capped at 2 MB.
+
+## APIForge: OpenAPI specs
+
+```sh
+mofu api docs openapi.yaml                       # Markdown docs → ./mofu-output/<api>-docs.md
+mofu api tests openapi.yaml                      # test cases → <api>.tests.json, <api>.test.ts (Vitest), <api>.http
+mofu api test openapi.yaml --base-url http://localhost:3000 --auth-header "Authorization: Bearer $TOKEN"
+mofu api diff v1.yaml v2.yaml                    # breaking changes → api-diff.md / api-diff.json
+```
+
+Specs can be OpenAPI 3.0/3.1 or Swagger 2.0, JSON or YAML, from a file or a public URL. Mofu validates the spec (errors come with their JSON path), resolves `$ref`s and builds an index of every endpoint. All of that is code; the model only writes test cases and short descriptions.
+
+- **Tests:** the model works one tag at a time: a happy path, validation failures and, when the spec documents them, not-found and unauthorized cases. Every case is checked against the spec in code (real endpoint, documented status, required parameters, and happy-path bodies validated against the request schema); only rejected cases go back to the model to fix.
+- **Docs:** parameter, body and response tables and the example request/response are generated from the spec; the model writes one to three sentences per endpoint.
+- **Running tests** (`mofu api test`): uses `./mofu-output/<api>.tests.json` (or `--suite`; generates one first if there's none), shows the host and request count and asks before sending anything. It warns in yellow when the host isn't localhost or a private address. The auth header (`--auth-header` or `MOFU_API_AUTH`) is never printed and isn't sent with "unauthorized" cases. Runs 4 requests at a time with a 10-second timeout (`--concurrency`, `--timeout`), prints pass/fail with the failing assertion, and writes JSON and Markdown reports to `./mofu-output/`. If anything failed, Mofu summarizes likely causes and you can keep chatting, for example to open the handler code. `--yes` skips the question and exits with code 1 on failures, for scripts and CI.
+- **Diff:** removed endpoints, methods and response codes, new required parameters or request fields, removed response fields, type changes, narrowed request enums (and widened response enums) and changed security are classified as breaking by code. The model explains the impact and writes a migration note.
+
+Spec URLs go through the same public-address check as Study Buddy links, so a local server's spec has to be saved to a file first (`curl -o openapi.json http://localhost:3000/openapi.json`).
 
 ## DependencyGuard: dependency security
 

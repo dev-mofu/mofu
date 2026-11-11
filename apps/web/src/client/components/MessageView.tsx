@@ -24,6 +24,9 @@ const TOOL_LABELS: Record<string, string> = {
   search_papers: "arXiv",
   find_books: "Open Library",
   related_words: "Related words",
+  get_endpoint_group: "Spec",
+  create_test_cases: "Test cases",
+  write_endpoint_docs: "Docs",
 };
 
 /** Charts and exports from browser-run tools, by tool call. */
@@ -63,6 +66,7 @@ function toolSubject(name: string, input: unknown): string {
   }
   const subject =
     i.title ??
+    i.group ??
     i.word ??
     i.fact ??
     i.parts ??

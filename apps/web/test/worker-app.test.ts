@@ -377,11 +377,49 @@ describe("POST /api/fetch-page", () => {
     });
   });
 
+  it("returns a raw JSON/YAML document for kind=document", async () => {
+    const spec = '{"openapi":"3.1.0","info":{"title":"T","version":"1"},"paths":{}}';
+    const base = webFetch({ "specs.example": "93.184.216.34" }, {});
+    const { app } = setup({
+      fetch: (async (input: string, init?: RequestInit) =>
+        input === "https://specs.example/openapi.json"
+          ? new Response(spec, { headers: { "content-type": "application/json" } })
+          : base(input, init)) as unknown as typeof fetch,
+    });
+    const res = await app.request(
+      "http://localhost/api/fetch-page",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: await sessionCookie() },
+        body: JSON.stringify({ url: "https://specs.example/openapi.json", kind: "document" }),
+      },
+      testEnv(),
+    );
+    expect(await res.json()).toEqual({
+      url: "https://specs.example/openapi.json",
+      title: "openapi.json",
+      text: spec,
+    });
+    // Without kind=document, JSON isn't accepted as a page.
+    expect(
+      (await post(app, "https://specs.example/openapi.json", await sessionCookie())).status,
+    ).toBe(400);
+  });
+
   it("refuses hosts that resolve to internal addresses", async () => {
     const { app } = setup({ fetch: webFetch({ "sneaky.example": "10.0.0.7" }, {}) });
     const res = await post(app, "https://sneaky.example/", await sessionCookie());
     expect(res.status).toBe(400);
     expect((await errorOf(res)).message).toMatch(/isn't public/);
+  });
+});
+
+describe("APIForge context", () => {
+  it("wraps the endpoint list as data and says running tests is CLI-only", async () => {
+    const { devModeSection } = await import("../src/worker/app.js");
+    const spec = devModeSection({ kind: "api-spec", title: "Petstore", text: "# Petstore 1.0.0" });
+    expect(spec).toContain("<api_spec>\n# Petstore 1.0.0\n</api_spec>");
+    expect(spec).toContain("npx mofu api test");
   });
 });
 

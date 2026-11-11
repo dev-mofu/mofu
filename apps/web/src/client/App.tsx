@@ -22,6 +22,18 @@ import {
 } from "../shared/api.js";
 import { ApiRequestError, createSession, fetchConfig, fetchPage, fetchUsage } from "./lib/api.js";
 import { StudyPanel } from "./components/StudyPanel.js";
+import { ApiPanel } from "./components/ApiPanel.js";
+import { ApiResults } from "./components/ApiResults.js";
+import {
+  apiContextText,
+  diffApis,
+  MAX_SPEC_BYTES,
+  parseApi,
+  SpecError,
+  type ApiDiffState,
+  type LoadedApi,
+} from "./lib/apiforge.js";
+import type { SpecProblem } from "@mofu/core/apiforge";
 import {
   documentFromPage,
   loadStudyFile,
@@ -34,6 +46,7 @@ import { RepoPanel } from "./components/RepoPanel.js";
 import { DepsPanel } from "./components/DepsPanel.js";
 import { ScanResults } from "./components/ScanResults.js";
 import {
+  API_TOOL_NAMES,
   documentOutline,
   findUnverifiedReferences,
   ScannedPdfError,
@@ -128,7 +141,7 @@ export function App() {
   const [repoError, setRepoError] = useState<GitHubError | null>(null);
 
   // The transport reads the latest settings through a ref, so it's created once.
-  const [devTool, setDevTool] = useState<"repo" | "deps">("repo");
+  const [devTool, setDevTool] = useState<"repo" | "deps" | "api">("repo");
   const [depScan, setDepScan] = useState<{ report: ScanReport; source: string } | null>(null);
   const [scanning, setScanning] = useState(false);
 
@@ -141,8 +154,40 @@ export function App() {
   const [studyLoading, setStudyLoading] = useState(false);
   const [studyError, setStudyError] = useState<string | null>(null);
 
-  const latest = useRef({ settings, memory, mode, repo, devTool, depScan, dataset, study });
-  latest.current = { settings, memory, mode, repo, devTool, depScan, dataset, study };
+  // APIForge: the spec is parsed in the browser; apiContext is the text sent to the model.
+  const [api, setApi] = useState<LoadedApi | null>(null);
+  const [apiDiff, setApiDiff] = useState<ApiDiffState | null>(null);
+  const [apiContext, setApiContext] = useState("");
+  const [apiLoading, setApiLoading] = useState(false);
+  const [specError, setSpecError] = useState<{ message: string; problems: SpecProblem[] } | null>(
+    null,
+  );
+  const [apiVersion, setApiVersion] = useState(0);
+
+  const latest = useRef({
+    settings,
+    memory,
+    mode,
+    repo,
+    devTool,
+    depScan,
+    dataset,
+    study,
+    api,
+    apiContext,
+  });
+  latest.current = {
+    settings,
+    memory,
+    mode,
+    repo,
+    devTool,
+    depScan,
+    dataset,
+    study,
+    api,
+    apiContext,
+  };
 
   const effectiveTheme =
     settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
@@ -194,6 +239,12 @@ export function App() {
           let context: ChatContext | undefined;
           if (m === "dev" && tool === "repo" && r) {
             context = { kind: "github-repo", title: r.fullName, text: r.contextText };
+          } else if (m === "dev" && tool === "api" && latest.current.api) {
+            context = {
+              kind: "api-spec",
+              title: latest.current.api.index.title,
+              text: latest.current.apiContext,
+            };
           } else if (m === "dev" && tool === "deps" && scan) {
             context = {
               kind: "dep-scan",
@@ -242,6 +293,23 @@ export function App() {
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onToolCall: async ({ toolCall }) => {
       if (toolCall.dynamic) return;
+      if (API_TOOL_NAMES.has(toolCall.toolName)) {
+        let output: unknown;
+        try {
+          const workspace = latest.current.api?.workspace;
+          if (!workspace) throw new Error("No spec is loaded. Ask the user to load one.");
+          output = workspace.run(toolCall.toolName, toolCall.input);
+          setApiVersion((v) => v + 1);
+        } catch (err) {
+          output = { error: err instanceof Error ? err.message : String(err) };
+        }
+        void addToolOutputRef.current?.({
+          tool: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+          output,
+        });
+        return;
+      }
       if (STUDY_TOOLS.has(toolCall.toolName)) {
         let output: unknown;
         try {
@@ -363,6 +431,87 @@ export function App() {
     } finally {
       setStudyLoading(false);
     }
+  };
+
+  // --- APIForge ---------------------------------------------------------------
+  const apiFailure = (err: unknown) =>
+    setSpecError(
+      err instanceof SpecError
+        ? { message: err.message, problems: err.problems }
+        : {
+            message:
+              err instanceof ApiRequestError
+                ? err.error.message
+                : `Couldn't read that spec: ${err instanceof Error ? err.message : String(err)}`,
+            problems: [],
+          },
+    );
+
+  const loadApiText = async (name: string, text: string) => {
+    if (text.length > MAX_SPEC_BYTES) {
+      setSpecError({
+        message: "That spec is over 2 MB. The CLI handles bigger files: npx mofu api docs <file>.",
+        problems: [],
+      });
+      return;
+    }
+    setSpecError(null);
+    setApiLoading(true);
+    try {
+      const loaded = await parseApi(name, text);
+      setApiContext(await apiContextText(loaded, null));
+      setApi(loaded);
+      setApiDiff(null);
+      if (messages.length > 0) {
+        if (busy) void stop();
+        clearError();
+        setMessages([]);
+      }
+      setCelebrating(true);
+      window.setTimeout(() => setCelebrating(false), 2500);
+    } catch (err) {
+      apiFailure(err);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  const loadApiUrl = async (url: string) => {
+    if (!(await ensureSession())) return;
+    setApiLoading(true);
+    try {
+      const page = await fetchPage(url, "document");
+      await loadApiText(page.title, page.text);
+    } catch (err) {
+      apiFailure(err);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  const compareApi = async (name: string, text: string) => {
+    if (!api) return;
+    setSpecError(null);
+    setApiLoading(true);
+    try {
+      const diff = await diffApis(api, name, text);
+      setApiContext(await apiContextText(api, diff));
+      setApiDiff(diff);
+    } catch (err) {
+      apiFailure(err);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  const generateApi = (what: "tests" | "docs") => {
+    if (!api) return;
+    const groups = api.workspace.groups.join(", ");
+    void send(
+      what === "tests"
+        ? `Generate test cases for every endpoint group (${groups}), one group at a time.`
+        : `Write endpoint descriptions for every group (${groups}), one group at a time.`,
+    );
   };
 
   const loadStudyUrl = async (url: string) => {
@@ -515,8 +664,23 @@ export function App() {
       ? (text: string) => findUnverifiedReferences(text, depScan.report)
       : undefined;
 
-  const emptyCopy =
-    mode === "study"
+  const apiMode = mode === "dev" && devTool === "api";
+  const emptyCopy = apiMode
+    ? api
+      ? {
+          title: `Work with ${api.index.title}`,
+          body: "Generate test cases or docs, compare with another version, or ask anything about the API. Tables and downloads appear above.",
+          suggestions: [
+            "Which endpoints need authentication?",
+            "Summarize this API in a paragraph",
+          ],
+        }
+      : {
+          title: "Understand an API from its spec",
+          body: "Load an OpenAPI or Swagger spec above. Mofu validates it, lists every endpoint, writes test cases and docs, and finds breaking changes between versions. Running tests against your server is in the CLI: npx mofu api test.",
+          suggestions: [],
+        }
+    : mode === "study"
       ? study
         ? {
             title: `Study ${study.doc.title}`,
@@ -666,7 +830,7 @@ export function App() {
         {mode === "dev" && (
           <>
             <div className="segmented dev-tabs" role="tablist" aria-label="Dev Tools">
-              {(["repo", "deps"] as const).map((t) => (
+              {(["repo", "deps", "api"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -675,11 +839,32 @@ export function App() {
                   className={devTool === t ? "active" : ""}
                   onClick={() => setDevTool(t)}
                 >
-                  {t === "repo" ? "Explain a repo" : "Scan dependencies"}
+                  {t === "repo"
+                    ? "Explain a repo"
+                    : t === "deps"
+                      ? "Scan dependencies"
+                      : "API spec"}
                 </button>
               ))}
             </div>
-            {devTool === "repo" ? (
+            {devTool === "api" ? (
+              <ApiPanel
+                api={api}
+                loading={apiLoading}
+                error={specError}
+                busy={busy}
+                onText={(n, t) => void loadApiText(n, t)}
+                onUrl={(u) => void loadApiUrl(u)}
+                onGenerate={generateApi}
+                onCompare={(n, t) => void compareApi(n, t)}
+                onClear={() => {
+                  setApi(null);
+                  setApiDiff(null);
+                  setSpecError(null);
+                  if (messages.length > 0) newChat();
+                }}
+              />
+            ) : devTool === "repo" ? (
               <RepoPanel
                 repo={repo}
                 loading={repoLoading}
@@ -715,6 +900,23 @@ export function App() {
       </div>
 
       <main className="thread" aria-live="polite">
+        {apiMode && api && (
+          <ApiResults
+            api={api}
+            diff={apiDiff}
+            busy={busy}
+            version={apiVersion}
+            onExplainDiff={() =>
+              void send(
+                "Explain the impact of the breaking changes in the diff for API consumers, and write a short migration note.",
+              )
+            }
+            onClearDiff={() => {
+              setApiDiff(null);
+              void apiContextText(api, null).then(setApiContext);
+            }}
+          />
+        )}
         {depsMode && depScan && (
           <ScanResults
             report={depScan.report}

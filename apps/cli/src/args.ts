@@ -16,8 +16,89 @@ export type ChatArgs = {
 
 export type DepsArgs = { command: "deps"; model?: string; json: boolean; fix: boolean };
 
+export type ApiArgs = {
+  command: "api";
+  model?: string;
+  sub: "docs" | "tests" | "test" | "diff";
+  spec: string;
+  /** diff: the new version. */
+  spec2?: string;
+  baseUrl?: string;
+  suite?: string;
+  authHeader?: string;
+  concurrency?: number;
+  timeoutMs?: number;
+  /** Skip the confirmation before sending requests. */
+  yes?: boolean;
+};
+
 export type ParsedArgs =
-  { command: "help" } | { command: "version" } | { command: "auth" } | DepsArgs | ChatArgs;
+  | { command: "help" }
+  | { command: "version" }
+  | { command: "auth" }
+  | DepsArgs
+  | ApiArgs
+  | ChatArgs;
+
+const API_USAGE =
+  "Usage: mofu api docs <spec> | mofu api tests <spec> | mofu api test <spec> --base-url <url> | mofu api diff <old> <new>";
+
+function parseApiArgs(words: string[], withModel: { model?: string }): ApiArgs {
+  const [sub, ...rest] = words;
+  if (sub !== "docs" && sub !== "tests" && sub !== "test" && sub !== "diff")
+    throw new ArgsError(API_USAGE);
+  const positional: string[] = [];
+  const flags: Record<string, string> = {};
+  let yes = false;
+  for (let i = 0; i < rest.length; i++) {
+    const w = rest[i]!;
+    if (w === "--yes" || w === "-y") {
+      yes = true;
+      continue;
+    }
+    if (!w.startsWith("--")) {
+      positional.push(w);
+      continue;
+    }
+    const [name, inline] = w.slice(2).split(/=(.*)/s, 2) as [string, string | undefined];
+    if (!["base-url", "suite", "auth-header", "concurrency", "timeout"].includes(name)) {
+      throw new ArgsError(`Unknown option --${name}. ${API_USAGE}`);
+    }
+    const value = inline ?? rest[++i];
+    if (value === undefined) throw new ArgsError(`--${name} needs a value.`);
+    flags[name] = value;
+  }
+  const wanted = sub === "diff" ? 2 : 1;
+  if (positional.length !== wanted) throw new ArgsError(API_USAGE);
+  if (sub === "test" && !flags["base-url"])
+    throw new ArgsError("mofu api test needs --base-url, e.g. --base-url http://localhost:3000");
+  if (sub !== "test" && Object.keys(flags).length)
+    throw new ArgsError(`Those options only apply to mofu api test. ${API_USAGE}`);
+  if (flags["base-url"] && !/^https?:\/\/[^/]/i.test(flags["base-url"]))
+    throw new ArgsError("--base-url must start with http:// or https://");
+  const num = (name: string, min: number, max: number) => {
+    if (flags[name] === undefined) return undefined;
+    const n = Number(flags[name]);
+    if (!Number.isInteger(n) || n < min || n > max)
+      throw new ArgsError(`--${name} must be a whole number from ${min} to ${max}.`);
+    return n;
+  };
+  const concurrency = num("concurrency", 1, 16);
+  const timeoutMs = num("timeout", 100, 120_000);
+  return {
+    command: "api",
+    ...withModel,
+    sub,
+    spec: positional[0]!,
+    ...(positional[1] && { spec2: positional[1] }),
+    ...(flags["base-url"] && { baseUrl: flags["base-url"] }),
+    ...(flags.suite && { suite: flags.suite }),
+    ...(flags["auth-header"] && { authHeader: flags["auth-header"] }),
+    ...(concurrency && { concurrency }),
+    ...(timeoutMs && { timeoutMs }),
+    ...(yes && { yes }),
+  };
+}
 
 export class ArgsError extends Error {
   override name = "ArgsError";
@@ -62,6 +143,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const tail = others.join(" ").trim();
 
   if (first === "auth" && others.length === 0) return { command: "auth" };
+  if (first === "api") return parseApiArgs(others, withModel);
   if (first === "deps") {
     const unknown = others.filter((o) => o !== "--json" && o !== "--fix");
     if (unknown.length)
@@ -126,6 +208,12 @@ Usage:
   mofu analyze <file>         Analyze a CSV, Excel or JSON file with Python (charts in ./mofu-output)
   mofu study <file-or-url>    Study a PDF, text/Markdown file or article: summaries, flashcards, quizzes
     [--pages 10-40]           Which PDF pages to load (up to 300 at a time)
+  mofu api docs <spec>        Markdown docs from an OpenAPI/Swagger spec (file or URL)
+  mofu api tests <spec>       Generate test cases (JSON, a Vitest file and an .http file)
+  mofu api test <spec> --base-url <url>
+                              Run the test cases against a server and report
+    [--suite file] [--auth-header "Name: value"] [--concurrency 4] [--timeout 10000] [--yes]
+  mofu api diff <old> <new>   Breaking changes between two versions of a spec
   mofu deps                   Scan dependencies for vulnerabilities and outdated packages
   mofu deps --json            Print the raw scan report as JSON (no AI involved)
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit

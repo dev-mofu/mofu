@@ -1472,3 +1472,99 @@ textarea {
   font: inherit;
   resize: vertical;
 }
+
+/* ---------- APIForge ---------- */
+.api-results {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.api-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.8rem 1rem;
+  min-width: 0;
+}
+
+.api-block > summary {
+  cursor: pointer;
+}
+
+.api-block .scan-table-wrap {
+  margin-top: 0.5rem;
+}
+
+.api-sub {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.api-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.api-table td code {
+  white-space: nowrap;
+}
+
+.api-table .row--bad td:first-child {
+  box-shadow: inset 3px 0 0 var(--bad);
+}
+
+.cli-command {
+  margin: 0.3rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  background: var(--led-bg);
+  color: #f4f0f1;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  overflow-x: auto;
+}
+
+.docs-preview {
+  margin-top: 0.6rem;
+  max-height: 32rem;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+}
+
+.spec-paste {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.spec-paste textarea {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  resize: vertical;
+}
+
+.spec-paste-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.spec-problems {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.spec-problems code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}

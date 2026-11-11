@@ -134,3 +134,77 @@ describe("RepoPilot commands", () => {
     expect(() => parseArgs(["tests"])).toThrow(/needs a file or folder/);
   });
 });
+
+describe("parseArgs: study and api", () => {
+  it("parses mofu study with an optional page range", () => {
+    expect(parseArgs(["study", "notes.pdf"])).toEqual({ command: "chat", study: "notes.pdf" });
+    expect(parseArgs(["study", "book.pdf", "--pages", "10-40"])).toEqual({
+      command: "chat",
+      study: "book.pdf",
+      pages: "10-40",
+    });
+    expect(parseArgs(["study", "--pages=3", "a.pdf"])).toEqual({
+      command: "chat",
+      study: "a.pdf",
+      pages: "3",
+    });
+    expect(() => parseArgs(["study"])).toThrow(/needs a PDF/);
+  });
+
+  it("parses the mofu api subcommands", () => {
+    expect(parseArgs(["api", "docs", "openapi.yaml"])).toEqual({
+      command: "api",
+      sub: "docs",
+      spec: "openapi.yaml",
+    });
+    expect(parseArgs(["api", "diff", "v1.yaml", "v2.yaml", "-m", "x/y"])).toEqual({
+      command: "api",
+      sub: "diff",
+      spec: "v1.yaml",
+      spec2: "v2.yaml",
+      model: "x/y",
+    });
+    expect(
+      parseArgs([
+        "api",
+        "test",
+        "spec.json",
+        "--base-url",
+        "http://localhost:4010",
+        "--auth-header=X-API-Key: k",
+        "--concurrency",
+        "2",
+        "--timeout",
+        "500",
+        "--yes",
+      ]),
+    ).toEqual({
+      command: "api",
+      sub: "test",
+      spec: "spec.json",
+      baseUrl: "http://localhost:4010",
+      authHeader: "X-API-Key: k",
+      concurrency: 2,
+      timeoutMs: 500,
+      yes: true,
+    });
+  });
+
+  it("rejects bad api arguments", () => {
+    expect(() => parseArgs(["api"])).toThrow(/Usage: mofu api/);
+    expect(() => parseArgs(["api", "diff", "only-one.yaml"])).toThrow(/Usage/);
+    expect(() => parseArgs(["api", "test", "s.yaml"])).toThrow(/needs --base-url/);
+    expect(() => parseArgs(["api", "test", "s.yaml", "--base-url", "localhost:3000"])).toThrow(
+      /http/,
+    );
+    expect(() => parseArgs(["api", "docs", "s.yaml", "--base-url", "http://x"])).toThrow(
+      /only apply/,
+    );
+    expect(() =>
+      parseArgs(["api", "test", "s.yaml", "--base-url", "http://x", "--concurrency", "99"]),
+    ).toThrow(/1 to 16/);
+    expect(() =>
+      parseArgs(["api", "test", "s.yaml", "--base-url", "http://x", "--bogus", "1"]),
+    ).toThrow(/Unknown option --bogus/);
+  });
+});

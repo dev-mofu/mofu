@@ -1,0 +1,163 @@
+# v2 changes, one per breaking rule (plus some safe ones):
+# - DELETE /pets/{petId} removed                      (endpoint removed)
+# - POST /store/orders no longer documents 400        (response removed)
+# - GET /pets/{petId} needs header X-Request-Id       (new required parameter)
+# - GET /pets: limit is now required                  (parameter became required)
+# - NewPet.category is a new required field           (new required request field)
+# - Pet.tag removed from responses                    (response field removed)
+# - petId is now a string                             (type changed)
+# - Status no longer allows sold                      (enum narrowed)
+# - GET /store/inventory now needs the API key        (security changed)
+# Safe: new GET /pets/{petId}/photos, new optional query "sort", new response field createdAt.
+openapi: 3.1.0
+info:
+  title: Petstore
+  version: 2.0.0
+servers:
+  - url: http://localhost:4010
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      tags: [pets]
+      parameters:
+        - name: limit
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/Status" }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, id] }
+      responses:
+        "200":
+          description: A list of pets.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Pet" } }
+        "400":
+          description: Invalid query.
+    post:
+      operationId: createPet
+      tags: [pets]
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewPet" }
+      responses:
+        "201":
+          description: The created pet.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pet" }
+        "400":
+          description: Invalid body.
+        "401":
+          description: Missing or wrong API key.
+  /pets/{petId}:
+    parameters:
+      - name: petId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getPet
+      tags: [pets]
+      parameters:
+        - name: X-Request-Id
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The pet.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pet" }
+        "404":
+          description: No pet with that id.
+  /pets/{petId}/photos:
+    get:
+      operationId: listPhotos
+      tags: [pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Photo URLs.
+          content:
+            application/json:
+              schema: { type: array, items: { type: string } }
+  /store/inventory:
+    get:
+      operationId: getInventory
+      tags: [store]
+      security:
+        - apiKey: []
+      responses:
+        "200":
+          description: Counts by status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: integer }
+                  pending: { type: integer }
+                  sold: { type: integer }
+  /store/orders:
+    post:
+      operationId: placeOrder
+      tags: [store]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Order" }
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    Status:
+      type: string
+      enum: [available, pending]
+    NewPet:
+      type: object
+      required: [name, category]
+      properties:
+        name: { type: string, minLength: 1 }
+        category: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        createdAt: { type: string, format: date-time }
+    Order:
+      type: object
+      required: [petId, quantity]
+      properties:
+        id: { type: integer }
+        petId: { type: integer }
+        quantity: { type: integer, minimum: 1 }

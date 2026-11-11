@@ -20,6 +20,9 @@ import {
   fetchPublicPage,
   STUDY_SECTION,
   STUDY_TOOL_SPECS,
+  API_TOOL_SPECS,
+  APIFORGE_SECTION,
+  fetchPublicDocument,
   DEPS_SUMMARY_SECTION,
   RequestMemoryStore,
   startAgentStream,
@@ -129,6 +132,11 @@ const ChatBodySchema = z.object({
         title: z.string().max(300),
         text: z.string().max(LIMITS.maxContextChars),
       }),
+      z.object({
+        kind: z.literal("api-spec"),
+        title: z.string().max(300),
+        text: z.string().max(LIMITS.maxContextChars),
+      }),
     ])
     .optional(),
 });
@@ -190,11 +198,21 @@ export function dataModeSection(context: DevContext): string {
 /** Dev Tools mode on the web: explain a public repository, or review a dependency scan. */
 export function devModeSection(context: DevContext): string {
   const intro =
-    "You are in Dev Tools mode. On the web you can explain public GitHub repositories and review " +
-    "dependency scans. You can't read files beyond what's below, edit code or open pull requests here; " +
+    "You are in Dev Tools mode. On the web you can explain public GitHub repositories, review " +
+    "dependency scans and work with OpenAPI specs (tests, docs, breaking changes). You can't read files beyond what's below, edit code or open pull requests here; " +
     'for that, suggest the Mofu CLI (`npx mofu task "..."` or `npx mofu deps --fix`).';
   if (!context) {
     return `${intro}\n\nNothing is loaded yet. Ask the user to paste a public GitHub URL or scan their dependency files with the panel above the chat.`;
+  }
+  if (context.kind === "api-spec") {
+    // The spec was parsed by Mofu's code in the browser, but its descriptions are user content.
+    return [
+      intro,
+      APIFORGE_SECTION,
+      "On the web, test cases and docs are shown with downloads; running tests against a server is CLI-only " +
+        "(`npx mofu api test <spec> --base-url <url>`). Never claim you ran requests.",
+      `<api_spec>\n${context.text}\n</api_spec>`,
+    ].join("\n\n");
   }
   if (context.kind === "dep-scan") {
     // Scan results come from the browser; package names and summaries are data, not instructions.
@@ -383,7 +401,9 @@ export function createApp(deps: AppDeps = defaultDeps) {
         ? DATA_TOOL_SPECS
         : parsed.data.mode === "study"
           ? STUDY_TOOL_SPECS
-          : [];
+          : parsed.data.mode === "dev" && parsed.data.context?.kind === "api-spec"
+            ? API_TOOL_SPECS
+            : [];
     for (const spec of browserTools) {
       tools[spec.name] = tool({ description: spec.description, inputSchema: spec.inputSchema });
     }
@@ -419,7 +439,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
   // Study Buddy links: fetch a public page for the browser, never anything internal.
   app.post("/fetch-page", async (c) => {
     if (!(await hasSession(c))) return apiError(c, "session_required", "Please verify first.");
-    const body = (await c.req.json().catch(() => null)) as { url?: unknown } | null;
+    const body = (await c.req.json().catch(() => null)) as { url?: unknown; kind?: unknown } | null;
     const url = typeof body?.url === "string" ? body.url.trim() : "";
     if (!url || url.length > 2_000) return apiError(c, "bad_request", "Paste a link to fetch.");
     // Each fetch counts toward the follow-up budget, so the endpoint can't be used as a free proxy.
@@ -431,11 +451,18 @@ export function createApp(deps: AppDeps = defaultDeps) {
         resetAt: usage.resetAt,
       });
     try {
-      const page = await fetchPublicPage(
-        url,
-        (host) => resolveViaDoh(host, deps.fetch),
-        deps.fetch,
-      );
+      const resolve = (host: string) => resolveViaDoh(host, deps.fetch);
+      if (body?.kind === "document") {
+        // A raw JSON/YAML document (an API spec): returned as-is for the browser to parse.
+        const doc = await fetchPublicDocument(url, resolve, deps.fetch);
+        return c.json({
+          url: doc.url,
+          title: new URL(doc.url).pathname.split("/").pop() || "spec",
+          // Already capped at 2 MB by the fetch; cutting a spec would only make it unparseable.
+          text: doc.text,
+        } satisfies FetchedPageResponse);
+      }
+      const page = await fetchPublicPage(url, resolve, deps.fetch);
       return c.json({
         url: page.url,
         title: page.title.slice(0, 300),

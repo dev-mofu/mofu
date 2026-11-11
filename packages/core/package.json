@@ -13,6 +13,11 @@
       "mofu-source": "./src/web.ts",
       "types": "./dist/web.d.ts",
       "default": "./dist/web.js"
+    },
+    "./apiforge": {
+      "mofu-source": "./src/apiforge.ts",
+      "types": "./dist/apiforge.d.ts",
+      "default": "./dist/apiforge.js"
     }
   },
   "scripts": {
@@ -22,7 +27,9 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@cfworker/json-schema": "4.1.1",
     "@openrouter/ai-sdk-provider": "^3.1.0",
+    "@scalar/openapi-parser": "0.29.16",
     "ai": "^7.0.166",
     "diff": "^9.0.0",
     "fast-glob": "^3.3.3",
@@ -30,6 +37,7 @@
     "pdfjs-dist": "6.5.438",
     "pyodide": "314.0.7",
     "semver": "^7.8.6",
+    "yaml": "2.9.1",
     "zod": "^4.6.7"
   },
   "sideEffects": false,

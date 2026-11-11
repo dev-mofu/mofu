@@ -10,6 +10,7 @@ export default defineConfig({
     alias: [
       { find: /^@mofu\/core$/, replacement: core("index.ts") },
       { find: /^@mofu\/core\/web$/, replacement: core("web.ts") },
+      { find: /^@mofu\/core\/apiforge$/, replacement: core("apiforge.ts") },
     ],
   },
   test: {

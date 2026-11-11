@@ -13,6 +13,7 @@ export {
   DEPS_SUMMARY_SECTION,
   DATA_SECTION,
   STUDY_SECTION,
+  APIFORGE_SECTION,
 } from "./prompts/system.js";
 export type { SystemPromptOptions } from "./prompts/system.js";
 export { RequestMemoryStore, memoryForPrompt, MAX_MEMORY_CHARS } from "./memory.js";
@@ -36,3 +37,6 @@ export type { WorkerRequest, WorkerResponse, PyodideLike } from "./data/harness.
 export { PythonSandbox, SandboxTimeoutError } from "./data/sandbox-client.js";
 export type { WorkerPort, SandboxOptions } from "./data/sandbox-client.js";
 export * from "./study/index.js";
+// Light APIForge pieces only; the parser, validator and runner are in @mofu/core/apiforge.
+export * from "./api/specs.js";
+export * from "./api/diff.js";

@@ -10,6 +10,7 @@ import {
 import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
 import { startAnalysis } from "./analyze.js";
 import { startStudy, STUDY_SLASH_HELP, type StudySession } from "./study.js";
+import { prepareApi } from "./api.js";
 import { ArgsError, HELP, parseArgs } from "./args.js";
 import {
   loadConfig,
@@ -156,21 +157,27 @@ async function main(): Promise<number> {
       : null;
   if (args.command === "chat" && args.study && !study) return 1;
 
-  // Chat, task, analyze and deps --fix all run as an interactive session.
+  // mofu api: load (and for diff, compare) specs before any model call.
+  const api = args.command === "api" ? await prepareApi(args, printer) : null;
+  if (args.command === "api" && !api) return 1;
+
+  // Chat, task, analyze, study, api and deps --fix all run through a session.
   const chat =
-    args.command === "deps"
-      ? { initialPrompt: fixPrompt(depsReport!), modeSection: DEPS_FIX_SECTION, maxSteps: 40 }
-      : analysis
-        ? { modeSection: analysis.modeSection, maxSteps: 30 }
-        : study
-          ? { modeSection: study.modeSection, maxSteps: 20 }
-          : {
-              prompt: args.prompt,
-              initialPrompt: args.initialPrompt,
-              // Coding tasks need room for edits, test runs and fixes in one turn.
-              modeSection: args.task ? REPOPILOT_TASK_SECTION : undefined,
-              maxSteps: args.task ? 40 : 20,
-            };
+    args.command === "api"
+      ? { modeSection: api!.modeSection, maxSteps: api!.maxSteps }
+      : args.command === "deps"
+        ? { initialPrompt: fixPrompt(depsReport!), modeSection: DEPS_FIX_SECTION, maxSteps: 40 }
+        : analysis
+          ? { modeSection: analysis.modeSection, maxSteps: 30 }
+          : study
+            ? { modeSection: study.modeSection, maxSteps: 20 }
+            : {
+                prompt: args.prompt,
+                initialPrompt: args.initialPrompt,
+                // Coding tasks need room for edits, test runs and fixes in one turn.
+                modeSection: args.task ? REPOPILOT_TASK_SECTION : undefined,
+                maxSteps: args.task ? 40 : 20,
+              };
 
   const terminal = new Terminal();
   const memory = new FileMemoryStore(memoryPath());
@@ -185,6 +192,7 @@ async function main(): Promise<number> {
     ...(chat.modeSection && { modeSection: chat.modeSection }),
     ...(analysis && { extraTools: analysis.tools, approveAllOffer: ["run_python"] }),
     ...(study && { extraTools: study.tools }),
+    ...(api && { extraTools: api.tools }),
   });
 
   // Ctrl+C stops a running reply; at the prompt it closes input, which ends the loop below.
@@ -197,7 +205,11 @@ async function main(): Promise<number> {
   });
 
   try {
-    if (chat.prompt) return (await session.send(chat.prompt)) ? 0 : 1;
+    if ("prompt" in chat && chat.prompt) return (await session.send(chat.prompt)) ? 0 : 1;
+    if (api) {
+      const outcome = await api.run({ session, terminal, apiKey, model });
+      if (outcome !== "chat") return outcome;
+    }
 
     printer.line(
       `${pc.bold(pc.magenta("mofu"))} ${pc.dim(`· ${session.model} · ${process.cwd()}`)}`,

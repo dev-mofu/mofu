@@ -41,6 +41,7 @@ export {
   DEPS_FIX_SECTION,
   DATA_SECTION,
   STUDY_SECTION,
+  APIFORGE_SECTION,
 } from "./prompts/system.js";
 export { readLocalManifests, scanWorkspace } from "./tools/deps-tool.js";
 export { ALL_TOOLS, createDefaultRegistry } from "./tools/all.js";
@@ -54,3 +55,4 @@ export * from "./data/enrich.js";
 export { NodePythonSandbox, SandboxTimeoutError } from "./data/node-sandbox.js";
 export { createDataTools } from "./data/cli-tools.js";
 export * from "./study/index.js";
+export * from "./api/index.js";
