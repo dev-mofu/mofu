@@ -40,7 +40,7 @@ Run these from `apps/web`. Each asks you to paste the value; nothing is saved in
 
 ```sh
 cd apps/web
-npx wrangler whoami                        # should show your account (your Cloudflare account)
+npx wrangler whoami                        # should show your Cloudflare account
 npx wrangler secret put OPENROUTER_API_KEY # the production key from step 1
 npx wrangler secret put TURNSTILE_SECRET_KEY # the Turnstile secret from step 2
 npx wrangler secret put SESSION_SECRET     # 32+ random characters, see below
