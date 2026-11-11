@@ -8,11 +8,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { formatScanForModel, scanDependencies } from "@mofu/core/web";
-import { formatTokenScanForModel } from "../shared/token-scan-text.js";
+import { formatTokenScanForModel, formatTxForModel } from "../shared/token-scan-text.js";
+import { explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import type { AppDeps } from "./app.js";
 import { parseRpcUrls } from "./chain.js";
 import { isAddress } from "./holder.js";
-import { scanToken } from "./token-scan.js";
+import { scanToken, summaryOnly } from "./token-scan.js";
 
 export const MCP_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const DEFAULT_VERSION = "2025-06-18";
@@ -25,6 +26,7 @@ const MAX_TOTAL_CHARS = 600_000;
 
 const INSTRUCTIONS =
   "Mofu's tools read real data and return facts: scan_token reads a token contract on Robinhood Chain, " +
+  "explain_transaction decodes a Robinhood Chain transaction, " +
   "check_dependencies looks up known vulnerabilities for a project's packages. Report what the results " +
   "say and what they can't see. For tokens, never give buy, sell or price advice and never call a token " +
   "safe: describe what the contract's code allows.";
@@ -99,6 +101,32 @@ const TOOLS = [
       openWorldHint: true,
     },
   },
+  {
+    name: "explain_transaction",
+    title: "Explain a Robinhood Chain transaction",
+    description:
+      "Decode a transaction on Robinhood Chain (chain ID 4663): status, sender and target, ETH value and fee, " +
+      "every token transfer (mints and burns marked), approvals (who may now move which tokens, unlimited " +
+      "ones flagged, spenders that are plain wallets flagged) and other events. Deterministic, not AI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        hash: {
+          type: "string",
+          description: "Transaction hash: 0x followed by 64 hex characters.",
+          pattern: "^0x[0-9a-fA-F]{64}$",
+        },
+      },
+      required: ["hash"],
+      additionalProperties: false,
+    },
+    annotations: {
+      title: "Explain a Robinhood Chain transaction",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
 ] as const;
 
 const Message = z.object({
@@ -146,6 +174,17 @@ const mcpDailyLimit = (env: Env) =>
 
 export function createMcpApp(deps: AppDeps) {
   const app = new Hono<{ Bindings: Env }>();
+  const chainData = (env: Env, urls: readonly string[]): ChainDataOptions | undefined => {
+    const apiKey = (env as Env & { GOLDRUSH_API_KEY?: string }).GOLDRUSH_API_KEY;
+    return apiKey
+      ? {
+          apiKey,
+          chain: String(env.GOLDRUSH_CHAIN ?? "robinhood-mainnet"),
+          rpcUrls: urls,
+          fetch: deps.fetch,
+        }
+      : undefined;
+  };
 
   app.use("*", async (c, next) => {
     await next();
@@ -197,7 +236,16 @@ export function createMcpApp(deps: AppDeps) {
       }
       const urls = parseRpcUrls(c.env.HOLDER_RPC_URL);
       try {
-        const report = await scanToken(urls, parsed.data.address, deps.fetch);
+        const data = chainData(c.env, urls);
+        // MCP has no wallet login, so it gets the holder summary, not the full holder report.
+        const report = summaryOnly(
+          await scanToken(
+            urls,
+            parsed.data.address,
+            deps.fetch,
+            data && { ...data, now: deps.now() },
+          ),
+        );
         return {
           content: [
             {
@@ -209,6 +257,29 @@ export function createMcpApp(deps: AppDeps) {
         };
       } catch {
         return toolText("Couldn't reach Robinhood Chain right now. Try again in a minute.", true);
+      }
+    }
+
+    if (name === "explain_transaction") {
+      const hash = String((args as { hash?: unknown } | null)?.hash ?? "")
+        .trim()
+        .toLowerCase();
+      if (!/^0x[0-9a-f]{64}$/.test(hash)) {
+        return toolText("hash must be a transaction hash: 0x followed by 64 hex characters.", true);
+      }
+      const data = chainData(c.env, parseRpcUrls(c.env.HOLDER_RPC_URL));
+      if (!data) return toolText("The transaction explainer isn't available right now.", true);
+      try {
+        const report = await explainTransaction(data, hash);
+        return {
+          content: [{ type: "text", text: formatTxForModel(report) }],
+          structuredContent: report as unknown as Record<string, unknown>,
+        };
+      } catch {
+        return toolText(
+          "That transaction couldn't be read. Check the hash, or try again in a minute.",
+          true,
+        );
       }
     }
 

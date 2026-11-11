@@ -9,6 +9,7 @@
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import type { TokenCheck, TokenScanReport } from "../shared/api.js";
 import { ethCall, RevertError, rpcCall } from "./chain.js";
+import { tokenOrigin, topHolders, type ChainDataOptions } from "./chain-data.js";
 
 export const CHAIN_NAME = "Robinhood Chain";
 
@@ -191,11 +192,13 @@ export async function scanToken(
   urls: readonly string[],
   address: string,
   fetchFn: typeof fetch,
+  /** GoldRush access for holders and origin; without it the report says they're unavailable. */
+  data?: ChainDataOptions & { now: number },
 ): Promise<TokenScanReport> {
   const addr = address.toLowerCase();
   const code = await rpcCall<string>(urls, "eth_getCode", [addr, "latest"], fetchFn);
   const codeSize = code && code !== "0x" ? (code.length - 2) / 2 : 0;
-  const base: Omit<TokenScanReport, "checks" | "verdict"> = {
+  const base: Omit<TokenScanReport, "checks" | "verdict" | "distribution" | "origin"> = {
     address: addr,
     chainName: CHAIN_NAME,
     isContract: codeSize > 0,
@@ -207,8 +210,13 @@ export async function scanToken(
     limits: [
       "Checks look for common function names in the contract's code. A contract that hides or renames them can't be fully judged this way.",
       "Liquidity, price and trading activity aren't part of this scan.",
-      "Holder distribution isn't included yet.",
     ],
+  };
+  const noDistribution = {
+    status: "unavailable" as const,
+    top10Percent: null,
+    largestWallet: null,
+    holders: [],
   };
   if (codeSize === 0) {
     return {
@@ -222,6 +230,8 @@ export async function scanToken(
         },
       ],
       verdict: "risky",
+      distribution: noDistribution,
+      origin: null,
     };
   }
 
@@ -448,6 +458,56 @@ export async function scanToken(
         },
   ];
 
+  // Who holds the supply and who made the token (GoldRush). Failures just leave them out.
+  let distribution: TokenScanReport["distribution"] = noDistribution;
+  let origin: TokenScanReport["origin"] = null;
+  if (data && supply !== null) {
+    const [holders, from] = await Promise.all([
+      topHolders(data, addr, 10).catch(() => null),
+      tokenOrigin(data, addr, supply, decimals ?? 18, data.now).catch(() => null),
+    ]);
+    origin = from;
+    if (holders && holders.length) {
+      const real = holders.filter((h) => h.kind !== "burn");
+      const largest = holders.find((h) => h.kind === "wallet") ?? null;
+      distribution = {
+        status: "full",
+        top10Percent: Math.round(real.reduce((n, h) => n + h.percent, 0) * 100) / 100,
+        largestWallet: largest ? { address: largest.address, percent: largest.percent } : null,
+        holders,
+      };
+      const pools = holders.filter((h) => h.kind === "contract" && h.percent >= 5);
+      const poolNote = pools.length
+        ? ` Contracts hold ${pools.map((p) => `${Number(p.percent.toFixed(2))}%`).join(" and ")}: usually the liquidity pool or launch curve.`
+        : "";
+      const lw = Number((largest?.percent ?? 0).toFixed(2));
+      checks.push(
+        lw > 20
+          ? {
+              id: "concentration",
+              label: "Does one wallet hold too much?",
+              status: "risk",
+              detail: `Yes. One wallet (${largest!.address}) holds ${lw}% of the supply and could move the market on its own.${poolNote}`,
+            }
+          : lw > 10
+            ? {
+                id: "concentration",
+                label: "Does one wallet hold too much?",
+                status: "warn",
+                detail: `The biggest wallet (${largest!.address}) holds ${lw}% of the supply.${poolNote}`,
+              }
+            : {
+                id: "concentration",
+                label: "Does one wallet hold too much?",
+                status: "ok",
+                detail: `No wallet holds more than 10% (the biggest has ${lw}%).${poolNote}`,
+              },
+      );
+    }
+  }
+  if (distribution.status === "unavailable")
+    base.limits.push("Holder distribution couldn't be read right now.");
+
   const verdict = checks.some((c) => c.status === "risk")
     ? "risky"
     : checks.some((c) => c.status === "warn")
@@ -461,5 +521,17 @@ export async function scanToken(
     burnedPercent,
     checks,
     verdict,
+    distribution,
+    origin,
+  };
+}
+
+/** The free version of a report: holder summary only, no list and no origin. */
+export function summaryOnly(r: TokenScanReport): TokenScanReport {
+  if (r.distribution.status !== "full") return r;
+  return {
+    ...r,
+    distribution: { ...r.distribution, status: "summary", holders: [] },
+    origin: null,
   };
 }

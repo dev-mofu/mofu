@@ -9,6 +9,7 @@ import {
   type PublicConfig,
   type SessionResponse,
   type TokenScanResponse,
+  type TxResponse,
   type UsageInfo,
 } from "../../shared/api.js";
 
@@ -75,4 +76,11 @@ export const scanTokenAddress = (address: string) =>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ address }),
+  });
+
+export const explainTx = (hash: string) =>
+  request<TxResponse>("/api/tx", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hash }),
   });

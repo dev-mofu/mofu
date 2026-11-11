@@ -294,6 +294,19 @@ npx mofu-cli          # chat in the current folder</code></pre>
             Share a scan with its link: <code>mofu.works/app/?scan=0x…</code>.
           </p>
           <p>
+            With the full report (for $MOFU holders) you also see the top 10 holders, with pools and
+            burned tokens labeled, and who created the token: the creator wallet, how old it is, how
+            much it still holds and whether it launched other tokens through the same launcher.
+            Everyone sees the top 10 share and a flag when one wallet holds more than 10% or 20%.
+          </p>
+          <h3>Explain a transaction</h3>
+          <p>
+            Paste a transaction hash in the same box (0x plus 64 characters). Mofu decodes it: who
+            sent what to whom, mints and burns, and approvals. Unlimited approvals and approvals to
+            plain wallets are flagged, since that's how most wallet drains start. Share it with
+            <code>mofu.works/app/?tx=0x…</code>.
+          </p>
+          <p>
             It looks for common function names, so a contract that hides or renames them can't be
             fully judged, and it doesn't cover liquidity, price or holder distribution. It's a
             technical check, not financial advice.
@@ -312,7 +325,11 @@ npx mofu-cli          # chat in the current folder</code></pre>
             <li>
               <strong>scan_token</strong>: the Token Scanner. Give it a contract address on
               Robinhood Chain and it reports what the code allows (mint, pause, blacklist, fees,
-              limits, upgrades, owner, burned share).
+              limits, upgrades, owner, burned share) and how concentrated the holders are.
+            </li>
+            <li>
+              <strong>explain_transaction</strong>: give it a Robinhood Chain transaction hash and
+              it decodes the transfers, mints, burns and approvals, flagging risky approvals.
             </li>
             <li>
               <strong>check_dependencies</strong>: give it package.json, package-lock.json,
@@ -321,7 +338,7 @@ npx mofu-cli          # chat in the current folder</code></pre>
             </li>
           </ul>
           <p>
-            Both are Mofu's own code reading real data, not a model. Your AI app explains the
+            All three are Mofu's own code reading real data, not a model. Your AI app explains the
             results. Up to 50 tool calls a day per IP address, no account needed.
           </p>
           <h3>Claude Code</h3>

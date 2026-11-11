@@ -27,10 +27,11 @@ import {
   fetchPage,
   fetchUsage,
   scanTokenAddress,
+  explainTx,
 } from "./lib/api.js";
-import { TokenPanel, TokenReport } from "./components/TokenScan.js";
-import { formatTokenScanForModel } from "../shared/token-scan-text.js";
-import type { TokenScanReport } from "../shared/api.js";
+import { TokenPanel, TokenReport, TxReportView } from "./components/TokenScan.js";
+import { formatTokenScanForModel, formatTxForModel } from "../shared/token-scan-text.js";
+import type { TokenScanReport, TxReport } from "../shared/api.js";
 import { StudyPanel } from "./components/StudyPanel.js";
 import { ApiPanel } from "./components/ApiPanel.js";
 import { ApiResults } from "./components/ApiResults.js";
@@ -144,6 +145,7 @@ export function App() {
     report: TokenScanReport;
     remaining: number | null;
   } | null>(null);
+  const [txScan, setTxScan] = useState<{ report: TxReport; remaining: number | null } | null>(null);
   const [tokenScanning, setTokenScanning] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [depScan, setDepScan] = useState<{ report: ScanReport; source: string } | null>(null);
@@ -169,6 +171,7 @@ export function App() {
   const [apiVersion, setApiVersion] = useState(0);
 
   const latest = useRef({
+    txScan,
     tokenScan,
     settings,
     memory,
@@ -182,6 +185,7 @@ export function App() {
     apiContext,
   });
   latest.current = {
+    txScan,
     tokenScan,
     settings,
     memory,
@@ -243,6 +247,9 @@ export function App() {
               title: latest.current.api.index.title,
               text: latest.current.apiContext,
             };
+          } else if (m === "dev" && tool === "token" && latest.current.txScan) {
+            const tx = latest.current.txScan.report;
+            context = { kind: "tx", title: tx.hash.slice(0, 18), text: formatTxForModel(tx) };
           } else if (m === "dev" && tool === "token" && latest.current.tokenScan) {
             const rep = latest.current.tokenScan.report;
             context = {
@@ -627,6 +634,7 @@ export function App() {
     setTokenScanning(true);
     try {
       const res = await scanTokenAddress(address);
+      setTxScan(null);
       setTokenScan({ report: res.report, remaining: res.remaining });
       // Show the report from its top, also on small screens where the thread scrolls.
       window.setTimeout(() => {
@@ -640,11 +648,41 @@ export function App() {
       setCelebrating(true);
       window.setTimeout(() => setCelebrating(false), 2500);
       const url = new URL(location.href);
+      url.searchParams.delete("tx");
       url.searchParams.set("scan", res.report.address);
       history.replaceState(null, "", url);
     } catch (err) {
       setTokenError(
         err instanceof ApiRequestError ? err.message : "Couldn't scan that address. Try again.",
+      );
+    } finally {
+      setTokenScanning(false);
+    }
+  };
+
+  const explainTransaction = async (hash: string) => {
+    setTokenError(null);
+    if (!(await ensureSession())) return;
+    setTokenScanning(true);
+    try {
+      const res = await explainTx(hash);
+      setTokenScan(null);
+      setTxScan({ report: res.report, remaining: res.remaining });
+      window.setTimeout(() => {
+        document.querySelector(".token-report")?.scrollIntoView({ block: "start" });
+      }, 50);
+      if (messages.length > 0) {
+        if (busy) void stop();
+        clearError();
+        setMessages([]);
+      }
+      const url = new URL(location.href);
+      url.searchParams.delete("scan");
+      url.searchParams.set("tx", res.report.hash);
+      history.replaceState(null, "", url);
+    } catch (err) {
+      setTokenError(
+        err instanceof ApiRequestError ? err.message : "Couldn't read that transaction. Try again.",
       );
     } finally {
       setTokenScanning(false);
@@ -662,6 +700,13 @@ export function App() {
       setMode("dev");
       setDevTool("token");
       void scanToken(target);
+      return;
+    }
+    const txHash = params.get("tx");
+    if (txHash && /^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+      setMode("dev");
+      setDevTool("token");
+      void explainTransaction(txHash);
       return;
     }
     // Links from Mofu Town and elsewhere: ?mode=data|study|dev, ?tool=…, ?open=holder.
@@ -724,20 +769,26 @@ export function App() {
   const apiMode = mode === "dev" && devTool === "api";
   const tokenMode = mode === "dev" && devTool === "token";
   const emptyCopy = tokenMode
-    ? tokenScan
+    ? txScan
       ? {
-          title: "Ask about this token",
-          body: "Mofu explains what the contract can and can't do. It won't tell you to buy or sell.",
-          suggestions: [
-            "What's the biggest risk in this contract?",
-            "Explain these findings like I'm new to crypto",
-          ],
+          title: "Ask about this transaction",
+          body: "Mofu explains what happened and what any approval allows. It won't tell you to buy or sell.",
+          suggestions: ["Is any approval here risky?", "Explain this like I'm new to crypto"],
         }
-      : {
-          title: "Scan a token on Robinhood Chain",
-          body: "Paste a contract address above. Mofu reads the contract straight from the chain: can it mint more tokens, pause transfers, block wallets, change fees or swap its code? You get a plain-English report in seconds.",
-          suggestions: [],
-        }
+      : tokenScan
+        ? {
+            title: "Ask about this token",
+            body: "Mofu explains what the contract can and can't do. It won't tell you to buy or sell.",
+            suggestions: [
+              "What's the biggest risk in this contract?",
+              "Explain these findings like I'm new to crypto",
+            ],
+          }
+        : {
+            title: "Scan a token or explain a transaction",
+            body: "Paste a token address to see what its contract can do and who holds it, or a transaction hash to see in plain English what it did, approvals included. Everything is read from Robinhood Chain.",
+            suggestions: [],
+          }
     : apiMode
       ? api
         ? {
@@ -937,11 +988,13 @@ export function App() {
               ))}
             </div>
             {devTool === "token" ? (
-              !tokenScan && (
+              !tokenScan &&
+              !txScan && (
                 <TokenPanel
                   scanning={tokenScanning}
                   error={tokenError}
                   onScan={(a) => void scanToken(a)}
+                  onTx={(h) => void explainTransaction(h)}
                 />
               )
             ) : devTool === "api" ? (
@@ -1029,6 +1082,27 @@ export function App() {
               setTokenError(null);
               const url = new URL(location.href);
               url.searchParams.delete("scan");
+              history.replaceState(null, "", url);
+              if (messages.length > 0) newChat();
+            }}
+            onUnlock={() => setDialog("settings")}
+          />
+        )}
+        {tokenMode && txScan && (
+          <TxReportView
+            report={txScan.report}
+            remaining={txScan.remaining}
+            busy={busy}
+            onExplain={() =>
+              void send(
+                "Explain this transaction in plain language: what happened, who received what, and whether any approval in it is risky.",
+              )
+            }
+            onClear={() => {
+              setTxScan(null);
+              setTokenError(null);
+              const url = new URL(location.href);
+              url.searchParams.delete("tx");
               history.replaceState(null, "", url);
               if (messages.length > 0) newChat();
             }}

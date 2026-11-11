@@ -83,7 +83,9 @@ export type ChatContext =
   /** APIForge: the endpoint list of a spec parsed in the browser, plus a breaking-change diff when one was made. */
   | { kind: "api-spec"; title: string; text: string }
   /** Token Scanner: a report built from Robinhood Chain data. */
-  | { kind: "token-scan"; title: string; text: string };
+  | { kind: "token-scan"; title: string; text: string }
+  /** Transaction explainer: a decoded Robinhood Chain transaction. */
+  | { kind: "tx"; title: string; text: string };
 
 export interface FetchedPageResponse {
   url: string;
@@ -158,7 +160,16 @@ export function parseApiError(err: unknown): ApiError | null {
 
 /** One line of a token scan: a question about what the contract can do, and the answer. */
 export interface TokenCheck {
-  id: "mint" | "pause" | "blacklist" | "fees" | "limits" | "upgrade" | "owner" | "destroy";
+  id:
+    | "mint"
+    | "pause"
+    | "blacklist"
+    | "fees"
+    | "limits"
+    | "upgrade"
+    | "owner"
+    | "destroy"
+    | "concentration";
   label: string;
   status: "ok" | "warn" | "risk" | "info";
   detail: string;
@@ -188,6 +199,10 @@ export interface TokenScanReport {
   burnedPercent: number | null;
   checks: TokenCheck[];
   verdict: "clean" | "caution" | "risky";
+  /** Who holds the supply. "full" for $MOFU holders, "summary" for everyone else. */
+  distribution: TokenDistribution;
+  /** Who created the token; only in the full report. */
+  origin: TokenOrigin | null;
   /** What this scan can't see. */
   limits: string[];
 }
@@ -195,6 +210,87 @@ export interface TokenScanReport {
 export interface TokenScanResponse {
   report: TokenScanReport;
   /** Scans left today for this IP or holder wallet. */
+  remaining: number;
+  limit: number;
+}
+
+export interface TokenHolder {
+  address: string;
+  /** Whole tokens. */
+  balance: string;
+  /** Share of supply, 0–100. */
+  percent: number;
+  kind: "wallet" | "contract" | "burn";
+}
+
+export interface TokenDistribution {
+  status: "full" | "summary" | "unavailable";
+  /** Share of supply held by the top 10 holders that aren't burn addresses. */
+  top10Percent: number | null;
+  /** The biggest plain wallet (not a contract, not burned). */
+  largestWallet: { address: string; percent: number } | null;
+  /** The top holders; empty unless status is "full". */
+  holders: TokenHolder[];
+}
+
+export interface TokenOrigin {
+  creator: string;
+  /** The launchpad contract the creator called, when the token was minted in that call. */
+  launcher: string | null;
+  creationTx: string;
+  createdAt: string | null;
+  creatorFirstSeen: string | null;
+  creatorAgeDays: number | null;
+  creatorTxCount: number | null;
+  /** Whole tokens the creator still holds. */
+  creatorHolds: string | null;
+  creatorHoldsPercent: number | null;
+  /** Other tokens the creator launched through the same launcher, in its latest 100 transactions. */
+  otherLaunches: string[];
+  otherLaunchCount: number;
+}
+
+export interface TxTransfer {
+  token: string;
+  symbol: string | null;
+  from: string;
+  to: string;
+  /** Human amount, already scaled by decimals. */
+  amount: string;
+  mint: boolean;
+  burn: boolean;
+}
+
+export interface TxApproval {
+  token: string;
+  symbol: string | null;
+  owner: string;
+  spender: string;
+  /** Human amount, "unlimited", "all items" or "revoked". */
+  amount: string;
+  unlimited: boolean;
+  spenderIsContract: boolean | null;
+}
+
+/** Transaction explainer report, decoded by Mofu's code (no model). */
+export interface TxReport {
+  hash: string;
+  chainName: string;
+  status: "success" | "failed";
+  time: string | null;
+  from: string;
+  to: string | null;
+  toIsContract: boolean | null;
+  valueEth: string;
+  feeEth: string;
+  transfers: TxTransfer[];
+  approvals: TxApproval[];
+  otherEvents: string[];
+  flags: Array<{ level: "warn" | "risk"; text: string }>;
+}
+
+export interface TxResponse {
+  report: TxReport;
   remaining: number;
   limit: number;
 }

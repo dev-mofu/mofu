@@ -91,7 +91,11 @@ describe("MCP server", () => {
     const list = (await (await post(req(3, "tools/list"))).json()) as {
       result: { tools: Array<{ name: string; annotations: { readOnlyHint: boolean } }> };
     };
-    expect(list.result.tools.map((t) => t.name)).toEqual(["scan_token", "check_dependencies"]);
+    expect(list.result.tools.map((t) => t.name)).toEqual([
+      "scan_token",
+      "check_dependencies",
+      "explain_transaction",
+    ]);
     expect(list.result.tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
   });
 

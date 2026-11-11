@@ -1673,3 +1673,145 @@ textarea {
 .token-check--info .token-check-icon {
   color: var(--muted);
 }
+
+/* Token Scanner, full report and transaction explainer */
+.token-section h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+}
+
+.token-addr-link {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--muted);
+}
+
+.token-addr-link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.holder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.holder {
+  display: grid;
+  grid-template-columns: 2.2rem auto 1fr minmax(60px, 160px) 4.2rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+}
+
+.holder-rank {
+  color: var(--muted);
+  font-family: var(--font-led, ui-monospace, monospace);
+}
+
+.holder-kind {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.holder-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.holder-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ffc2dc, var(--accent));
+}
+
+.holder--contract .holder-bar > span {
+  background: #8f86a8;
+}
+
+.holder--burn .holder-bar > span {
+  background: #5a5358;
+}
+
+.holder-pct {
+  text-align: right;
+}
+
+.origin-facts,
+.tx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.origin-facts span:first-child {
+  display: inline-block;
+  min-width: 8.5rem;
+  color: var(--muted);
+}
+
+.tx-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.tx-route {
+  color: var(--muted);
+}
+
+.tx-route em {
+  font-style: normal;
+  color: var(--text);
+}
+
+.tx-approval--unlimited {
+  border-color: color-mix(in srgb, var(--bad) 60%, transparent) !important;
+  background: color-mix(in srgb, var(--bad) 8%, transparent);
+}
+
+.flag-text {
+  color: var(--text) !important;
+  font-size: 0.9rem !important;
+  margin: 0 !important;
+}
+
+.token-locked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed color-mix(in srgb, #ffd166 60%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, #ffd166 6%, transparent);
+  font-size: 0.9rem;
+}
+
+.token-locked p {
+  margin: 0;
+  flex: 1 1 18rem;
+}
+
+@media (max-width: 560px) {
+  .holder {
+    grid-template-columns: 2rem 1fr 4rem;
+  }
+  .holder-kind,
+  .holder-bar {
+    display: none;
+  }
+}
