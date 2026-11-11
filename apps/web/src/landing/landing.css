@@ -1110,8 +1110,10 @@ h3 {
     transform 0.6s ease;
 }
 
-.js .revealed li,
-.js .revealed details {
+/* Same selectors as the hiding rule above plus .revealed, so this always wins. */
+.js .steps[data-reveal].revealed li,
+.js .privacy[data-reveal].revealed li,
+.js .faq[data-reveal].revealed details {
   opacity: 1;
   transform: none;
 }
