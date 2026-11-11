@@ -6,6 +6,8 @@ import "./town.css";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { buildMascotGrid, MASCOT_COLORS } from "../shared/sprite.js";
+import { createMofu } from "./mofu3d.js";
+import { pavingTexture, roofTexture, wallTexture, type WallKind } from "./textures.js";
 import { PLACES, type Place } from "./places.js";
 
 const MOFU_CA = "0xf76593c1c321c2a2f77775025e9677999ce7ea8c";
@@ -165,7 +167,16 @@ function mascotMesh(scale: number): THREE.InstancedMesh {
       const depth = Math.max(1, Math.round(5 * Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))) + 1);
       for (let z = -depth; z <= depth; z++) {
         const isFront = z === depth;
-        const c = face.has(ch) ? (isFront ? color : MASCOT_COLORS.W!) : color;
+        const isBack = z === -depth;
+        // The sprite's dark outline only belongs on the front and back faces; inside, Mofu is
+        // white body, so it doesn't show as a dark slab from above or the side.
+        const c = face.has(ch)
+          ? isFront
+            ? color
+            : MASCOT_COLORS.W!
+          : ch === "O" && !isFront && !isBack
+            ? MASCOT_COLORS.L!
+            : color;
         // Unlit voxels keep the sprite's exact colors; a little shade gives the round body depth.
         const shade = 0.8 + 0.2 * ((z + depth) / (2 * depth)) - (y > rows - 4 ? 0.06 : 0);
         cells.push({ x, y, z, color: c, shade });
@@ -202,6 +213,25 @@ interface BuiltPlace {
 }
 
 const BUILDING_R = 18;
+
+const WALLS: Record<Place["id"], { kind: WallKind; color: string }> = {
+  data: { kind: "concrete", color: "#6f8a90" },
+  study: { kind: "brick", color: "#8a4652" },
+  dev: { kind: "metal", color: "#7a6a58" },
+  scanner: { kind: "glass", color: "#5a3a5a" },
+  holder: { kind: "stone", color: "#b19a6a" },
+  mcp: { kind: "panel", color: "#566a8c" },
+};
+const doorWidth = (id: Place["id"]) => (id === "dev" ? 3.4 : 1.8);
+
+function shadowsOn(o: THREE.Object3D) {
+  o.traverse((m) => {
+    if ((m as THREE.Mesh).isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
+}
 const PLAZA_R = 27;
 
 function buildPlace(p: Place, i: number): BuiltPlace {
@@ -213,17 +243,52 @@ function buildPlace(p: Place, i: number): BuiltPlace {
   const H = { data: 7, study: 8, dev: 6, scanner: 12, holder: 6.5, mcp: 8 }[p.id];
   const base = 0.4;
   v.box(0, 0, 0, W + 0.8, base, D + 0.8, "#241d2a");
-  v.box(0, base, 0, W, H, D, p.wall);
+  const surface = WALLS[p.id];
+  const tex = wallTexture(surface.kind, surface.color, 11 + i * 7);
+  tex.map.repeat.set(W / 3.2, H / 3.2);
+  tex.bump.repeat.copy(tex.map.repeat);
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(W, H, D),
+    new THREE.MeshStandardMaterial({
+      map: tex.map,
+      bumpMap: tex.bump,
+      bumpScale: surface.kind === "glass" ? 0.6 : 2.2,
+      roughness: surface.kind === "glass" ? 0.25 : surface.kind === "metal" ? 0.55 : 0.92,
+      metalness: surface.kind === "glass" ? 0.35 : surface.kind === "metal" ? 0.35 : 0,
+    }),
+  );
+  wall.position.y = base + H / 2;
   // corner pillars and a glowing trim under the roof
   for (const sx of [-1, 1])
     for (const sz of [-1, 1]) v.box((sx * W) / 2, base, (sz * D) / 2, 0.45, H, 0.45, "#1e1922");
   v.box(0, base + H - 0.3, D / 2 + 0.04, W, 0.16, 0.08, p.color, true);
   v.box(W / 2 + 0.04, base + H - 0.3, 0, 0.08, 0.16, D, p.color, true);
   v.box(-W / 2 - 0.04, base + H - 0.3, 0, 0.08, 0.16, D, p.color, true);
-  v.box(0, base + H, 0, W + 0.5, 0.35, D + 0.5, "#1a1520");
+  const roofTex = roofTexture(40 + i);
+  roofTex.map.repeat.set((W + 0.5) / 3, (D + 0.5) / 3);
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(W + 0.5, 0.35, D + 0.5),
+    new THREE.MeshStandardMaterial({
+      map: roofTex.map,
+      bumpMap: roofTex.bump,
+      bumpScale: 1.5,
+      roughness: 0.95,
+    }),
+  );
+  roof.position.y = base + H + 0.175;
+  // a low parapet around the roof edge
+  for (const [px, pz, pw, pd] of [
+    [0, D / 2 + 0.2, W + 0.5, 0.12],
+    [0, -D / 2 - 0.2, W + 0.5, 0.12],
+    [W / 2 + 0.2, 0, 0.12, D + 0.5],
+    [-W / 2 - 0.2, 0, 0.12, D + 0.5],
+  ] as const)
+    v.box(px, base + H + 0.35, pz, pw, 0.35, pd, "#2c2532");
+  // the step in front of the door
+  v.box(0, 0.4, D / 2 + 0.45, doorWidth(p.id) + 0.8, 0.14, 0.8, "#3a3340");
 
   // door with a glowing frame
-  const doorW = p.id === "dev" ? 3.4 : 1.8;
+  const doorW = doorWidth(p.id);
   v.box(0, base, D / 2 + 0.03, doorW, 2.6, 0.1, "#100c13");
   v.box(0, base + 2.6, D / 2 + 0.06, doorW + 0.3, 0.14, 0.08, p.color, true);
   v.box(-doorW / 2 - 0.08, base, D / 2 + 0.06, 0.14, 2.7, 0.08, p.color, true);
@@ -235,9 +300,29 @@ function buildPlace(p: Place, i: number): BuiltPlace {
   // windows: warm or neon when lit, dark otherwise
   const win = (x: number, y: number, z: number, side: boolean) => {
     const lit = R() > 0.28;
-    const color = lit ? (R() > 0.5 ? "#ffd9a8" : p.color) : "#1b1620";
-    if (side) v.box(x, y, z, 0.08, 0.9, 0.7, color, lit);
-    else v.box(x, y, z, 0.7, 0.9, 0.08, color, lit);
+    const pick = R();
+    const color = lit
+      ? pick > 0.62
+        ? "#ffd9a8"
+        : pick > 0.4
+          ? "#ffe9c9"
+          : pick > 0.25
+            ? "#cfe0ff"
+            : p.color
+      : "#1b1620";
+    const frame = "#17121b";
+    if (side) {
+      const out = Math.sign(x);
+      v.box(x, y - 0.08, z, 0.1, 1.06, 0.86, frame);
+      v.box(x + out * 0.03, y, z, 0.08, 0.9, 0.7, color, lit);
+      v.box(x + out * 0.08, y - 0.14, z, 0.18, 0.08, 0.96, "#4a4250");
+      if (lit && R() > 0.5) v.box(x + out * 0.06, y + 0.42, z, 0.06, 0.06, 0.7, "#2a2030");
+    } else {
+      v.box(x, y - 0.08, z, 0.86, 1.06, 0.1, frame);
+      v.box(x, y, z + 0.03, 0.7, 0.9, 0.08, color, lit);
+      v.box(x, y - 0.14, z + 0.08, 0.96, 0.08, 0.18, "#4a4250");
+      if (lit && R() > 0.5) v.box(x, y + 0.42, z + 0.06, 0.7, 0.06, 0.06, "#2a2030");
+    }
   };
   for (let y = base + 3.4; y < base + H - 1.2; y += 1.6) {
     for (let x = -W / 2 + 1.1; x <= W / 2 - 1; x += 1.3) win(x, y, D / 2 + 0.05, false);
@@ -360,8 +445,84 @@ function buildPlace(p: Place, i: number): BuiltPlace {
       .box(0.35, base + 4.3, D / 2 + 0.06, 0.18, 0.6, 0.1, p.color, true);
   }
 
+  // rooftop machinery
+  const R2 = rng(500 + i);
+  if (p.id !== "scanner" && p.id !== "study") {
+    const ax = -W / 2 + 1.4 + R2() * 1.2,
+      az = -D / 2 + 1.3;
+    v.box(ax, top, az, 1.2, 0.75, 0.9, "#7d7684").box(
+      ax,
+      top + 0.75,
+      az,
+      1.0,
+      0.06,
+      0.7,
+      "#5c5562",
+    );
+    v.box(ax + 0.62, top + 0.15, az, 0.04, 0.45, 0.6, "#2a2430");
+  }
+  if (p.id === "study" || p.id === "data") {
+    const tx = W / 2 - 1.3,
+      tz = -D / 2 + 1.3;
+    for (const [lx, lz] of [
+      [-0.4, -0.4],
+      [0.4, -0.4],
+      [-0.4, 0.4],
+      [0.4, 0.4],
+    ] as const)
+      v.box(tx + lx, top, tz + lz, 0.1, 0.8, 0.1, "#3a3036");
+    const tank = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.62, 0.62, 1.2, 16),
+      new THREE.MeshStandardMaterial({
+        color: "#6b5248",
+        roughness: 0.8,
+        bumpMap: tex.bump,
+        bumpScale: 1,
+      }),
+    );
+    tank.position.set(tx, top + 1.4, tz);
+    const cap = new THREE.Mesh(
+      new THREE.ConeGeometry(0.7, 0.45, 16),
+      new THREE.MeshStandardMaterial({ color: "#4a3a34", roughness: 0.8 }),
+    );
+    cap.position.set(tx, top + 2.22, tz);
+    extras.add(tank, cap);
+  }
+  if (p.id === "study" || p.id === "holder") {
+    // a striped awning over the door
+    for (let k = 0; k < 6; k++) {
+      const awn = new THREE.Mesh(
+        new THREE.BoxGeometry((doorW + 1.2) / 6, 0.08, 1.1),
+        new THREE.MeshStandardMaterial({ color: k % 2 ? "#f4eee6" : p.color, roughness: 0.85 }),
+      );
+      awn.position.set(
+        -((doorW + 1.2) / 2) + ((k + 0.5) * (doorW + 1.2)) / 6,
+        base + 3.05,
+        D / 2 + 0.55,
+      );
+      awn.rotation.x = 0.32;
+      extras.add(awn);
+    }
+  }
+  // flower boxes under the ground-floor windows
+  for (const x of [-W / 2 + 1.1, W / 2 - 1.1])
+    if (Math.abs(x) > doorW / 2 + 0.6 && p.id !== "scanner") {
+      v.box(x, base + 0.45, D / 2 + 0.2, 0.9, 0.22, 0.28, "#4a3a34");
+      for (let k = 0; k < 4; k++)
+        v.box(
+          x - 0.33 + k * 0.22,
+          base + 0.67,
+          D / 2 + 0.2,
+          0.16,
+          0.16,
+          0.16,
+          ["#ff8fc0", "#ffd166", "#b48cff", "#7ed9a0"][k]!,
+          true,
+        );
+    }
+
   const group = v.build();
-  group.add(extras);
+  group.add(wall, roof, extras);
   // the sign above the door
   const signW = Math.min(W - 0.6, 5.2);
   const sign = new THREE.Mesh(
@@ -390,8 +551,27 @@ function buildTower() {
     [4, 5],
   ];
   let y = 0.8;
+  const towerTex = wallTexture("panel", "#4a3352", 77);
+  const towerParts: THREE.Mesh[] = [];
   for (const [s, h] of sections) {
-    v.box(0, y, 0, s, h, s, "#2b1f30");
+    const mapR = towerTex.map.clone();
+    mapR.repeat.set(s / 3, h / 3);
+    mapR.needsUpdate = true;
+    const bumpR = towerTex.bump.clone();
+    bumpR.repeat.copy(mapR.repeat);
+    bumpR.needsUpdate = true;
+    const part = new THREE.Mesh(
+      new THREE.BoxGeometry(s, h, s),
+      new THREE.MeshStandardMaterial({
+        map: mapR,
+        bumpMap: bumpR,
+        bumpScale: 2,
+        roughness: 0.6,
+        metalness: 0.3,
+      }),
+    );
+    part.position.y = y + h / 2;
+    towerParts.push(part);
     for (const sx of [-1, 1])
       for (const sz of [-1, 1])
         v.box((sx * s) / 2, y, (sz * s) / 2, 0.22, h, 0.22, "#ff4f9a", true);
@@ -406,6 +586,7 @@ function buildTower() {
   }
   v.box(0, y, 0, 1, 2.2, 1, "#2b1f30").box(0, y + 2.2, 0, 0.5, 0.5, 0.5, "#ff4f9a", true);
   const group = v.build();
+  group.add(...towerParts);
   // "$MOFU" signs on all four sides
   for (let k = 0; k < 4; k++) {
     const sign = new THREE.Mesh(
@@ -511,6 +692,8 @@ async function main() {
   });
   renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
   renderer.setSize(innerWidth, innerHeight, false);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#0d0a12");
@@ -566,8 +749,20 @@ async function main() {
   }
 
   scene.add(new THREE.HemisphereLight("#9c8ce8", "#22142c", 1.35));
-  const moonLight = new THREE.DirectionalLight("#c7bfff", 0.85);
+  const moonLight = new THREE.DirectionalLight("#cfc6ff", 1.35);
   moonLight.position.set(-40, 60, -30);
+  moonLight.castShadow = true;
+  moonLight.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
+  Object.assign(moonLight.shadow.camera, {
+    left: -38,
+    right: 38,
+    top: 38,
+    bottom: -38,
+    near: 5,
+    far: 160,
+  });
+  moonLight.shadow.bias = -0.0006;
+  moonLight.shadow.normalBias = 0.04;
   scene.add(moonLight);
 
   // ground: dark tiles, a lighter plaza, glowing rings and paths
@@ -582,13 +777,20 @@ async function main() {
       x.fillRect(34, 2, 28, 28);
       x.fillRect(2, 34, 28, 28);
     });
-    tiles.wrapS = tiles.wrapT = THREE.RepeatWrapping;
-    tiles.magFilter = THREE.NearestFilter;
-    tiles.repeat.set(80, 80);
+    void tiles;
+    const pave = pavingTexture(5, "#241d2b");
+    pave.map.repeat.set(36, 36);
+    pave.bump.repeat.set(36, 36);
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(240, 240),
-      new THREE.MeshLambertMaterial({ map: tiles }),
+      new THREE.MeshStandardMaterial({
+        map: pave.map,
+        bumpMap: pave.bump,
+        bumpScale: 1.4,
+        roughness: 0.82,
+      }),
     );
+    ground.receiveShadow = true;
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
     const plazaTex = canvasTexture(64, 64, (x) => {
@@ -601,13 +803,20 @@ async function main() {
       x.fillRect(35, 3, 26, 26);
       x.fillRect(3, 35, 26, 26);
     });
-    plazaTex.wrapS = plazaTex.wrapT = THREE.RepeatWrapping;
-    plazaTex.magFilter = THREE.NearestFilter;
-    plazaTex.repeat.set(26, 26);
+    void plazaTex;
+    const plazaPave = pavingTexture(9, "#3a2f42");
+    plazaPave.map.repeat.set(14, 14);
+    plazaPave.bump.repeat.set(14, 14);
     const plaza = new THREE.Mesh(
       new THREE.CircleGeometry(PLAZA_R, 64),
-      new THREE.MeshLambertMaterial({ map: plazaTex }),
+      new THREE.MeshStandardMaterial({
+        map: plazaPave.map,
+        bumpMap: plazaPave.bump,
+        bumpScale: 1.6,
+        roughness: 0.7,
+      }),
     );
+    plaza.receiveShadow = true;
     plaza.rotation.x = -Math.PI / 2;
     plaza.position.y = 0.01;
     scene.add(plaza);
@@ -629,6 +838,7 @@ async function main() {
   const places = PLACES.map(buildPlace);
   for (const b of places) {
     scene.add(b.group);
+    shadowsOn(b.group);
     const light = new THREE.PointLight(b.place.color, 22, 13, 1.6);
     light.position.copy(b.door).setY(3);
     scene.add(light);
@@ -656,6 +866,7 @@ async function main() {
   // the tower
   const tower = buildTower();
   scene.add(tower.group);
+  shadowsOn(tower.group);
   const towerLight = new THREE.PointLight("#ff4f9a", 30, 16, 1.5);
   towerLight.position.set(0, 4, 0);
   scene.add(towerLight);
@@ -715,7 +926,9 @@ async function main() {
             true,
           );
     }
-    scene.add(v.build());
+    const props = v.build();
+    shadowsOn(props);
+    scene.add(props);
     for (const p of lampHeads) {
       const halo = glowSprite("rgba(255,190,220,0.8)", 3.2, 0.55);
       halo.position.copy(p);
@@ -788,9 +1001,8 @@ async function main() {
 
   // Mofu
   const player = new THREE.Group();
-  const body = new THREE.Group();
-  body.add(mascotMesh(0.085));
-  player.add(body);
+  const mofu = createMofu({ furLayers: coarse ? 12 : 20 });
+  player.add(mofu.group);
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.9, 24),
     new THREE.MeshBasicMaterial({
@@ -802,6 +1014,7 @@ async function main() {
   );
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.04;
+  shadow.scale.set(1.25, 1, 1);
   player.add(shadow);
   player.position.set(0, 0, 9.5);
   scene.add(player);
@@ -944,7 +1157,6 @@ async function main() {
   const move = new THREE.Vector3();
   const camTarget = new THREE.Vector3();
   const camPos = new THREE.Vector3();
-  let walkPhase = 0;
   // Intro time advances per frame (dt is capped), so slow devices still see the whole glide.
   let introClock = 0;
   let first = true;
@@ -957,7 +1169,15 @@ async function main() {
   addEventListener("resize", resize);
 
   if (import.meta.env.DEV) {
-    (window as unknown as { __town: unknown }).__town = { player, places };
+    (window as unknown as { __town: unknown }).__town = {
+      player,
+      places,
+      view: (h: number, camYawTo: number, d: number) => {
+        heading = h;
+        yaw = camYawTo;
+        dist = d;
+      },
+    };
   }
 
   renderer.setAnimationLoop(() => {
@@ -1005,15 +1225,13 @@ async function main() {
     let diff = heading - player.rotation.y;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     player.rotation.y += diff * Math.min(1, dt * 12);
-    walkPhase = moving ? walkPhase + dt * 11 : walkPhase * 0.85;
-    const hop = moving ? Math.abs(Math.sin(walkPhase)) * 0.22 : Math.sin(t * 2) * 0.04 + 0.04;
-    body.position.y = hop;
-    body.scale.set(
-      1 + (moving ? 0 : Math.sin(t * 2) * 0.015),
-      1 - (moving ? Math.abs(Math.cos(walkPhase)) * 0.05 : 0),
-      1,
-    );
-    (shadow.material as THREE.MeshBasicMaterial).opacity = 0.35 - hop * 0.6;
+    mofu.update(dt, {
+      moving,
+      speed: keys.has("shift") ? 1 : 0,
+      happy: current !== null && !moving,
+    });
+    const lift = mofu.group.children[0]!.position.y;
+    (shadow.material as THREE.MeshBasicMaterial).opacity = 0.38 - lift * 0.8;
 
     // camera follows from behind, smoothed
     camYaw += (yaw - camYaw) * Math.min(1, dt * 8);
