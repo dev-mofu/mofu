@@ -1,0 +1,336 @@
+:root {
+  --bg: #0d0a12;
+  --surface: rgba(26, 21, 26, 0.86);
+  --border: #3a2f38;
+  --text: #f4f0f1;
+  --muted: #a8a0a3;
+  --pink: #ff4f9a;
+  --lilac: #b48cff;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Pixelify Sans", system-ui, sans-serif;
+  --font-led: "VT323", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+#town {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+#town.dragging {
+  cursor: grabbing;
+}
+
+a {
+  color: inherit;
+}
+
+.town-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(14px, env(safe-area-inset-top)) 16px 14px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.town-bar > * {
+  pointer-events: auto;
+}
+
+.town-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  text-decoration: none;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.5rem;
+  text-shadow: 0 0 18px rgba(255, 79, 154, 0.45);
+}
+
+.town-tag {
+  font-family: var(--font-led);
+  font-weight: 400;
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  color: var(--pink);
+  text-transform: uppercase;
+}
+
+.town-bar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.town-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.town-chip:hover {
+  border-color: rgba(255, 79, 154, 0.6);
+}
+
+.town-chip--solid {
+  background: #f6f1f3;
+  color: #141112;
+  border-color: #f6f1f3;
+  font-weight: 700;
+}
+
+.town-places {
+  position: fixed;
+  top: 68px;
+  right: 16px;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  z-index: 4;
+}
+
+.town-places h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+.town-places > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.town-places ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.town-places a {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-decoration: none;
+}
+
+.town-places a:hover,
+.town-places a:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.town-places .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.town-places strong {
+  font-size: 0.95rem;
+}
+
+.town-places small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.town-hint {
+  position: fixed;
+  left: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  margin: 0;
+  max-width: calc(100vw - 32px);
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(13, 10, 18, 0.7);
+  color: var(--muted);
+  font-size: 0.8rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.town-prompt {
+  position: fixed;
+  left: 50%;
+  bottom: max(64px, calc(env(safe-area-inset-bottom) + 56px));
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 79, 154, 0.55);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 0 40px rgba(255, 79, 154, 0.25);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  z-index: 3;
+  animation: prompt-in 0.22s ease-out;
+}
+
+@keyframes prompt-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+.town-prompt p {
+  margin: 0;
+}
+
+.town-prompt-kicker {
+  font-family: var(--font-led);
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.town-prompt-title {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.45rem;
+  margin-top: 2px !important;
+}
+
+.town-prompt-body {
+  color: #cfc7ca;
+  font-size: 0.9rem;
+  margin-top: 4px !important;
+}
+
+.town-enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 0.65rem 1.4rem;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #ffc2dc, #ff4f9a 45%, #b48cff);
+  color: #1a0d13;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.town-enter kbd {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(26, 13, 19, 0.2);
+  font-family: var(--font-led);
+  font-size: 1rem;
+}
+
+.town-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  background: var(--bg);
+  color: var(--muted);
+  font-family: var(--font-led);
+  font-size: 1.3rem;
+  letter-spacing: 0.06em;
+  z-index: 10;
+  transition: opacity 0.5s ease;
+}
+
+.town-loading.done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.town-loading p {
+  margin: 0;
+}
+
+.town-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 79, 154, 0.25);
+  border-top-color: var(--pink);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.town-noscript,
+.town-fallback {
+  position: fixed;
+  inset: auto 16px 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  z-index: 5;
+}
+
+@media (max-width: 560px) {
+  .town-brand {
+    font-size: 1.25rem;
+  }
+  .town-chip {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.82rem;
+  }
+  .town-hint {
+    font-size: 0.74rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-prompt {
+    animation: none;
+  }
+}

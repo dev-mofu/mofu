@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mofu Town</title>
+    <meta
+      name="description"
+      content="Walk around Mofu Town as Mofu. Every building is a Mofu feature: Data Lab, Library, Workshop, Scanner Tower, Holder Club and MCP Station."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0d0a12" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://mofu.works/town/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mofu Town" />
+    <meta
+      property="og:description"
+      content="A small 3D town where every building is a Mofu feature."
+    />
+    <meta property="og:image" content="https://mofu.works/og-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:site_name" content="Mofu" />
+    <meta property="og:url" content="https://mofu.works/town/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mofu_works" />
+    <meta name="twitter:image" content="https://mofu.works/og-card.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Pixelify+Sans:wght@500;600&family=VT323&display=block"
+    />
+  </head>
+  <body class="town-page">
+    <canvas id="town" aria-hidden="true"></canvas>
+
+    <header class="town-bar">
+      <a class="town-brand" href="/" aria-label="Mofu home">
+        <span class="wordmark">Mofu</span><span class="town-tag">Town</span>
+      </a>
+      <div class="town-bar-actions">
+        <button
+          type="button"
+          class="town-chip"
+          id="places-toggle"
+          aria-expanded="false"
+          aria-controls="places"
+        >
+          All places
+        </button>
+        <a class="town-chip town-chip--solid" href="/app/">Open the app</a>
+      </div>
+    </header>
+
+    <nav class="town-places" id="places" aria-label="Places in Mofu Town" hidden>
+      <h2>Mofu Town</h2>
+      <p>Every building opens a Mofu feature. Walk there, or jump straight in:</p>
+      <ul id="places-list"></ul>
+    </nav>
+
+    <p class="town-hint" id="hint" aria-hidden="true"></p>
+
+    <div class="town-prompt" id="prompt" hidden>
+      <p class="town-prompt-kicker" id="prompt-kicker"></p>
+      <p class="town-prompt-title" id="prompt-title"></p>
+      <p class="town-prompt-body" id="prompt-body"></p>
+      <a class="town-enter" id="prompt-enter" href="/app/">Enter <kbd>E</kbd></a>
+    </div>
+
+    <div class="town-loading" id="loading" role="status">
+      <div class="town-spinner" aria-hidden="true"></div>
+      <p>Building Mofu Town…</p>
+    </div>
+
+    <noscript>
+      <p class="town-noscript">
+        Mofu Town needs JavaScript. You can still use every feature in the
+        <a href="/app/">Mofu app</a>.
+      </p>
+    </noscript>
+
+    <script type="module" src="/src/town/main.ts"></script>
+  </body>
+</html>

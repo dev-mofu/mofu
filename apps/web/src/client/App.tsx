@@ -656,12 +656,20 @@ export function App() {
   useEffect(() => {
     if (deepLinkDone.current || !config) return;
     deepLinkDone.current = true;
-    const target = new URLSearchParams(location.search).get("scan");
+    const params = new URLSearchParams(location.search);
+    const target = params.get("scan");
     if (target && /^0x[0-9a-fA-F]{40}$/.test(target)) {
       setMode("dev");
       setDevTool("token");
       void scanToken(target);
+      return;
     }
+    // Links from Mofu Town and elsewhere: ?mode=data|study|dev, ?tool=…, ?open=holder.
+    const m = params.get("mode");
+    if (m && (MODES as readonly string[]).includes(m)) setMode(m as Mode);
+    const tool = params.get("tool");
+    if (tool === "repo" || tool === "deps" || tool === "api" || tool === "token") setDevTool(tool);
+    if (params.get("open") === "holder") setDialog("settings");
   }, [config]);
 
   const newChat = () => {

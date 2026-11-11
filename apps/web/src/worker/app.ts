@@ -49,6 +49,7 @@ import {
 import { parseRpcUrls } from "./chain.js";
 import { trimHistory } from "./history.js";
 import { scanToken } from "./token-scan.js";
+import { townHolders } from "./town-holders.js";
 import {
   challengeMessage,
   CHALLENGE_TTL_MS,
@@ -565,6 +566,25 @@ export function createApp(deps: AppDeps = defaultDeps) {
         "bad_request",
         err instanceof Error ? err.message : "Couldn't fetch that page.",
       );
+    }
+  });
+
+  // Mofu Town: top $MOFU holders for the tower. Public, cached for five minutes.
+  app.get("/town/holders", async (c) => {
+    const cfg = holderConfig(c.env);
+    if (!cfg) return c.json({ status: "unavailable" });
+    try {
+      const body = await townHolders({
+        apiKey: (c.env as Env & { GOLDRUSH_API_KEY?: string }).GOLDRUSH_API_KEY,
+        chain: String(c.env.GOLDRUSH_CHAIN ?? "robinhood-mainnet"),
+        token: cfg.token,
+        rpcUrls: cfg.rpcUrls,
+        fetch: deps.fetch,
+        now: deps.now(),
+      });
+      return c.json(body);
+    } catch {
+      return c.json({ status: "unavailable" });
     }
   });
 
