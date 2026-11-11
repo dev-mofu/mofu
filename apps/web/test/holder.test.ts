@@ -241,6 +241,32 @@ describe("holder perks", () => {
     expect((await post(app, "/chat", chatBody, cookie)).status).toBe(200);
   });
 
+  it("falls back to the next RPC when one is rate-limited", async () => {
+    const w = wallet();
+    const { app } = setup(new Map([[w.address, 1_000_000n * ONE]]));
+    const e = { ...env(), HOLDER_RPC_URL: `https://limited.example/rpc, ${RPC}` } as unknown as Env;
+    const s = await session();
+    const req = (path: string, body: unknown, cookie: string) =>
+      app.request(
+        `http://localhost/api${path}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: cookie },
+          body: JSON.stringify(body),
+        },
+        e,
+      );
+    const ch = (await (
+      await req("/holder/challenge", { address: w.address }, s)
+    ).json()) as HolderChallengeResponse;
+    const res = await req(
+      "/holder/verify",
+      { challenge: ch.challenge, signature: w.sign(ch.message) },
+      s,
+    );
+    expect(((await res.json()) as HolderStatus).eligible).toBe(true);
+  });
+
   it("rejects a signature from a different wallet", async () => {
     const owner = wallet();
     const other = wallet();

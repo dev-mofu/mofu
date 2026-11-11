@@ -4,6 +4,7 @@
  */
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
+import { ethCall, parseRpcUrls } from "./chain.js";
 
 export const HOLDER_COOKIE = "mofu_holder";
 /** How long a wallet stays connected before it has to sign again. */
@@ -21,7 +22,8 @@ export const isAddress = (value: unknown): value is string =>
 
 export interface HolderConfig {
   token: string;
-  rpcUrl: string;
+  /** Tried in order until one answers. */
+  rpcUrls: string[];
   decimals: number;
   /** Minimum balance in whole tokens. */
   minTokens: bigint;
@@ -30,7 +32,7 @@ export interface HolderConfig {
 
 export function holderConfig(env: Env): HolderConfig | null {
   const token = String(env.HOLDER_TOKEN ?? "");
-  const rpcUrl = String(env.HOLDER_RPC_URL ?? "");
+  const rpcUrls = parseRpcUrls(env.HOLDER_RPC_URL);
   const decimals = Number.parseInt(String(env.HOLDER_DECIMALS), 10);
   const dailyLimit = Number.parseInt(String(env.HOLDER_DAILY_LIMIT), 10);
   let minTokens: bigint;
@@ -39,9 +41,9 @@ export function holderConfig(env: Env): HolderConfig | null {
   } catch {
     return null;
   }
-  if (!isAddress(token) || !rpcUrl.startsWith("https://")) return null;
+  if (!isAddress(token) || rpcUrls.length === 0) return null;
   if (!(decimals >= 0 && decimals <= 36) || !(dailyLimit > 0) || minTokens <= 0n) return null;
-  return { token, rpcUrl, decimals, minTokens, dailyLimit };
+  return { token, rpcUrls, decimals, minTokens, dailyLimit };
 }
 
 /** The exact text the wallet shows and signs. Rebuilt on the server from the signed challenge. */
@@ -117,23 +119,9 @@ export async function readTokenBalance(
   const hit = balanceCache.get(key);
   if (hit && now - hit.at < BALANCE_CACHE_MS) return hit.value;
   const data = `0x70a08231${address.toLowerCase().slice(2).padStart(64, "0")}`;
-  const res = await fetchFn(cfg.rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_call",
-      params: [{ to: cfg.token, data }, "latest"],
-    }),
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
-  const body = (await res.json()) as { result?: unknown };
-  if (typeof body.result !== "string" || !/^0x[0-9a-fA-F]*$/.test(body.result)) {
-    throw new Error("RPC returned no result");
-  }
-  const value = body.result === "0x" ? 0n : BigInt(body.result);
+  const result = await ethCall(cfg.rpcUrls, cfg.token, data, fetchFn);
+  if (!/^0x[0-9a-fA-F]*$/.test(result)) throw new Error("RPC returned no result");
+  const value = result === "0x" ? 0n : BigInt(result);
   balanceCache.set(key, { value, at: now });
   if (balanceCache.size > 5_000) balanceCache.clear();
   return value;
