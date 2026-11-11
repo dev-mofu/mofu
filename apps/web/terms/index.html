@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mofu terms of use</title>
+    <meta name="description" content="The terms for using Mofu's web app and CLI." />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0f0d0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://mofu.works/terms/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mofu terms of use" />
+    <meta
+      property="og:description"
+      content="How to use Mofu in your browser and in your terminal."
+    />
+    <meta property="og:image" content="https://mofu.works/og.png" />
+    <meta property="og:url" content="https://mofu.works/terms/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <script>
+      try {
+        var t = localStorage.getItem("mofu.landingTheme");
+        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="docs-page">
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/docs/#cli">CLI</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch theme">
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              shape-rendering="crispEdges"
+            >
+              <path class="sun" d="M7 1h2v2H7zM7 13h2v2H7zM1 7h2v2H1zM13 7h2v2h-2zM5 5h6v6H5z" />
+              <path
+                class="moon"
+                d="M6 2h4v1H8v1H7v2H6v4h1v2h1v1h2v1H6v-1H5v-1H4v-1H3V5h1V4h1V3h1z"
+              />
+            </svg>
+          </button>
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs docs--single">
+      <main id="content" class="docs-content">
+        <header class="docs-hero">
+          <div>
+            <h1>Terms of use</h1>
+            <p>By using Mofu you agree to these terms.</p>
+          </div>
+        </header>
+
+        <section>
+          <ol class="terms">
+            <li>
+              <strong>What Mofu is.</strong> Mofu is a free, open-source AI agent (MIT License).
+              It's provided as is, without warranties, and the service may change, be limited or
+              stop at any time.
+            </li>
+            <li>
+              <strong>AI can be wrong.</strong> Answers, calculations, summaries, flashcards,
+              quizzes, code changes, dependency advice and API test results can contain mistakes.
+              Check anything important, especially security, legal, medical or financial matters.
+              Mofu shows its sources and the code it ran so you can check.
+            </li>
+            <li>
+              <strong>Your content.</strong> You keep the rights to what you upload or type. Don't
+              use Mofu with content you aren't allowed to share with an AI provider, or with other
+              people's personal data without a legal basis.
+            </li>
+            <li>
+              <strong>Fair use of the free tier.</strong> The free tier is limited (currently 10
+              messages per day per IP address) and can be paused. Don't try to get around the
+              limits, automate the free tier or overload the service.
+            </li>
+            <li>
+              <strong>Don't misuse it.</strong> Don't use Mofu to break the law, attack systems,
+              send requests to APIs or servers you aren't allowed to test, or create harmful
+              content. Model providers' usage policies also apply.
+            </li>
+            <li>
+              <strong>The CLI acts on your computer.</strong> It asks before changing files, running
+              commands or using git, but you're responsible for what you approve. Use version
+              control.
+            </li>
+            <li>
+              <strong>Your own key.</strong> If you add an OpenRouter key, OpenRouter bills you for
+              that usage under its terms.
+            </li>
+            <li>
+              <strong>Third-party services.</strong> Mofu uses OpenRouter, model providers,
+              Cloudflare and public data sources, each with its own terms. Some data has licenses
+              (for example Wikipedia text is CC BY-SA 4.0); respect them when you reuse it.
+            </li>
+            <li>
+              <strong>Liability.</strong> To the extent the law allows, Mofu's authors aren't liable
+              for damages from using Mofu.
+            </li>
+            <li>
+              <strong>Changes.</strong> These terms may change; the date below shows the latest
+              version.
+            </li>
+          </ol>
+          <p>Last updated: November 11, 2026.</p>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+          <li><a href="/privacy/">Privacy policy</a></li>
+          <li><a href="/terms/">Terms</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License. Data
+        sources are credited at the bottom of the <a href="/">home page</a>. Thank you to arXiv for
+        use of its open access interoperability.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/docs.ts"></script>
+  </body>
+</html>

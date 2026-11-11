@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mofu privacy policy</title>
+    <meta
+      name="description"
+      content="What data Mofu sends, stores and doesn't store, in the web app and the CLI."
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0f0d0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://mofu.works/privacy/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mofu privacy policy" />
+    <meta
+      property="og:description"
+      content="How to use Mofu in your browser and in your terminal."
+    />
+    <meta property="og:image" content="https://mofu.works/og.png" />
+    <meta property="og:url" content="https://mofu.works/privacy/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <script>
+      try {
+        var t = localStorage.getItem("mofu.landingTheme");
+        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="docs-page">
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/docs/#cli">CLI</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch theme">
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              shape-rendering="crispEdges"
+            >
+              <path class="sun" d="M7 1h2v2H7zM7 13h2v2H7zM1 7h2v2H1zM13 7h2v2h-2zM5 5h6v6H5z" />
+              <path
+                class="moon"
+                d="M6 2h4v1H8v1H7v2H6v4h1v2h1v1h2v1H6v-1H5v-1H4v-1H3V5h1V4h1V3h1z"
+              />
+            </svg>
+          </button>
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs docs--single">
+      <main id="content" class="docs-content">
+        <header class="docs-hero">
+          <div>
+            <h1>Privacy policy</h1>
+            <p>What happens to your data when you use Mofu.</p>
+          </div>
+        </header>
+
+        <section>
+          <h2>The short version</h2>
+          <ul>
+            <li>No account. We don't ask for your name or email.</li>
+            <li>
+              Files you open in the web app are read in your browser and aren't uploaded to Mofu's
+              server.
+            </li>
+            <li>
+              Your messages, and the parts of your files needed to answer, are sent to an AI model
+              through OpenRouter.
+            </li>
+            <li>
+              Mofu's server doesn't store your messages, files or API key. It keeps a daily message
+              count per IP address for the free tier.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>What is sent where (web app)</h2>
+          <h3>To Mofu's server, then to OpenRouter and the model provider</h3>
+          <ul>
+            <li>your messages and the conversation so far;</li>
+            <li>facts you asked Mofu to remember;</li>
+            <li>
+              context Mofu needs to answer, built in your browser: for example a profile of your
+              spreadsheet (column names, types, summary statistics), the results of Python run on
+              it, an outline and the pages of a document it reads, a GitHub repository overview, the
+              list of packages in a dependency scan, or an API spec's endpoint list;
+            </li>
+            <li>your own OpenRouter key, if you added one, so the request is billed to you.</li>
+          </ul>
+          <p>
+            Mofu's server runs on Cloudflare Workers. OpenRouter passes the request to the model
+            provider (by default Anthropic). Their own privacy policies and terms apply:
+            <a href="https://openrouter.ai/privacy">openrouter.ai/privacy</a>.
+          </p>
+          <h3>Directly from your browser to other services</h3>
+          <p>
+            Depending on what you do, your browser contacts GitHub (to read a public repository),
+            OSV and deps.dev (vulnerability and package data), public data APIs (exchange rates,
+            holidays, weather, World Bank), Wikipedia and dictionary services, Crossref, Open
+            Library, Datamuse, and jsDelivr (to download the Python runtime). They see your IP
+            address and the request (for example a package name or a search term), as with any
+            website.
+          </p>
+          <h3>Bot check</h3>
+          <p>
+            Cloudflare Turnstile runs before your first message. Cloudflare's privacy policy
+            applies.
+          </p>
+        </section>
+
+        <section>
+          <h2>What is stored, and where</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Where</th>
+                  <th scope="col">What</th>
+                  <th scope="col">How long</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Mofu's server</td>
+                  <td>A count of free messages per IP address per day</td>
+                  <td>Deleted about an hour after the daily reset (midnight UTC)</td>
+                </tr>
+                <tr>
+                  <td>Mofu's server</td>
+                  <td>A signed session cookie (no personal data)</td>
+                  <td>2 hours</td>
+                </tr>
+                <tr>
+                  <td>Mofu's server logs</td>
+                  <td>The type of an error when something fails (no message content, no keys)</td>
+                  <td>Cloudflare's standard log retention</td>
+                </tr>
+                <tr>
+                  <td>Your browser</td>
+                  <td>
+                    Settings (theme, model), your own key if you add one, what you asked Mofu to
+                    remember, flashcard progress
+                  </td>
+                  <td>
+                    Until you remove it (Settings → Remove key, Memory → Clear all, or clear site
+                    data)
+                  </td>
+                </tr>
+                <tr>
+                  <td>Your computer (CLI)</td>
+                  <td>
+                    <code>~/.mofu/config.json</code> (your key, if saved with
+                    <code>mofu auth</code>), <code>~/.mofu/memory.md</code>,
+                    <code>~/.mofu/study/</code> (flashcard progress),
+                    <code>~/.mofu/pyodide-cache/</code>, and reports in <code>./mofu-output/</code>
+                  </td>
+                  <td>Until you delete them</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Mofu's server doesn't store chats or files and doesn't use your data to train models.
+            Whether a model provider keeps data is governed by OpenRouter's and the provider's
+            policies.
+          </p>
+        </section>
+
+        <section>
+          <h2>Your IP address</h2>
+          <p>
+            The free tier counts messages per IP address to keep the service affordable. The IP
+            address is used as the key of that counter and is deleted with it.
+          </p>
+        </section>
+
+        <section>
+          <h2>The CLI</h2>
+          <p>
+            The CLI runs on your computer. It sends your messages, and the file contents it reads to
+            answer, to OpenRouter using your own key. When it fetches a web page or API spec you
+            give it, or runs API tests, it contacts those addresses from your computer.
+          </p>
+        </section>
+
+        <section>
+          <h2>Children</h2>
+          <p>Mofu isn't directed at children under 13.</p>
+        </section>
+
+        <section>
+          <h2>Changes</h2>
+          <p>
+            We'll update this page when Mofu's behavior changes. Last updated: November 11, 2026.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+          <li><a href="/privacy/">Privacy policy</a></li>
+          <li><a href="/terms/">Terms</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License. Data
+        sources are credited at the bottom of the <a href="/">home page</a>. Thank you to arXiv for
+        use of its open access interoperability.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/docs.ts"></script>
+  </body>
+</html>

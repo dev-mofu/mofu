@@ -40,7 +40,7 @@ packages/core   Agent loop, tools, prompts, and the data, study, dependency and 
 apps/cli        The `mofu` command (published to npm, bundled with esbuild)
 apps/web        Cloudflare Worker (Hono API) + landing page, docs and React app
 assets/         Screenshots
-legal/          Draft privacy policy and terms (not legal advice; see AUDIT.md)
+apps/web/privacy, apps/web/terms   Privacy policy and terms pages (mofu.works/privacy/, /terms/)
 mascot/         The approved mascot concept
 prompts/        The build brief and per-phase prompts
 ```

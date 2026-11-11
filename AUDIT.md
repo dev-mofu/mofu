@@ -69,4 +69,4 @@ One real message per mode, measured as the change in the OpenRouter key's usage:
 
 ## Privacy
 
-Draft privacy policy and terms, written from the actual behavior: [legal/PRIVACY-DRAFT.md](legal/PRIVACY-DRAFT.md) and [legal/TERMS-DRAFT.md](legal/TERMS-DRAFT.md). **They're drafts, not legal advice**; the owner should review them (ideally with someone qualified) before publishing them on the site.
+Privacy policy and terms, written from the actual behavior and reviewed by the owner, are published at [mofu.works/privacy/](https://mofu.works/privacy/) and [mofu.works/terms/](https://mofu.works/terms/) (sources: `apps/web/privacy/index.html`, `apps/web/terms/index.html`). They aren't legal advice; update them when data handling changes. A contact link is still to be added.
