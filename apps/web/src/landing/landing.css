@@ -16,47 +16,11 @@
   --px-ink: 233, 227, 229;
   --px-accent: 255, 79, 154;
   --radius: 20px;
-  --font-body: "Lato", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-head: "Raleway", system-ui, sans-serif;
-  --font-led: "Silkscreen", ui-monospace, monospace;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Pixelify Sans", system-ui, sans-serif;
+  --font-led: "VT323", ui-monospace, monospace;
   --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
   color-scheme: dark;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #faf7f5;
-    --bg-dot: rgba(40, 20, 30, 0.07);
-    --surface: #ffffff;
-    --surface-2: #f3eeeb;
-    --border: #e6dfdc;
-    --text: #1d1519;
-    --muted: #625a5e;
-    --accent: #c2185b;
-    --accent-text: #b0124f;
-    --pill-bg: #1d1519;
-    --pill-text: #ffffff;
-    --px-ink: 60, 44, 52;
-    --px-accent: 194, 24, 91;
-    color-scheme: light;
-  }
-}
-
-:root[data-theme="light"] {
-  --bg: #faf7f5;
-  --bg-dot: rgba(40, 20, 30, 0.07);
-  --surface: #ffffff;
-  --surface-2: #f3eeeb;
-  --border: #e6dfdc;
-  --text: #1d1519;
-  --muted: #625a5e;
-  --accent: #c2185b;
-  --accent-text: #b0124f;
-  --pill-bg: #1d1519;
-  --pill-text: #ffffff;
-  --px-ink: 60, 44, 52;
-  --px-accent: 194, 24, 91;
-  color-scheme: light;
 }
 
 /* ---------- Base ---------- */
@@ -160,36 +124,6 @@ h3 {
 .pill--small {
   padding: 0.45rem 1rem;
   font-size: 0.9rem;
-}
-
-.icon-button {
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.icon-button svg {
-  fill: currentColor;
-}
-
-:root[data-theme="light"] .icon-button .sun,
-:root:not([data-theme="light"]) .icon-button .moon {
-  display: none;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) .icon-button .sun {
-    display: none;
-  }
-  :root:not([data-theme]) .icon-button .moon {
-    display: inline;
-  }
 }
 
 .code-chip {
@@ -327,9 +261,10 @@ h3 {
 }
 
 .hero h1 {
-  font-weight: 300;
-  font-size: clamp(2.3rem, 7vw, 4rem);
+  font-weight: 400;
+  font-size: clamp(2.1rem, 6vw, 3.4rem);
   letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .lede {
@@ -403,8 +338,8 @@ h3 {
   background: var(--led-bg);
   color: #ff4f9a;
   font-family: var(--font-led);
-  font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  font-size: 1.08rem;
+  letter-spacing: 0.08em;
   text-align: center;
   text-shadow: 0 0 6px rgba(255, 79, 154, 0.7);
 }
@@ -544,8 +479,8 @@ h3 {
 .pkg-status {
   font-style: normal;
   font-family: var(--font-led);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  font-size: 0.92rem;
+  letter-spacing: 0.05em;
   color: var(--muted);
 }
 
@@ -1260,4 +1195,11 @@ h3 {
 
 .js .feature.revealed:hover {
   transform: translateY(-3px);
+}
+
+/* The headline breaks into three even lines on wide screens; phones wrap it naturally. */
+@media (max-width: 640px) {
+  .br-wide {
+    display: none;
+  }
 }

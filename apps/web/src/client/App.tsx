@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
@@ -101,17 +101,6 @@ const DEV_SUGGESTIONS = [
   "Where should a new contributor start?",
 ];
 
-function useSystemDark(): boolean {
-  return useSyncExternalStore(
-    (notify) => {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      mq.addEventListener("change", notify);
-      return () => mq.removeEventListener("change", notify);
-    },
-    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
-  );
-}
-
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
@@ -130,7 +119,6 @@ export function App() {
   const [dialog, setDialog] = useState<"settings" | "memory" | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
-  const systemDark = useSystemDark();
 
   const sessionExpiry = useRef(0);
   const verifyResolver = useRef<((ok: boolean) => void) | null>(null);
@@ -188,14 +176,6 @@ export function App() {
     api,
     apiContext,
   };
-
-  const effectiveTheme =
-    settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
-  useEffect(() => {
-    const root = document.documentElement;
-    if (settings.theme === "system") delete root.dataset.theme;
-    else root.dataset.theme = settings.theme;
-  }, [settings.theme]);
 
   useEffect(() => saveMemory(memory), [memory]);
 
@@ -749,7 +729,7 @@ export function App() {
         <div className="brand">
           <Mascot state={mascotState} px={2} />
           <a className="wordmark" href="/" title="Mofu home">
-            mofu
+            Mofu
           </a>
           <span className={`led led--${led.toLowerCase()}`} role="status" aria-live="polite">
             {led}
@@ -1039,7 +1019,7 @@ export function App() {
       <VerifyDialog
         open={verifyOpen}
         siteKey={config?.turnstileSiteKey ?? ""}
-        theme={effectiveTheme}
+        theme="dark"
         onToken={onToken}
         onCancel={() => finishVerify(false)}
       />

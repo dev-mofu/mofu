@@ -1,56 +1,5 @@
 /* ---------- Tokens ---------- */
 :root {
-  --bg: #faf7f5;
-  --bg-dots: rgba(29, 21, 25, 0.07);
-  --surface: #ffffff;
-  --surface-2: #f3eeeb;
-  --border: #e4dcd8;
-  --text: #1d1519;
-  --muted: #6b6064;
-  --accent: #c2185b;
-  --accent-soft: rgba(194, 24, 91, 0.1);
-  --led-bg: #1a1718;
-  --led-text: #ff4f9a;
-  --pill-bg: #1d1519;
-  --pill-text: #ffffff;
-  --ok: #1d7a4a;
-  --bad: #b3261e;
-  --code-bg: #f3eeeb;
-  --focus: #c2185b;
-  --shadow: 0 1px 2px rgba(29, 21, 25, 0.06), 0 8px 24px rgba(29, 21, 25, 0.06);
-  --radius: 16px;
-  --font-body: "Lato", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-head: "Raleway", system-ui, sans-serif;
-  --font-led: "Silkscreen", ui-monospace, monospace;
-  --font-mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f0d0e;
-    --bg-dots: rgba(255, 255, 255, 0.05);
-    --surface: #1a1718;
-    --surface-2: #232021;
-    --border: #2f2a2b;
-    --text: #f4f0f1;
-    --muted: #a39b9e;
-    --accent: #ff4f9a;
-    --accent-soft: rgba(255, 79, 154, 0.12);
-    --led-bg: #120f10;
-    --led-text: #ff4f9a;
-    --pill-bg: #f6f1f3;
-    --pill-text: #141112;
-    --ok: #5bd394;
-    --bad: #ff8a80;
-    --code-bg: #120f10;
-    --focus: #ff4f9a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="dark"] {
   --bg: #0f0d0e;
   --bg-dots: rgba(255, 255, 255, 0.05);
   --surface: #1a1718;
@@ -69,6 +18,12 @@
   --code-bg: #120f10;
   --focus: #ff4f9a;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  --radius: 16px;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Pixelify Sans", system-ui, sans-serif;
+  --font-led: "VT323", ui-monospace, monospace;
+  --font-mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
   color-scheme: dark;
 }
 
@@ -252,8 +207,8 @@ textarea {
 
 .led {
   font-family: var(--font-led);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  font-size: 1rem;
+  letter-spacing: 0.07em;
   color: var(--led-text);
   background: var(--led-bg);
   border: 1px solid #3a3335;
@@ -329,8 +284,8 @@ textarea {
 
 .soon {
   font-family: var(--font-led);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
   color: var(--accent);
 }
 
@@ -1378,8 +1333,8 @@ textarea {
 
 .card-side {
   font-family: var(--font-led);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
+  font-size: 0.95rem;
+  letter-spacing: 0.07em;
   color: var(--muted);
   text-transform: uppercase;
 }

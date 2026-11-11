@@ -1,5 +1,5 @@
 /**
- * Shared by the landing and docs pages: theme toggle, the page-wide starfield,
+ * Shared by the landing and docs pages (always dark): the page-wide starfield,
  * copy buttons, mascot sprites, illustrations, reveal-on-scroll and the single
  * animation loop that only runs for things on screen.
  */
@@ -24,31 +24,6 @@ export const $$ = <T extends Element = HTMLElement>(sel: string) => [
   ...document.querySelectorAll<T>(sel),
 ];
 export const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-// --- Theme ------------------------------------------------------------------------
-const THEME_KEY = "mofu.landingTheme";
-const themeListeners: Array<(p: Palette) => void> = [];
-export const onThemeChange = (fn: (p: Palette) => void) => themeListeners.push(fn);
-
-function currentTheme(): "dark" | "light" {
-  const set = document.documentElement.dataset.theme;
-  if (set === "dark" || set === "light") return set;
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-function applyTheme(theme: "dark" | "light" | null): void {
-  if (theme) document.documentElement.dataset.theme = theme;
-  else delete document.documentElement.dataset.theme;
-  const toggle = $<HTMLButtonElement>("#theme-toggle");
-  const now = currentTheme();
-  toggle?.setAttribute(
-    "aria-label",
-    now === "dark" ? "Switch to light theme" : "Switch to dark theme",
-  );
-  toggle?.setAttribute("aria-pressed", String(now === "light"));
-  const palette = readPalette();
-  themeListeners.forEach((fn) => fn(palette));
-}
 
 // --- Animation loop: one rAF for everything visible --------------------------------
 interface Animated {
@@ -110,31 +85,11 @@ function drawMascots(): void {
 }
 
 export interface PageHooks {
-  /** Called after layout changes (resize, theme) so pages can redraw their own canvases. */
+  /** Called at start and after resizes so pages can redraw their own canvases. */
   redraw?: (palette: Palette) => void;
 }
 
 export function initCommon(hooks: PageHooks = {}): void {
-  // Theme.
-  try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === "dark" || saved === "light") document.documentElement.dataset.theme = saved;
-  } catch {
-    // Storage blocked: follow the system theme.
-  }
-  $("#theme-toggle")?.addEventListener("click", () => {
-    const next = currentTheme() === "dark" ? "light" : "dark";
-    applyTheme(next);
-    try {
-      localStorage.setItem(THEME_KEY, next);
-    } catch {
-      // Not remembered; fine.
-    }
-  });
-  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
-    if (!document.documentElement.dataset.theme) applyTheme(null);
-  });
-
   // Copy buttons.
   for (const button of $$<HTMLButtonElement>("[data-copy]")) {
     button.addEventListener("click", async () => {
@@ -196,7 +151,6 @@ export function initCommon(hooks: PageHooks = {}): void {
     drawMascots();
     hooks.redraw?.(palette);
   };
-  onThemeChange(redrawAll);
 
   // Reveal sections as they scroll into view (content is visible without JS or with reduced motion).
   const reveal = new IntersectionObserver(
@@ -224,7 +178,7 @@ export function initCommon(hooks: PageHooks = {}): void {
   });
   document.documentElement.classList.toggle("reduced-motion", reducedMotion.matches);
 
-  applyTheme((document.documentElement.dataset.theme as "dark" | "light" | undefined) ?? null);
+  redrawAll();
 
   const year = $("#year");
   if (year) year.textContent = String(new Date().getFullYear());

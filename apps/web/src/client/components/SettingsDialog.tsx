@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CURATED_MODELS } from "../../shared/api.js";
 import { ApiRequestError, checkKey } from "../lib/api.js";
-import type { Settings, ThemeChoice } from "../lib/storage.js";
+import type { Settings } from "../lib/storage.js";
 import { Modal } from "./Modal.js";
 
 interface SettingsDialogProps {
@@ -71,7 +71,6 @@ export function SettingsDialog({
     }
   };
 
-  const setTheme = (theme: ThemeChoice) => setDraft({ ...draft, theme });
   const hasKey = draft.byokKey.trim().length > 0;
 
   return (
@@ -159,24 +158,6 @@ export function SettingsDialog({
             />
           )}
           {!hasKey && <p className="muted small">Add your own key to choose a model.</p>}
-        </section>
-
-        <section>
-          <h3>Theme</h3>
-          <div className="segmented" role="radiogroup" aria-label="Theme">
-            {(["system", "dark", "light"] as const).map((t) => (
-              <label key={t} className={draft.theme === t ? "active" : ""}>
-                <input
-                  type="radio"
-                  name="theme"
-                  value={t}
-                  checked={draft.theme === t}
-                  onChange={() => setTheme(t)}
-                />
-                {t[0]?.toUpperCase() + t.slice(1)}
-              </label>
-            ))}
-          </div>
         </section>
 
         <footer className="modal-footer">

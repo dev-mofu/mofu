@@ -95,10 +95,265 @@ interface Star {
 }
 
 /** The hero's night sky: twinkling stars, a ringed moon, drifting clouds, mountains. */
+// --- Planets -------------------------------------------------------------------------
+
+/** 4×4 ordered dither thresholds, for shading spheres with dots. */
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+/** Light comes from the upper right, like the crescent moon's. */
+const LIGHT = [0.6, -0.5, 0.62];
+
+export interface PlanetSpec {
+  /** Center in CSS pixels. */
+  x: number;
+  y: number;
+  /** Radius in pixel cells. */
+  r: number;
+  kind: "ringed" | "moonlet" | "dwarf";
+  phase: number;
+}
+
+/** Planets beside the headline on wide screens; on phones one small planet in the top gap. */
+export function layoutPlanets(w: number, h: number): PlanetSpec[] {
+  if (w >= 1100) {
+    return [
+      { x: w * 0.13, y: Math.min(h * 0.33, 380), r: 15, kind: "ringed", phase: 0 },
+      { x: w * 0.89, y: Math.min(h * 0.52, 600), r: 8, kind: "moonlet", phase: 1.7 },
+      { x: w * 0.25, y: Math.min(h * 0.66, 760), r: 4, kind: "dwarf", phase: 3.1 },
+    ];
+  }
+  if (w >= 640) {
+    return [
+      { x: w * 0.12, y: 106, r: 7, kind: "ringed", phase: 0 },
+      { x: w * 0.93, y: h * 0.55, r: 5, kind: "moonlet", phase: 1.7 },
+      { x: w * 0.07, y: h * 0.62, r: 3, kind: "dwarf", phase: 3.1 },
+    ];
+  }
+  return [{ x: w * 0.15, y: 98, r: 6, kind: "ringed", phase: 0 }];
+}
+
+interface SphereStyle {
+  color: string;
+  /** Number of cloud bands (0 for a plain sphere). */
+  bands: number;
+  /** A pink storm that rotates with the planet. */
+  storm?: boolean;
+  dim?: number;
+}
+
+/** A dithered, lit sphere of dots. `spin` turns its surface (bands and storm). */
+function sphere(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  c: number,
+  spin: number,
+  pal: Palette,
+  s: SphereStyle,
+): void {
+  const x0 = Math.round(cx / c);
+  const y0 = Math.round(cy / c);
+  for (let y = -r; y <= r; y++) {
+    for (let x = -r; x <= r; x++) {
+      const d2 = x * x + y * y;
+      if (d2 > r * r) continue;
+      const nx = x / r;
+      const ny = y / r;
+      const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+      const lambert = Math.max(0, nx * LIGHT[0]! + ny * LIGHT[1]! + nz * LIGHT[2]!);
+      let shade = 0.12 + 0.88 * lambert;
+      const lon = Math.atan2(nx, nz) + spin;
+      if (s.bands) {
+        shade *=
+          0.68 + 0.32 * (0.5 + 0.5 * Math.sin(ny * s.bands * Math.PI + Math.sin(lon * 2) * 0.6));
+      }
+      if (shade < BAYER[((y + 64) & 3) * 4 + ((x + 64) & 3)]! * 0.85) continue;
+      let color = s.color;
+      if (s.storm) {
+        const at = ((lon % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        if (Math.abs(at - 1.2) < 0.34 && Math.abs(ny - 0.3) < 0.13) color = pal.accent;
+      }
+      const rim = d2 > (r - 1.2) ** 2 && lambert > 0.25 ? 0.12 : 0;
+      const alpha = Math.min(1, (0.3 + 0.7 * shade) * (s.dim ?? 1) + rim);
+      ctx.fillStyle = `rgba(${color},${alpha.toFixed(3)})`;
+      dot(ctx, (x0 + x) * c, (y0 + y) * c, c);
+    }
+  }
+}
+
+/** Half of a tilted, dotted ring; the gaps make its rotation visible. */
+function ring(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  c: number,
+  t: number,
+  pal: Palette,
+  half: "back" | "front",
+): void {
+  const tilt = -0.28;
+  const bands = [
+    { scale: 2.05, gap: 5, alpha: 0.8, speed: 0.00022 },
+    { scale: 1.7, gap: 7, alpha: 0.5, speed: 0.0003 },
+  ];
+  for (const b of bands) {
+    const R = r * b.scale;
+    const n = Math.round(R * 4.2);
+    for (let i = 0; i < n; i++) {
+      if (i % b.gap === 0) continue;
+      const a = (i / n) * Math.PI * 2 + t * b.speed;
+      const behind = Math.sin(a) < 0;
+      if ((half === "back") !== behind) continue;
+      const ex = Math.cos(a) * R;
+      const ey = Math.sin(a) * R * 0.3;
+      const x = ex * Math.cos(tilt) - ey * Math.sin(tilt);
+      const y = ex * Math.sin(tilt) + ey * Math.cos(tilt);
+      // The planet hides the back of the ring.
+      if (behind && x * x + y * y < r * r) continue;
+      ctx.fillStyle = `rgba(${pal.ink},${(behind ? b.alpha * 0.45 : b.alpha).toFixed(3)})`;
+      dot(ctx, cx + x * c - c / 2, cy + y * c - c / 2, c);
+    }
+  }
+}
+
+/** One frame of a planet: it floats gently, its surface turns, rings rotate, moons orbit. */
+export function drawPlanet(
+  ctx: CanvasRenderingContext2D,
+  p: PlanetSpec,
+  t: number,
+  pal: Palette,
+  c: number,
+): void {
+  const cx = p.x;
+  const cy = p.y + Math.sin(t * 0.0006 + p.phase) * c;
+  if (p.kind === "dwarf") {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.0018 + p.phase);
+    const R = p.r * c * 3.4;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    glow.addColorStop(0, `rgba(${pal.accent},${(0.2 + 0.18 * pulse).toFixed(3)})`);
+    glow.addColorStop(1, `rgba(${pal.accent},0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+    sphere(ctx, cx, cy, p.r, c, 0, pal, { color: pal.accent, bands: 0 });
+    return;
+  }
+  if (p.kind === "ringed") {
+    ring(ctx, cx, cy, p.r, c, t, pal, "back");
+    sphere(ctx, cx, cy, p.r, c, t * 0.00012 + p.phase, pal, {
+      color: pal.ink,
+      bands: 5,
+      storm: true,
+    });
+    ring(ctx, cx, cy, p.r, c, t, pal, "front");
+    return;
+  }
+  // A planet with a small moon on a tilted orbit; the moon passes behind it.
+  const a = t * 0.00045 + p.phase;
+  const R = p.r * c * 2.4;
+  const tilt = -0.35;
+  const ox = Math.cos(a) * R;
+  const oy = Math.sin(a) * R * 0.32;
+  const mx = cx + ox * Math.cos(tilt) - oy * Math.sin(tilt);
+  const my = cy + ox * Math.sin(tilt) + oy * Math.cos(tilt);
+  const behind = Math.sin(a) < 0;
+  const mr = Math.max(2, Math.round(p.r * 0.3));
+  const hidden = behind && Math.hypot(mx - cx, my - cy) < p.r * c;
+  if (behind && !hidden) sphere(ctx, mx, my, mr, c, 0, pal, { color: pal.ink, bands: 0, dim: 0.7 });
+  sphere(ctx, cx, cy, p.r, c, t * 0.0002 + p.phase, pal, { color: pal.ink, bands: 3 });
+  if (!behind) sphere(ctx, mx, my, mr, c, 0, pal, { color: pal.ink, bands: 0 });
+}
+
 export class NightSky {
   private stars: Star[] = [];
   private staticLayer: HTMLCanvasElement | null = null;
   private lights: Array<{ x: number; y: number; phase: number; pink: boolean }> = [];
+  private planets: PlanetSpec[] = [];
+  private moon: { x: number; y: number; r: number } | null = null;
+
+  /**
+   * The crescent moon, alive: a soft halo that breathes, a glint that sweeps along
+   * its lit edge, a dotted ring that turns (hidden behind the moon), two tiny
+   * satellites riding the ring, and a slow float.
+   */
+  private drawMoon(ctx: CanvasRenderingContext2D, t: number): void {
+    const m = this.moon;
+    if (!m) return;
+    const c = this.cell;
+    const { ink, accent } = this.palette;
+    const r = m.r;
+    const cx = m.x;
+    const cy = m.y + Math.sin(t * 0.0005 + 0.8) * c * 0.8;
+
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.0012);
+    const R = r * c * 2.6;
+    const halo = ctx.createRadialGradient(cx, cy, r * c * 0.5, cx, cy, R);
+    halo.addColorStop(0, `rgba(${ink},${(0.05 + 0.05 * pulse).toFixed(3)})`);
+    halo.addColorStop(1, `rgba(${ink},0)`);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tilt = -0.32;
+    const ringPoint = (a: number) => {
+      const ex = Math.cos(a) * r * 1.9;
+      const ey = Math.sin(a) * r * 0.45;
+      return {
+        x: ex * Math.cos(tilt) - ey * Math.sin(tilt),
+        y: ex * Math.sin(tilt) + ey * Math.cos(tilt),
+      };
+    };
+    const n = Math.round(r * 12);
+    const ringHalf = (back: boolean) => {
+      for (let i = 0; i < n; i++) {
+        if (i % 4 === 0) continue; // gaps show the ring turning
+        const a = (i / n) * Math.PI * 2 + t * 0.00028;
+        if (back !== Math.sin(a) < 0) continue;
+        const p = ringPoint(a);
+        if (back && p.x * p.x + p.y * p.y < r * r) continue;
+        ctx.fillStyle = `rgba(${ink},${back ? 0.3 : 0.6})`;
+        dot(ctx, cx + p.x * c - c / 2, cy + p.y * c - c / 2, c);
+      }
+    };
+    const satellites = (back: boolean) => {
+      [
+        { a: t * 0.0009, color: accent },
+        { a: t * 0.0009 + Math.PI * 0.95, color: ink },
+      ].forEach(({ a, color }) => {
+        if (back !== Math.sin(a) < 0) return;
+        const p = ringPoint(a);
+        if (back && p.x * p.x + p.y * p.y < r * r) return;
+        ctx.fillStyle = `rgba(${color},${back ? 0.45 : 1})`;
+        dot(ctx, cx + p.x * c - c * 0.7, cy + p.y * c - c * 0.7, c * 1.4);
+      });
+    };
+
+    ringHalf(true);
+    satellites(true);
+    // The crescent: a glint travels along the lit edge; the surface shimmers faintly.
+    const sweep = (t * 0.0006) % (Math.PI * 2);
+    const x0 = Math.round(cx / c);
+    const y0 = Math.round(cy / c);
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y > r * r) continue;
+        if ((x - r * 0.55) ** 2 + (y + r * 0.25) ** 2 <= (r * 0.92) ** 2) continue;
+        const edge = x * x + y * y > (r - 1.5) ** 2;
+        let alpha = edge ? 0.9 : 0.62 + 0.1 * Math.sin(t * 0.002 + x * 0.9 + y * 1.3);
+        if (edge) {
+          const d = Math.abs(((Math.atan2(y, x) - sweep + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          if (d < 0.45) alpha = 1;
+        }
+        ctx.fillStyle = `rgba(${ink},${alpha.toFixed(3)})`;
+        dot(ctx, (x0 + x) * c, (y0 + y) * c, c);
+      }
+    }
+    ringHalf(false);
+    satellites(false);
+  }
   private ctx: CanvasRenderingContext2D | null = null;
   private w = 0;
   private h = 0;
@@ -130,6 +385,7 @@ export class NightSky {
       speed: 0.6 + rand() * 1.6,
       big: rand() < 0.07,
     }));
+    this.planets = layoutPlanets(this.w, this.h);
     this.renderStatic();
   }
 
@@ -138,36 +394,16 @@ export class NightSky {
     const layer = document.createElement("canvas");
     const ctx = fitCanvas(layer, this.w, this.h);
     if (!ctx) return;
-    const { ink } = this.palette;
     const c = this.cell;
-    // Moon: a crescent of dots with a tilted ring of dots.
-    // Below 1100px the headline spans the width, so the moon sits in the gap between the
-    // navbar and the headline instead, clear of the text.
+    // The moon is animated (see drawMoon); here only its place. Below 1100px the headline
+    // spans the width, so the moon sits in the gap between the navbar and the headline; on
+    // wide screens it stays clear of the 720px-wide headline.
     const narrow = this.w < 1100;
-    const mx = Math.round((this.w * (narrow ? 0.86 : 0.78)) / c);
-    const my = Math.round((narrow ? 100 : Math.min(this.h * 0.2, 230)) / c);
-    const r = this.w < 640 ? 5 : narrow ? 6 : 10;
-    for (let y = -r; y <= r; y++) {
-      for (let x = -r; x <= r; x++) {
-        const inMoon = x * x + y * y <= r * r;
-        const inShadow = (x - r * 0.55) ** 2 + (y + r * 0.25) ** 2 <= (r * 0.92) ** 2;
-        if (!inMoon || inShadow) continue;
-        const edge = x * x + y * y > (r - 1.5) ** 2;
-        ctx.fillStyle = `rgba(${ink},${edge ? 0.95 : 0.7})`;
-        dot(ctx, (mx + x) * c, (my + y) * c, c);
-      }
-    }
-    const tilt = -0.32;
-    for (let a = 0; a < Math.PI * 2; a += 0.075) {
-      const ex = Math.cos(a) * r * 1.9;
-      const ey = Math.sin(a) * r * 0.45;
-      const x = Math.round(ex * Math.cos(tilt) - ey * Math.sin(tilt));
-      const y = Math.round(ex * Math.sin(tilt) + ey * Math.cos(tilt));
-      // The back half of the ring hides behind the moon.
-      if (Math.sin(a) < 0 && x * x + y * y < r * r) continue;
-      ctx.fillStyle = `rgba(${ink},0.55)`;
-      dot(ctx, (mx + x) * c, (my + y) * c, c);
-    }
+    this.moon = {
+      x: narrow ? this.w * 0.86 : Math.max(this.w * 0.85, (this.w + 720) / 2 + 100),
+      y: narrow ? 100 : Math.min(this.h * 0.2, 230),
+      r: this.w < 640 ? 5 : narrow ? 6 : 10,
+    };
     this.buildCity(ctx, c);
     this.staticLayer = layer;
   }
@@ -183,21 +419,13 @@ export class NightSky {
     const scale = this.w < 640 ? 0.62 : 1;
     const snap = (v: number) => Math.round(v / c) * c;
     this.lights = [];
-    // Tones are a share of the way from the background to the ink. At night (dark theme) the
-    // front is darkest and edges catch moonlight; by day (light theme) the front is darkest too,
-    // the back fades into the sky, and edges are the sunlit, lighter side.
-    const day = p.bg.split(",").reduce((s, v) => s + Number(v), 0) / 3 > 128;
-    const tones = day
-      ? [
-          { body: 0.1, lit: 0.07, edge: 0.04 },
-          { body: 0.2, lit: 0.14, edge: 0.08 },
-          { body: 0.34, lit: 0.27, edge: 0.18 },
-        ]
-      : [
-          { body: 0.17, lit: 0.21, edge: 0.3 },
-          { body: 0.1, lit: 0.16, edge: 0.34 },
-          { body: 0.045, lit: 0.07, edge: 0.18 },
-        ];
+    // Tones are a share of the way from the night sky to the ink: the back is hazy, the front
+    // darkest, and edges catch the moonlight.
+    const tones = [
+      { body: 0.17, lit: 0.21, edge: 0.3 },
+      { body: 0.1, lit: 0.16, edge: 0.34 },
+      { body: 0.045, lit: 0.07, edge: 0.18 },
+    ];
     const layers = [
       {
         seed: 31,
@@ -322,6 +550,9 @@ export class NightSky {
         }),
       );
     });
+    // Planets sit behind the moon and the city.
+    for (const p of this.planets) drawPlanet(ctx, p, time, this.palette, c);
+    this.drawMoon(ctx, time);
     if (this.staticLayer) ctx.drawImage(this.staticLayer, 0, 0, this.w, this.h);
     // Lights in the front buildings switch on and off now and then.
     for (const l of this.lights) {

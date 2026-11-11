@@ -7,8 +7,8 @@
   background: var(--led-bg);
   color: #ff4f9a;
   font-family: var(--font-led);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
 }
 
 .docs {
@@ -29,8 +29,8 @@
 .docs-toc summary {
   margin-bottom: 0.6rem;
   font-family: var(--font-led);
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  font-size: 1.02rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
   cursor: pointer;
@@ -89,7 +89,7 @@
 }
 
 .docs-hero h1 {
-  font-weight: 300;
+  font-weight: 400;
   font-size: clamp(2rem, 5vw, 2.8rem);
 }
 

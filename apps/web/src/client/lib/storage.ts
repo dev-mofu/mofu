@@ -8,7 +8,6 @@ const KEYS = {
   memory: "mofu.memory",
   byokKey: "mofu.byokKey",
   byokModel: "mofu.byokModel",
-  theme: "mofu.theme",
 } as const;
 
 function read(key: string): string | null {
@@ -68,25 +67,19 @@ export function addMemoryItem(
   return [...items, { id, text: clean, savedAt: now.toISOString() }].slice(-MAX_MEMORY_ITEMS);
 }
 
-export type ThemeChoice = "system" | "dark" | "light";
-
 export interface Settings {
   byokKey: string;
   byokModel: string;
-  theme: ThemeChoice;
 }
 
 export function loadSettings(): Settings {
-  const theme = read(KEYS.theme);
   return {
     byokKey: read(KEYS.byokKey) ?? "",
     byokModel: read(KEYS.byokModel) ?? "",
-    theme: theme === "dark" || theme === "light" ? theme : "system",
   };
 }
 
 export function saveSettings(s: Settings): void {
   write(KEYS.byokKey, s.byokKey || null);
   write(KEYS.byokModel, s.byokModel || null);
-  write(KEYS.theme, s.theme === "system" ? null : s.theme);
 }
