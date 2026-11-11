@@ -669,8 +669,8 @@ async function main() {
   const loading = byId("loading");
   const hint = byId("hint");
   hint.textContent = coarse
-    ? "Tap to walk · swipe to look around · tap a building to go there"
-    : "WASD or arrows to walk · drag to look · click a building to go there";
+    ? "Tap to walk · swipe to look around, up and down · tap a building to go there"
+    : "WASD or arrows to walk · drag to look around, up and down · scroll to zoom";
   if (!webglAvailable()) {
     loading.classList.add("done");
     placesPanel.hidden = false;
@@ -714,7 +714,7 @@ async function main() {
       vertexShader:
         "varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
       fragmentShader:
-        "varying float h; void main(){ vec3 low = vec3(0.16,0.07,0.17); vec3 mid = vec3(0.07,0.04,0.12); vec3 top = vec3(0.02,0.015,0.04); vec3 c = mix(low, mid, smoothstep(-0.05,0.25,h)); c = mix(c, top, smoothstep(0.25,0.9,h)); gl_FragColor = vec4(c,1.0); }",
+        "varying float h; void main(){ vec3 low = vec3(0.16,0.07,0.17); vec3 mid = vec3(0.07,0.04,0.12); vec3 top = vec3(0.045,0.03,0.09); vec3 c = mix(low, mid, smoothstep(-0.05,0.25,h)); c = mix(c, top, smoothstep(0.25,0.9,h)); gl_FragColor = vec4(c,1.0); }",
     }),
   );
   scene.add(sky);
@@ -723,9 +723,9 @@ async function main() {
   {
     const R = rng(7);
     const pos: number[] = [];
-    for (let i = 0; i < 700; i++) {
+    for (let i = 0; i < 1100; i++) {
       const th = R() * Math.PI * 2,
-        ph = Math.acos(R() * 0.92);
+        ph = Math.acos(Math.sqrt(R()));
       pos.push(
         Math.sin(ph) * Math.cos(th) * 280,
         Math.cos(ph) * 280,
@@ -875,6 +875,7 @@ async function main() {
   scene.add(towerLight);
 
   // lamps, trees and a distant skyline, merged
+  const trees: Array<{ x: number; z: number }> = [];
   {
     const v = new Vox();
     const lampHeads: THREE.Vector3[] = [];
@@ -901,6 +902,7 @@ async function main() {
         const x = Math.sin(a + (R() - 0.5) * 0.15) * r,
           z = Math.cos(a + (R() - 0.5) * 0.15) * r;
         const h = 1.2 + R() * 1.2;
+        trees.push({ x, z });
         v.box(x, 0, z, 0.5, h, 0.5, "#3b2a2a");
         const leaf = ["#2f5a55", "#3d3a6b", "#5a2f55"][Math.floor(R() * 3)]!;
         v.box(x, h, z, 2.4, 1.3, 2.4, leaf)
@@ -1029,6 +1031,10 @@ async function main() {
   const keys = new Set<string>();
   let yaw = 0;
   let camYaw = 0;
+  // Up/down look: high values look down on Mofu, low values bring the camera near the ground
+  // and tilt the view up toward the tower and the sky.
+  let pitchGoal = 0.68;
+  let camPitch = 0.68;
   let dist = coarse ? 15 : 13;
   let target: THREE.Vector3 | null = null;
   // Mofu starts facing the camera, to say hi.
@@ -1037,6 +1043,8 @@ async function main() {
   const colliders = [
     ...places.map((b) => ({ x: b.center.x, z: b.center.z, r: b.radius + 0.4, h: 30 })),
     { x: 0, z: 0, r: 4.9, h: 40 },
+    // tree canopies: the camera stops before it ends up inside the leaves
+    ...trees.map((tr) => ({ x: tr.x, z: tr.z, r: 1.9, h: 6 })),
   ];
   const clipCamera = (from: THREE.Vector3, to: THREE.Vector3) => {
     const dx = to.x - from.x,
@@ -1098,6 +1106,7 @@ async function main() {
     }
     if (down.moved) {
       yaw -= (e.movementX || 0) * 0.006;
+      pitchGoal = THREE.MathUtils.clamp(pitchGoal + (e.movementY || 0) * 0.005, -0.15, 1.3);
     }
   });
   canvas.addEventListener("pointerup", (e) => {
@@ -1175,6 +1184,7 @@ async function main() {
     (window as unknown as { __town: unknown }).__town = {
       player,
       places,
+      scene,
       view: (h: number, camYawTo: number, d: number) => {
         heading = h;
         yaw = camYawTo;
@@ -1225,6 +1235,7 @@ async function main() {
     };
     for (const b of places) pushOut(b.center.x, b.center.z, b.radius);
     pushOut(0, 0, 5.1);
+    for (const tr of trees) pushOut(tr.x, tr.z, 0.9);
     const fromCenter = Math.hypot(player.position.x, player.position.z);
     if (fromCenter > PLAZA_R - 1) player.position.multiplyScalar((PLAZA_R - 1) / fromCenter);
 
@@ -1245,7 +1256,8 @@ async function main() {
     // On arrival the camera starts high above the tower and glides down to Mofu.
     introClock += dt;
     const intro = reduced ? 1 : THREE.MathUtils.smootherstep(introClock, 0.2, 3.2);
-    const pitch = THREE.MathUtils.lerp(0.95, 0.68, intro);
+    camPitch += (pitchGoal - camPitch) * Math.min(1, dt * 8);
+    const pitch = THREE.MathUtils.lerp(0.95, camPitch, intro);
     const d = THREE.MathUtils.lerp(46, dist, intro);
     camTarget.copy(player.position).add(new THREE.Vector3(0, 1.4, 0));
     camTarget.lerpVectors(new THREE.Vector3(0, 9, 0), camTarget, intro);
@@ -1254,6 +1266,9 @@ async function main() {
       camTarget.y + Math.sin(pitch) * d - 0.4,
       camTarget.z + Math.cos(camYaw) * Math.cos(pitch) * d,
     );
+    // looking up: the camera stays above the ground and the aim rises above Mofu
+    camPos.y = Math.max(camPos.y, 0.45);
+    camTarget.y += Math.max(0, 0.45 - pitch) * 18 * intro;
     clipCamera(camTarget, camPos);
     if (first || intro < 1) camera.position.copy(camPos);
     else camera.position.lerp(camPos, Math.min(1, dt * 5));
@@ -1347,7 +1362,9 @@ async function main() {
         target = null;
       },
       cam: (p: number[] | null, l?: number[], fov = 50) => {
-        cinemaCam = p ? { pos: new THREE.Vector3(...p), look: new THREE.Vector3(...l!), fov } : null;
+        cinemaCam = p
+          ? { pos: new THREE.Vector3(...p), look: new THREE.Vector3(...l!), fov }
+          : null;
       },
       prompt: () => (current ? current.id : null),
     };
