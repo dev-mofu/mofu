@@ -38,5 +38,8 @@
     "HOLDER_DECIMALS": "18",
     "HOLDER_MIN_TOKENS": "1000000",
     "HOLDER_DAILY_LIMIT": "30",
+    // Token Scanner: scans a day per IP, and per wallet for $MOFU holders.
+    "SCAN_FREE_DAILY": "10",
+    "SCAN_HOLDER_DAILY": "50",
   },
 }

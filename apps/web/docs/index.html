@@ -171,7 +171,8 @@ npx mofu-cli          # chat in the current folder</code></pre>
             </dd>
             <dt>Dev Tools</dt>
             <dd>
-              Explain a GitHub repository, scan dependencies, work with an API spec.
+              Explain a GitHub repository, scan dependencies, work with an API spec, scan a token on
+              Robinhood Chain.
               <a href="#dev">More below.</a>
             </dd>
           </dl>
@@ -277,6 +278,24 @@ npx mofu-cli          # chat in the current folder</code></pre>
           <p>
             The web app never sends requests to your API. To run the tests, use
             <code>npx mofu-cli api test</code>.
+          </p>
+          <h3>Scan a token</h3>
+          <p>
+            Paste a token contract address on <strong>Robinhood Chain</strong>. Mofu reads the
+            contract straight from the chain and answers, in plain English: can new tokens be
+            minted, can transfers be paused, can wallets be blocked, can fees or trading limits be
+            changed, can the code be swapped (upgradeable proxies), and who controls it. Supply,
+            owner and burned share are shown too.
+          </p>
+          <p>
+            The scan is Mofu's own code reading bytecode and storage, not AI. Choose
+            <strong>Explain this</strong> to have Mofu talk you through it (that uses a message).
+            Share a scan with its link: <code>mofu.works/app/?scan=0x…</code>.
+          </p>
+          <p>
+            It looks for common function names, so a contract that hides or renames them can't be
+            fully judged, and it doesn't cover liquidity, price or holder distribution. It's a
+            technical check, not financial advice.
           </p>
         </section>
 
@@ -460,6 +479,12 @@ npx mofu-cli          # chat in the current folder</code></pre>
                   <td>10 a day per IP</td>
                   <td>No daily cap</td>
                   <td>No cap</td>
+                </tr>
+                <tr>
+                  <td>Token scans</td>
+                  <td>10 a day per IP; 50 for $MOFU holders</td>
+                  <td>Same as free</td>
+                  <td>Not in the CLI</td>
                 </tr>
                 <tr>
                   <td>PDF pages at a time</td>

@@ -5,6 +5,8 @@
  */
 
 export class RpcError extends Error {}
+/** The call ran and reverted: a real answer from the chain, so no other endpoint is tried. */
+export class RevertError extends RpcError {}
 
 /** Parses the comma-separated RPC list from config; only https URLs are kept. */
 export function parseRpcUrls(value: unknown): string[] {
@@ -31,11 +33,19 @@ export async function rpcCall<T = unknown>(
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) throw new RpcError(`RPC HTTP ${res.status}`);
-      const body = (await res.json()) as { result?: T; error?: { message?: string } };
-      if (body.error) throw new RpcError(body.error.message ?? "RPC error");
+      const body = (await res.json()) as {
+        result?: T;
+        error?: { code?: number; message?: string };
+      };
+      if (body.error) {
+        const message = body.error.message ?? "RPC error";
+        if (body.error.code === 3 || /revert/i.test(message)) throw new RevertError(message);
+        throw new RpcError(message);
+      }
       if (body.result === undefined) throw new RpcError("RPC returned no result");
       return body.result;
     } catch (err) {
+      if (err instanceof RevertError) throw err;
       last = err;
     }
   }

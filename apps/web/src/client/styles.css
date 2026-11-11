@@ -1562,3 +1562,114 @@ textarea {
 .holder-card .ghost-button {
   align-self: flex-start;
 }
+
+/* Token Scanner */
+.token-kicker {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-led, ui-monospace, monospace);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.token-addr {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.token-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+.token-verdict strong {
+  font-size: 1.02rem;
+}
+
+.token-verdict--clean {
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
+  background: color-mix(in srgb, var(--ok) 9%, transparent);
+}
+
+.token-verdict--clean strong {
+  color: var(--ok);
+}
+
+.token-verdict--caution {
+  border-color: color-mix(in srgb, #f2b84b 55%, transparent);
+  background: color-mix(in srgb, #f2b84b 9%, transparent);
+}
+
+.token-verdict--caution strong {
+  color: #f2b84b;
+}
+
+.token-verdict--risky {
+  border-color: color-mix(in srgb, var(--bad) 55%, transparent);
+  background: color-mix(in srgb, var(--bad) 9%, transparent);
+}
+
+.token-verdict--risky strong {
+  color: var(--bad);
+}
+
+.token-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.token-check {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.token-check:last-child {
+  border-bottom: 0;
+}
+
+.token-check p {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.token-check-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1.5px solid currentColor;
+}
+
+.token-check--ok .token-check-icon {
+  color: var(--ok);
+}
+
+.token-check--warn .token-check-icon {
+  color: #f2b84b;
+}
+
+.token-check--risk .token-check-icon {
+  color: var(--bad);
+}
+
+.token-check--info .token-check-icon {
+  color: var(--muted);
+}

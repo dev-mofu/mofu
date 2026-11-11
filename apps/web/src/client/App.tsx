@@ -20,7 +20,17 @@ import {
   type PublicConfig,
   type UsageInfo,
 } from "../shared/api.js";
-import { ApiRequestError, createSession, fetchConfig, fetchPage, fetchUsage } from "./lib/api.js";
+import {
+  ApiRequestError,
+  createSession,
+  fetchConfig,
+  fetchPage,
+  fetchUsage,
+  scanTokenAddress,
+} from "./lib/api.js";
+import { TokenPanel, TokenReport } from "./components/TokenScan.js";
+import { formatTokenScanForModel } from "../shared/token-scan-text.js";
+import type { TokenScanReport } from "../shared/api.js";
 import { StudyPanel } from "./components/StudyPanel.js";
 import { ApiPanel } from "./components/ApiPanel.js";
 import { ApiResults } from "./components/ApiResults.js";
@@ -129,7 +139,13 @@ export function App() {
   const [repoError, setRepoError] = useState<GitHubError | null>(null);
 
   // The transport reads the latest settings through a ref, so it's created once.
-  const [devTool, setDevTool] = useState<"repo" | "deps" | "api">("repo");
+  const [devTool, setDevTool] = useState<"repo" | "deps" | "api" | "token">("repo");
+  const [tokenScan, setTokenScan] = useState<{
+    report: TokenScanReport;
+    remaining: number | null;
+  } | null>(null);
+  const [tokenScanning, setTokenScanning] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
   const [depScan, setDepScan] = useState<{ report: ScanReport; source: string } | null>(null);
   const [scanning, setScanning] = useState(false);
 
@@ -153,6 +169,7 @@ export function App() {
   const [apiVersion, setApiVersion] = useState(0);
 
   const latest = useRef({
+    tokenScan,
     settings,
     memory,
     mode,
@@ -165,6 +182,7 @@ export function App() {
     apiContext,
   });
   latest.current = {
+    tokenScan,
     settings,
     memory,
     mode,
@@ -224,6 +242,13 @@ export function App() {
               kind: "api-spec",
               title: latest.current.api.index.title,
               text: latest.current.apiContext,
+            };
+          } else if (m === "dev" && tool === "token" && latest.current.tokenScan) {
+            const rep = latest.current.tokenScan.report;
+            context = {
+              kind: "token-scan",
+              title: (rep.token.symbol ?? rep.address).slice(0, 100),
+              text: formatTokenScanForModel(rep),
             };
           } else if (m === "dev" && tool === "deps" && scan) {
             context = {
@@ -596,6 +621,49 @@ export function App() {
     }
   };
 
+  const scanToken = async (address: string) => {
+    setTokenError(null);
+    if (!(await ensureSession())) return;
+    setTokenScanning(true);
+    try {
+      const res = await scanTokenAddress(address);
+      setTokenScan({ report: res.report, remaining: res.remaining });
+      // Show the report from its top, also on small screens where the thread scrolls.
+      window.setTimeout(() => {
+        document.querySelector(".token-report")?.scrollIntoView({ block: "start" });
+      }, 50);
+      if (messages.length > 0) {
+        if (busy) void stop();
+        clearError();
+        setMessages([]);
+      }
+      setCelebrating(true);
+      window.setTimeout(() => setCelebrating(false), 2500);
+      const url = new URL(location.href);
+      url.searchParams.set("scan", res.report.address);
+      history.replaceState(null, "", url);
+    } catch (err) {
+      setTokenError(
+        err instanceof ApiRequestError ? err.message : "Couldn't scan that address. Try again.",
+      );
+    } finally {
+      setTokenScanning(false);
+    }
+  };
+
+  // A shared link (/app/?scan=0x…) opens the scanner and runs it.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || !config) return;
+    deepLinkDone.current = true;
+    const target = new URLSearchParams(location.search).get("scan");
+    if (target && /^0x[0-9a-fA-F]{40}$/.test(target)) {
+      setMode("dev");
+      setDevTool("token");
+      void scanToken(target);
+    }
+  }, [config]);
+
   const newChat = () => {
     if (busy) void stop();
     clearError();
@@ -620,7 +688,7 @@ export function App() {
                 ? "DONE"
                 : "READY";
   const mascotState: MascotState =
-    busy || repoLoading || scanning || dataLoading || studyLoading
+    busy || repoLoading || scanning || tokenScanning || dataLoading || studyLoading
       ? "focus"
       : celebrating
         ? "found"
@@ -646,74 +714,90 @@ export function App() {
       : undefined;
 
   const apiMode = mode === "dev" && devTool === "api";
-  const emptyCopy = apiMode
-    ? api
+  const tokenMode = mode === "dev" && devTool === "token";
+  const emptyCopy = tokenMode
+    ? tokenScan
       ? {
-          title: `Work with ${api.index.title}`,
-          body: "Generate test cases or docs, compare with another version, or ask anything about the API. Tables and downloads appear above.",
+          title: "Ask about this token",
+          body: "Mofu explains what the contract can and can't do. It won't tell you to buy or sell.",
           suggestions: [
-            "Which endpoints need authentication?",
-            "Summarize this API in a paragraph",
+            "What's the biggest risk in this contract?",
+            "Explain these findings like I'm new to crypto",
           ],
         }
       : {
-          title: "Understand an API from its spec",
-          body: "Load an OpenAPI or Swagger spec above. Mofu validates it, lists every endpoint, writes test cases and docs, and finds breaking changes between versions. Running tests against your server is in the CLI: npx mofu-cli api test.",
+          title: "Scan a token on Robinhood Chain",
+          body: "Paste a contract address above. Mofu reads the contract straight from the chain: can it mint more tokens, pause transfers, block wallets, change fees or swap its code? You get a plain-English report in seconds.",
           suggestions: [],
         }
-    : mode === "study"
-      ? study
+    : apiMode
+      ? api
         ? {
-            title: `Study ${study.doc.title}`,
-            body: "Pick an action above or ask anything. Mofu reads the pages it needs and cites them, so you can check every answer.",
-            suggestions: [],
+            title: `Work with ${api.index.title}`,
+            body: "Generate test cases or docs, compare with another version, or ask anything about the API. Tables and downloads appear above.",
+            suggestions: [
+              "Which endpoints need authentication?",
+              "Summarize this API in a paragraph",
+            ],
           }
         : {
-            title: "Study anything",
-            body: "Upload a PDF or notes, or paste an article link. Mofu summarizes at three levels, makes flashcards you can export to Anki and quizzes you, citing the pages.",
+            title: "Understand an API from its spec",
+            body: "Load an OpenAPI or Swagger spec above. Mofu validates it, lists every endpoint, writes test cases and docs, and finds breaking changes between versions. Running tests against your server is in the CLI: npx mofu-cli api test.",
             suggestions: [],
           }
-      : dataMode
-        ? dataset
+      : mode === "study"
+        ? study
           ? {
-              title: `Ask about ${dataset.name}`,
-              body: "Every number comes from Python run on your file, right here in the browser. Charts appear in the chat.",
-              suggestions: suggestQuestions(dataset.profile),
-            }
-          : {
-              title: "Analyze a spreadsheet",
-              body: "Drop a CSV, Excel or JSON file above. Mofu profiles it, answers questions with real calculations, draws charts and can pull in exchange rates, holidays, weather or World Bank data.",
+              title: `Study ${study.doc.title}`,
+              body: "Pick an action above or ask anything. Mofu reads the pages it needs and cites them, so you can check every answer.",
               suggestions: [],
             }
-        : depsMode
-          ? depScan
+          : {
+              title: "Study anything",
+              body: "Upload a PDF or notes, or paste an article link. Mofu summarizes at three levels, makes flashcards you can export to Anki and quizzes you, citing the pages.",
+              suggestions: [],
+            }
+        : dataMode
+          ? dataset
             ? {
-                title: "Ask about this scan",
-                body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu-cli deps --fix.",
-                suggestions: DEPS_SUGGESTIONS,
+                title: `Ask about ${dataset.name}`,
+                body: "Every number comes from Python run on your file, right here in the browser. Charts appear in the chat.",
+                suggestions: suggestQuestions(dataset.profile),
               }
             : {
-                title: "Scan your dependencies",
-                body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
+                title: "Analyze a spreadsheet",
+                body: "Drop a CSV, Excel or JSON file above. Mofu profiles it, answers questions with real calculations, draws charts and can pull in exchange rates, holidays, weather or World Bank data.",
                 suggestions: [],
               }
-          : mode === "dev"
-            ? repo
+          : depsMode
+            ? depScan
               ? {
-                  title: `Ask about ${repo.fullName}`,
-                  body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu-cli task "…".',
-                  suggestions: DEV_SUGGESTIONS,
+                  title: "Ask about this scan",
+                  body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu-cli deps --fix.",
+                  suggestions: DEPS_SUGGESTIONS,
                 }
               : {
-                  title: "Explain any public GitHub repository",
-                  body: "Paste a GitHub URL above. Mofu reads its structure, manifests and key files in your browser, then explains how it works.",
+                  title: "Scan your dependencies",
+                  body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
                   suggestions: [],
                 }
-            : {
-                title: "What can I help with?",
-                body: "Mofu can look things up on Wikipedia, define words and remember your preferences. Study a PDF or article in Study Buddy, analyze a spreadsheet in Data Analyst, or explain a repository and scan dependencies in Dev Tools.",
-                suggestions: SUGGESTIONS,
-              };
+            : mode === "dev"
+              ? repo
+                ? {
+                    title: `Ask about ${repo.fullName}`,
+                    body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu-cli task "…".',
+                    suggestions: DEV_SUGGESTIONS,
+                  }
+                : {
+                    title: "Explain any public GitHub repository",
+                    body: "Paste a GitHub URL above. Mofu reads its structure, manifests and key files in your browser, then explains how it works.",
+                    suggestions: [],
+                  }
+              : {
+                  title: "What can I help with?",
+                  body: "Mofu can look things up on Wikipedia, define words and remember your preferences. Study a PDF or article in Study Buddy, analyze a spreadsheet in Data Analyst, or explain a repository and scan dependencies in Dev Tools.",
+                  suggestions: SUGGESTIONS,
+                };
 
   const usageLabel = settings.byokKey
     ? `Your key · ${shortModel(settings.byokModel || config?.defaultModel || "")}`
@@ -825,7 +909,7 @@ export function App() {
         {mode === "dev" && (
           <>
             <div className="segmented dev-tabs" role="tablist" aria-label="Dev Tools">
-              {(["repo", "deps", "api"] as const).map((t) => (
+              {(["repo", "deps", "api", "token"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -838,11 +922,21 @@ export function App() {
                     ? "Explain a repo"
                     : t === "deps"
                       ? "Scan dependencies"
-                      : "API spec"}
+                      : t === "api"
+                        ? "API spec"
+                        : "Scan a token"}
                 </button>
               ))}
             </div>
-            {devTool === "api" ? (
+            {devTool === "token" ? (
+              !tokenScan && (
+                <TokenPanel
+                  scanning={tokenScanning}
+                  error={tokenError}
+                  onScan={(a) => void scanToken(a)}
+                />
+              )
+            ) : devTool === "api" ? (
               <ApiPanel
                 api={api}
                 loading={apiLoading}
@@ -909,6 +1003,26 @@ export function App() {
             onClearDiff={() => {
               setApiDiff(null);
               void apiContextText(api, null).then(setApiContext);
+            }}
+          />
+        )}
+        {tokenMode && tokenScan && (
+          <TokenReport
+            report={tokenScan.report}
+            remaining={tokenScan.remaining}
+            busy={busy}
+            onExplain={() =>
+              void send(
+                "Explain this token scan in plain language: what can this contract do, which findings matter most, and what the scan can't see.",
+              )
+            }
+            onClear={() => {
+              setTokenScan(null);
+              setTokenError(null);
+              const url = new URL(location.href);
+              url.searchParams.delete("scan");
+              history.replaceState(null, "", url);
+              if (messages.length > 0) newChat();
             }}
           />
         )}

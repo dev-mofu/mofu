@@ -81,7 +81,9 @@ export type ChatContext =
   /** Outline of a study document; the browser serves the pages through read_document. */
   | { kind: "document"; title: string; text: string }
   /** APIForge: the endpoint list of a spec parsed in the browser, plus a breaking-change diff when one was made. */
-  | { kind: "api-spec"; title: string; text: string };
+  | { kind: "api-spec"; title: string; text: string }
+  /** Token Scanner: a report built from Robinhood Chain data. */
+  | { kind: "token-scan"; title: string; text: string };
 
 export interface FetchedPageResponse {
   url: string;
@@ -152,4 +154,47 @@ export function parseApiError(err: unknown): ApiError | null {
     // Not one of ours.
   }
   return null;
+}
+
+/** One line of a token scan: a question about what the contract can do, and the answer. */
+export interface TokenCheck {
+  id: "mint" | "pause" | "blacklist" | "fees" | "limits" | "upgrade" | "owner" | "destroy";
+  label: string;
+  status: "ok" | "warn" | "risk" | "info";
+  detail: string;
+}
+
+/** Token Scanner report, built by Mofu's own code from Robinhood Chain data (no model). */
+export interface TokenScanReport {
+  address: string;
+  chainName: string;
+  isContract: boolean;
+  codeSize: number;
+  token: {
+    name: string | null;
+    symbol: string | null;
+    decimals: number | null;
+    /** Whole tokens. */
+    totalSupply: string | null;
+  };
+  owner: {
+    status: "none" | "renounced" | "active";
+    address: string | null;
+    /** Share of supply the owner wallet holds, 0–100. */
+    holdsPercent: number | null;
+  };
+  proxy: { kind: "none" | "eip1967" | "beacon" | "minimal"; implementation: string | null };
+  /** Share of supply sitting in burn addresses, 0–100. */
+  burnedPercent: number | null;
+  checks: TokenCheck[];
+  verdict: "clean" | "caution" | "risky";
+  /** What this scan can't see. */
+  limits: string[];
+}
+
+export interface TokenScanResponse {
+  report: TokenScanReport;
+  /** Scans left today for this IP or holder wallet. */
+  remaining: number;
+  limit: number;
 }

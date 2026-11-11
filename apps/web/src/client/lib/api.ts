@@ -8,6 +8,7 @@ import {
   type KeyCheckResponse,
   type PublicConfig,
   type SessionResponse,
+  type TokenScanResponse,
   type UsageInfo,
 } from "../../shared/api.js";
 
@@ -68,3 +69,10 @@ export const holderVerify = (challenge: string, signature: string) =>
 
 export const holderDisconnect = () =>
   request<{ ok: true }>("/api/holder/disconnect", { method: "POST" });
+
+export const scanTokenAddress = (address: string) =>
+  request<TokenScanResponse>("/api/token-scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  });
