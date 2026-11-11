@@ -157,6 +157,11 @@ export function createMcpApp(deps: AppDeps) {
   app.options("/mcp", (c) => c.body(null, 204));
   // Stateless server: no server-initiated stream and no sessions to end.
   app.get("/mcp", (c) => {
+    // People opening the link in a browser get the setup guide; MCP clients get a plain 405.
+    const accept = c.req.header("Accept") ?? "";
+    if (accept.includes("text/html") && !accept.includes("text/event-stream")) {
+      return c.redirect("/docs/#mcp", 302);
+    }
     c.header("Allow", "POST");
     return c.text("This MCP endpoint takes POST requests (Streamable HTTP).", 405);
   });

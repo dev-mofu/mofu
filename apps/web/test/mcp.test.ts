@@ -161,6 +161,19 @@ describe("MCP server", () => {
     const { app, env, post } = setup();
     const get = await app.request("http://localhost/mcp", { method: "GET" }, env);
     expect(get.status).toBe(405);
+    const sse = await app.request(
+      "http://localhost/mcp",
+      { headers: { Accept: "text/event-stream" } },
+      env,
+    );
+    expect(sse.status).toBe(405);
+    const browser = await app.request(
+      "http://localhost/mcp",
+      { headers: { Accept: "text/html,application/xhtml+xml,*/*;q=0.8" } },
+      env,
+    );
+    expect(browser.status).toBe(302);
+    expect(browser.headers.get("Location")).toBe("/docs/#mcp");
     const pre = await app.request("http://localhost/mcp", { method: "OPTIONS" }, env);
     expect(pre.status).toBe(204);
     expect(pre.headers.get("Access-Control-Allow-Headers")).toContain("Mcp-Protocol-Version");
