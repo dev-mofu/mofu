@@ -52,7 +52,7 @@ export const PLACES: Place[] = [
     id: "holder",
     name: "Holder Club",
     kicker: "$MOFU HOLDER PERKS",
-    body: "Connect your wallet: 30 messages and 50 scans a day for holders.",
+    body: "Connect your wallet for 30 messages and 50 scans a day, and vote on what Mofu builds next.",
     href: "/app/?open=holder",
     color: "#ffd166",
     wall: "#3d3522",

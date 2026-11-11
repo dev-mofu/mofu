@@ -57,6 +57,7 @@ export type ApiErrorCode =
   | "too_large"
   | "invalid_key"
   | "forbidden_origin"
+  | "holder_only"
   | "server_error";
 
 export interface ApiError {
@@ -293,4 +294,23 @@ export interface TxResponse {
   report: TxReport;
   remaining: number;
   limit: number;
+}
+
+/** The holder roadmap vote: the round, live results and this visitor's own vote. */
+export interface VoteResponse {
+  round: {
+    id: string;
+    question: string;
+    open: boolean;
+    options: Array<{ id: string; title: string; body: string }>;
+  };
+  results: Array<{ id: string; voters: number; weight: string; percent: number }>;
+  totalVoters: number;
+  /** Whole $MOFU behind all counted votes. */
+  totalWeight: string;
+  /** The option this connected wallet voted for, if any. */
+  mine: string | null;
+  /** True when a connected wallet holds enough $MOFU to vote. */
+  canVote: boolean;
+  minTokens: string;
 }

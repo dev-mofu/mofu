@@ -10,6 +10,7 @@ import {
   type SessionResponse,
   type TokenScanResponse,
   type TxResponse,
+  type VoteResponse,
   type UsageInfo,
 } from "../../shared/api.js";
 
@@ -83,4 +84,13 @@ export const explainTx = (hash: string) =>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ hash }),
+  });
+
+export const fetchVote = () => request<VoteResponse>("/api/vote");
+
+export const castVote = (option: string) =>
+  request<VoteResponse>("/api/vote", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ option }),
   });

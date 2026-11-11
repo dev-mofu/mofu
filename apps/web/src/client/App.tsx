@@ -89,6 +89,7 @@ import { Mascot, type MascotState } from "./components/Mascot.js";
 import { MemoryDialog } from "./components/MemoryDialog.js";
 import { MessageView } from "./components/MessageView.js";
 import { SettingsDialog } from "./components/SettingsDialog.js";
+import { VoteDialog } from "./components/VoteDialog.js";
 import { VerifyDialog } from "./components/VerifyDialog.js";
 
 const SUGGESTIONS = [
@@ -127,7 +128,7 @@ export function App() {
   const [memory, setMemory] = useState<MemoryItem[]>(loadMemory);
   const [mode, setMode] = useState<Mode>("general");
   const [files, setFiles] = useState<File[]>([]);
-  const [dialog, setDialog] = useState<"settings" | "memory" | null>(null);
+  const [dialog, setDialog] = useState<"settings" | "memory" | "vote" | null>(null);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
 
@@ -715,6 +716,7 @@ export function App() {
     const tool = params.get("tool");
     if (tool === "repo" || tool === "deps" || tool === "api" || tool === "token") setDevTool(tool);
     if (params.get("open") === "holder") setDialog("settings");
+    if (params.get("open") === "vote") setDialog("vote");
   }, [config]);
 
   const newChat = () => {
@@ -1212,6 +1214,7 @@ export function App() {
         holderPerks={config?.holder ?? null}
         holder={usage?.holder ?? null}
         freeDailyLimit={config?.freeDailyLimit ?? 10}
+        onOpenVote={() => setDialog("vote")}
         onHolderChange={() => {
           fetchUsage()
             .then(setUsage)
@@ -1225,6 +1228,12 @@ export function App() {
           clearError();
           if (!next.byokKey) refreshUsage();
         }}
+      />
+      <VoteDialog
+        open={dialog === "vote"}
+        onClose={() => setDialog(null)}
+        ensureSession={ensureSession}
+        onConnect={() => setDialog("settings")}
       />
       <MemoryDialog
         open={dialog === "memory"}

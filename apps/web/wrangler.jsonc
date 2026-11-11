@@ -19,9 +19,15 @@
     "run_worker_first": ["/api/*", "/mcp"],
   },
   "durable_objects": {
-    "bindings": [{ "name": "USAGE_LIMITER", "class_name": "UsageLimiter" }],
+    "bindings": [
+      { "name": "USAGE_LIMITER", "class_name": "UsageLimiter" },
+      { "name": "VOTES", "class_name": "VoteStore" },
+    ],
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UsageLimiter"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["UsageLimiter"] },
+    { "tag": "v2", "new_sqlite_classes": ["VoteStore"] },
+  ],
   "vars": {
     "DEFAULT_MODEL": "anthropic/claude-haiku-5.5",
     "FREE_DAILY_LIMIT": "10",

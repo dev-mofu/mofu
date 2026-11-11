@@ -44,6 +44,7 @@ import {
   type TokenScanResponse,
   type TxReport,
   type TxResponse,
+  type VoteResponse,
   type PublicConfig,
   type SessionResponse,
   type UsageInfo,
@@ -53,6 +54,7 @@ import { trimHistory } from "./history.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
 import { ChainDataError, explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import { townHolders } from "./town-holders.js";
+import { ROUND, votesFromEnv, type Votes } from "./vote.js";
 import {
   challengeMessage,
   CHALLENGE_TTL_MS,
@@ -87,6 +89,8 @@ export interface AppDeps {
   getLimiter: (env: Env) => Limiter;
   fetch: typeof fetch;
   now: () => number;
+  /** Holder roadmap votes; defaults to the VOTES Durable Object. */
+  getVotes?: (env: Env) => Votes;
 }
 
 export const defaultDeps: AppDeps = {
@@ -110,6 +114,7 @@ const STATUS: Record<ApiErrorCode, 400 | 401 | 403 | 413 | 429 | 500 | 503> = {
   too_large: 413,
   invalid_key: 401,
   forbidden_origin: 403,
+  holder_only: 403,
   server_error: 500,
 };
 
@@ -725,6 +730,79 @@ export function createApp(deps: AppDeps = defaultDeps) {
       if (txCache.size > 500) txCache.clear();
     }
     return c.json({ report, remaining: usage.remaining, limit } satisfies TxResponse);
+  });
+
+  // Holder roadmap vote. Results are public; voting needs a connected holder wallet.
+  let tally: { at: number; round: string; body: Omit<VoteResponse, "mine" | "canVote"> } | null =
+    null;
+  const votes = (env: Env) => (deps.getVotes ?? votesFromEnv)(env);
+  const countVotes = async (env: Env): Promise<Omit<VoteResponse, "mine" | "canVote">> => {
+    const now = deps.now();
+    if (tally && tally.round === ROUND.id && now - tally.at < 2 * 60 * 1000) return tally.body;
+    const cfg = holderConfig(env);
+    const all = await votes(env).all(ROUND.id);
+    const weights = new Map<string, bigint>(ROUND.options.map((o) => [o.id, 0n]));
+    const voters = new Map<string, number>(ROUND.options.map((o) => [o.id, 0]));
+    // Weight is the balance now; wallets below the minimum don't count.
+    for (let i = 0; i < all.length; i += 8) {
+      await Promise.all(
+        all.slice(i, i + 8).map(async (v) => {
+          if (!cfg || !weights.has(v.option)) return;
+          const units = await readTokenBalance(cfg, v.address, deps.fetch, now).catch(() => 0n);
+          if (units < minUnits(cfg)) return;
+          weights.set(v.option, weights.get(v.option)! + units / 10n ** BigInt(cfg.decimals));
+          voters.set(v.option, voters.get(v.option)! + 1);
+        }),
+      );
+    }
+    const total = [...weights.values()].reduce((a, b) => a + b, 0n);
+    const body = {
+      round: ROUND,
+      results: ROUND.options.map((o) => ({
+        id: o.id,
+        voters: voters.get(o.id)!,
+        weight: weights.get(o.id)!.toString(),
+        percent: total > 0n ? Number((weights.get(o.id)! * 10_000n) / total) / 100 : 0,
+      })),
+      totalVoters: [...voters.values()].reduce((a, b) => a + b, 0),
+      totalWeight: total.toString(),
+      minTokens: cfg ? cfg.minTokens.toString() : "0",
+    };
+    tally = { at: now, round: ROUND.id, body };
+    return body;
+  };
+
+  app.get("/vote", async (c) => {
+    const tier = await usageTier(c);
+    const body = await countVotes(c.env);
+    const mine = tier.holder ? await votes(c.env).mine(ROUND.id, tier.holder.address) : null;
+    return c.json({
+      ...body,
+      mine,
+      canVote: !!tier.holder?.eligible && ROUND.open,
+    } satisfies VoteResponse);
+  });
+
+  app.post("/vote", async (c) => {
+    if (!(await hasSession(c))) return apiError(c, "session_required", "Please verify first.");
+    if (!ROUND.open) return apiError(c, "bad_request", "This vote is closed.");
+    const body = (await c.req.json().catch(() => null)) as { option?: unknown } | null;
+    const option = typeof body?.option === "string" ? body.option : "";
+    if (!ROUND.options.some((o) => o.id === option)) {
+      return apiError(c, "bad_request", "That isn't one of the options.");
+    }
+    const tier = await usageTier(c);
+    if (!tier.holder?.eligible) {
+      return apiError(
+        c,
+        "holder_only",
+        "Only wallets holding enough $MOFU can vote. Connect one in Settings.",
+      );
+    }
+    await votes(c.env).cast(ROUND.id, tier.holder.address, option);
+    tally = null;
+    const counted = await countVotes(c.env);
+    return c.json({ ...counted, mine: option, canVote: true } satisfies VoteResponse);
   });
 
   // $MOFU holder perks: connect a wallet by signing a message; its balance decides the limit.

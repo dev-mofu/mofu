@@ -18,6 +18,7 @@ interface SettingsDialogProps {
   holder: HolderStatus | null;
   freeDailyLimit: number;
   onHolderChange: () => void;
+  onOpenVote: () => void;
 }
 
 type KeyStatus =
@@ -39,6 +40,7 @@ export function SettingsDialog({
   holder,
   freeDailyLimit,
   onHolderChange,
+  onOpenVote,
 }: SettingsDialogProps) {
   const [draft, setDraft] = useState(settings);
   const [showKey, setShowKey] = useState(false);
@@ -103,6 +105,7 @@ export function SettingsDialog({
             freeDailyLimit={freeDailyLimit}
             ensureSession={ensureSession}
             onChange={onHolderChange}
+            onOpenVote={onOpenVote}
           />
         )}
 

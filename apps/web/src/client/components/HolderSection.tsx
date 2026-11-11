@@ -17,6 +17,8 @@ interface HolderSectionProps {
   ensureSession: () => Promise<boolean>;
   /** Called after connecting or disconnecting, so the usage counter refreshes. */
   onChange: () => void;
+  /** Opens the holder roadmap vote. */
+  onOpenVote: () => void;
 }
 
 export function HolderSection({
@@ -25,6 +27,7 @@ export function HolderSection({
   freeDailyLimit,
   ensureSession,
   onChange,
+  onOpenVote,
 }: HolderSectionProps) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
@@ -128,6 +131,14 @@ export function HolderSection({
       )}
 
       {note && <p className={`status status--${note.kind}`}>{note.text}</p>}
+      <div className="holder-vote-link">
+        <span>
+          <strong>Holder vote:</strong> help decide what Mofu builds next.
+        </span>
+        <button type="button" className="ghost-button" onClick={onOpenVote}>
+          Open the vote
+        </button>
+      </div>
       <p className="muted small">
         Official contract: <code className="holder-ca">{perks.token}</code>
       </p>

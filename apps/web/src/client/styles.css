@@ -1815,3 +1815,78 @@ textarea {
     display: none;
   }
 }
+
+/* Holder roadmap vote */
+.vote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.vote-question {
+  margin: 0;
+  font-family: var(--font-head, inherit);
+  font-size: 1.25rem;
+}
+
+.vote-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.vote-option {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.vote-option--mine {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.vote-option p {
+  margin: 0.2rem 0 0.5rem;
+}
+
+.vote-head,
+.vote-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.vote-pct {
+  font-weight: 700;
+}
+
+.vote-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+  margin-bottom: 0.45rem;
+}
+
+.vote-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ffc2dc, var(--accent), #b48cff);
+}
+
+.holder-vote-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
