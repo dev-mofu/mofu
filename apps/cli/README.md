@@ -1,6 +1,6 @@
 # mofu
 
-Website: [mofu.works](https://mofu.works) · Source: [github.com/dev-mofu/mofu](https://github.com/dev-mofu/mofu)
+Website: [mofu.works](https://mofu.works) · Source: [github.com/dev-mofu/mofu](https://github.com/dev-mofu/mofu) · X: [@mofu_works](https://x.com/mofu_works)
 
 An AI agent in your terminal that does real work on your files: it reads, searches and edits code, runs commands, and looks things up. It always asks before it changes a file or runs a command.
 
