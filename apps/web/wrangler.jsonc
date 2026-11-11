@@ -4,6 +4,15 @@
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  // The public domain (a Cloudflare zone in this account). With routes set, Wrangler turns the
+  // workers.dev URL off unless it's enabled explicitly; keep it, so older links still work.
+  "workers_dev": true,
+  // No per-version preview URLs: they'd be public copies outside the Turnstile hostnames.
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "mofu.works", "custom_domain": true },
+    { "pattern": "www.mofu.works", "custom_domain": true },
+  ],
   "assets": {
     // The React app is a single-page app; only /api/* reaches the Worker first.
     "not_found_handling": "single-page-application",
