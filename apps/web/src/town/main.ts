@@ -685,10 +685,13 @@ async function main() {
   ]).catch(() => undefined);
 
   const canvas = byId<HTMLCanvasElement>("town");
+  // Dev-only cinema mode (/town/?cinema): frames are stepped by a script for video capture.
+  const cinema = import.meta.env.DEV && new URLSearchParams(location.search).has("cinema");
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     powerPreference: "high-performance",
+    preserveDrawingBuffer: cinema,
   });
   renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
   renderer.setSize(innerWidth, innerHeight, false);
@@ -1179,10 +1182,14 @@ async function main() {
       },
     };
   }
+  // Cinema: a scripted camera (position + look-at) replaces the follow camera when set.
+  let cinemaCam: { pos: THREE.Vector3; look: THREE.Vector3; fov: number } | null = null;
+  let elapsed = 0;
 
-  renderer.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.05);
-    const t = clock.elapsedTime;
+  const tick = (dtIn: number) => {
+    const dt = Math.min(dtIn, 0.05);
+    elapsed += dt;
+    const t = elapsed;
 
     // movement
     move.set(0, 0, 0);
@@ -1251,6 +1258,14 @@ async function main() {
     if (first || intro < 1) camera.position.copy(camPos);
     else camera.position.lerp(camPos, Math.min(1, dt * 5));
     camera.lookAt(camTarget);
+    if (cinemaCam) {
+      camera.position.copy(cinemaCam.pos);
+      camera.lookAt(cinemaCam.look);
+      if (camera.fov !== cinemaCam.fov) {
+        camera.fov = cinemaCam.fov;
+        camera.updateProjectionMatrix();
+      }
+    }
 
     // animated bits
     const slow = reduced ? 0.25 : 1;
@@ -1314,7 +1329,31 @@ async function main() {
       loading.classList.add("done");
       window.setTimeout(() => loading.remove(), 600);
     }
-  });
+  };
+
+  if (cinema) {
+    renderer.setPixelRatio(1);
+    (window as unknown as { __cinema: unknown }).__cinema = {
+      player,
+      places,
+      tower,
+      canvas,
+      tick,
+      walkTo: (x: number, z: number) => (target = new THREE.Vector3(x, 0, z)),
+      place: (x: number, z: number, h: number) => {
+        player.position.set(x, 0, z);
+        heading = h;
+        player.rotation.y = h;
+        target = null;
+      },
+      cam: (p: number[] | null, l?: number[], fov = 50) => {
+        cinemaCam = p ? { pos: new THREE.Vector3(...p), look: new THREE.Vector3(...l!), fov } : null;
+      },
+      prompt: () => (current ? current.id : null),
+    };
+  } else {
+    renderer.setAnimationLoop(() => tick(clock.getDelta()));
+  }
 }
 
 void main();
