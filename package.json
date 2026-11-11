@@ -1,6 +1,14 @@
 {
   "name": "mofu-monorepo",
   "license": "MIT",
+  "homepage": "https://mofu.works",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-mofu/mofu.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dev-mofu/mofu/issues"
+  },
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.18.0",

@@ -1,5 +1,7 @@
 # mofu
 
+Website: [mofu.works](https://mofu.works) · Source: [github.com/dev-mofu/mofu](https://github.com/dev-mofu/mofu)
+
 An AI agent in your terminal that does real work on your files: it reads, searches and edits code, runs commands, and looks things up. It always asks before it changes a file or runs a command.
 
 Mofu uses [OpenRouter](https://openrouter.ai), so you can pick almost any model. You bring your own API key.

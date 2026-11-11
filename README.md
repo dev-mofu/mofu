@@ -2,7 +2,7 @@
 
 **The AI agent that does the work.** Drop a spreadsheet, a PDF, a project or an API spec, and Mofu works on it with real tools: Python for the numbers, page-cited study notes and quizzes, vulnerability databases for your dependencies, and your own tests for code changes.
 
-Use it free at **[mofu.works](https://mofu.works)** (no account), or in your terminal with `npx mofu-cli`.
+Use it free at **[mofu.works](https://mofu.works)** (no account), or in your terminal with `npx mofu-cli` ([npm](https://www.npmjs.com/package/mofu-cli)).
 
 ![Mofu landing page](assets/screenshots/landing.png)
 
