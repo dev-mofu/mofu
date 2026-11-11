@@ -10,6 +10,7 @@ import {
 import {
   AVAILABLE_MODES,
   BYOK_HEADER,
+  LIMITS,
   MODEL_HEADER,
   MODE_LABELS,
   MODES,
@@ -19,13 +20,23 @@ import {
   type PublicConfig,
   type UsageInfo,
 } from "../shared/api.js";
-import { createSession, fetchConfig, fetchUsage } from "./lib/api.js";
+import { ApiRequestError, createSession, fetchConfig, fetchPage, fetchUsage } from "./lib/api.js";
+import { StudyPanel } from "./components/StudyPanel.js";
+import {
+  documentFromPage,
+  loadStudyFile,
+  runStudyTool,
+  STUDY_TOOLS,
+  type LoadedDocument,
+} from "./lib/study.js";
 import { GitHubError, loadGitHubRepo, type LoadedRepo } from "./lib/github.js";
 import { RepoPanel } from "./components/RepoPanel.js";
 import { DepsPanel } from "./components/DepsPanel.js";
 import { ScanResults } from "./components/ScanResults.js";
 import {
+  documentOutline,
   findUnverifiedReferences,
+  ScannedPdfError,
   formatProfileForModel,
   formatScanForModel,
   suggestQuestions,
@@ -126,8 +137,12 @@ export function App() {
   const [dataProgress, setDataProgress] = useState("");
   const [dataError, setDataError] = useState<string | null>(null);
 
-  const latest = useRef({ settings, memory, mode, repo, devTool, depScan, dataset });
-  latest.current = { settings, memory, mode, repo, devTool, depScan, dataset };
+  const [study, setStudy] = useState<LoadedDocument | null>(null);
+  const [studyLoading, setStudyLoading] = useState(false);
+  const [studyError, setStudyError] = useState<string | null>(null);
+
+  const latest = useRef({ settings, memory, mode, repo, devTool, depScan, dataset, study });
+  latest.current = { settings, memory, mode, repo, devTool, depScan, dataset, study };
 
   const effectiveTheme =
     settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
@@ -192,6 +207,9 @@ export function App() {
               title: d.name,
               text: formatProfileForModel(d.name, d.profile),
             };
+          } else if (m === "study" && latest.current.study) {
+            const doc = latest.current.study.doc;
+            context = { kind: "document", title: doc.title, text: documentOutline(doc) };
           }
           return { mode: m, memory: mem.map((x) => x.text), ...(context && { context }) };
         },
@@ -223,7 +241,25 @@ export function App() {
     // Browser-run tools: when every tool call has a result, send them back automatically.
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onToolCall: async ({ toolCall }) => {
-      if (toolCall.dynamic || !CLIENT_TOOL_NAMES.has(toolCall.toolName)) return;
+      if (toolCall.dynamic) return;
+      if (STUDY_TOOLS.has(toolCall.toolName)) {
+        let output: unknown;
+        try {
+          const doc = latest.current.study?.doc;
+          if (!doc) throw new Error("No document is loaded. Ask the user to load one.");
+          output = runStudyTool(toolCall.toolName, toolCall.input, doc);
+        } catch (err) {
+          // Validation errors go back to the model so it can fix the cards or questions.
+          output = { error: err instanceof Error ? err.message : String(err) };
+        }
+        void addToolOutputRef.current?.({
+          tool: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+          output,
+        });
+        return;
+      }
+      if (!CLIENT_TOOL_NAMES.has(toolCall.toolName)) return;
       const sandbox = sandboxRef.current;
       setToolsRunning((n) => n + 1);
       let output: unknown;
@@ -295,6 +331,43 @@ export function App() {
       setDataLoading(false);
       setDataProgress("");
     }
+  };
+
+  // --- Study Buddy: documents are read in the browser ----------------------
+  const docLimits = settings.byokKey
+    ? { pages: LIMITS.byokDocPages, chars: LIMITS.byokDocChars }
+    : { pages: LIMITS.freeDocPages, chars: LIMITS.freeDocChars };
+
+  const openStudy = async (load: () => Promise<LoadedDocument>) => {
+    setStudyError(null);
+    setStudyLoading(true);
+    try {
+      const loaded = await load();
+      if (!loaded.doc.parts.length) throw new Error("No readable text was found.");
+      setStudy(loaded);
+      if (messages.length > 0) {
+        if (busy) void stop();
+        clearError();
+        setMessages([]);
+      }
+      setCelebrating(true);
+      window.setTimeout(() => setCelebrating(false), 2500);
+    } catch (err) {
+      setStudyError(
+        err instanceof ScannedPdfError
+          ? "This PDF looks scanned (images of pages), so there's no text to read. Try a PDF with selectable text."
+          : err instanceof ApiRequestError
+            ? err.error.message
+            : `Couldn't read that: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setStudyLoading(false);
+    }
+  };
+
+  const loadStudyUrl = async (url: string) => {
+    if (!(await ensureSession())) return;
+    await openStudy(async () => documentFromPage(await fetchPage(url), docLimits));
   };
 
   /** The latest answer plus every chart, as one Markdown file. */
@@ -403,19 +476,25 @@ export function App() {
 
   const apiError = parseApiError(error);
   const led =
-    toolsRunning > 0 || dataLoading
-      ? "ANALYZING"
-      : busy
-        ? "THINKING"
-        : repoLoading || scanning
-          ? "SCANNING"
-          : error
-            ? "ERROR"
-            : celebrating
-              ? "DONE"
-              : "READY";
+    mode === "study" && (busy || studyLoading)
+      ? "STUDYING"
+      : toolsRunning > 0 || dataLoading
+        ? "ANALYZING"
+        : busy
+          ? "THINKING"
+          : repoLoading || scanning
+            ? "SCANNING"
+            : error
+              ? "ERROR"
+              : celebrating
+                ? "DONE"
+                : "READY";
   const mascotState: MascotState =
-    busy || repoLoading || scanning || dataLoading ? "focus" : celebrating ? "found" : "ready";
+    busy || repoLoading || scanning || dataLoading || studyLoading
+      ? "focus"
+      : celebrating
+        ? "found"
+        : "ready";
 
   const depsMode = mode === "dev" && devTool === "deps";
   const dataMode = mode === "data";
@@ -436,47 +515,60 @@ export function App() {
       ? (text: string) => findUnverifiedReferences(text, depScan.report)
       : undefined;
 
-  const emptyCopy = dataMode
-    ? dataset
-      ? {
-          title: `Ask about ${dataset.name}`,
-          body: "Every number comes from Python run on your file, right here in the browser. Charts appear in the chat.",
-          suggestions: suggestQuestions(dataset.profile),
-        }
-      : {
-          title: "Analyze a spreadsheet",
-          body: "Drop a CSV, Excel or JSON file above. Mofu profiles it, answers questions with real calculations, draws charts and can pull in exchange rates, holidays, weather or World Bank data.",
-          suggestions: [],
-        }
-    : depsMode
-      ? depScan
+  const emptyCopy =
+    mode === "study"
+      ? study
         ? {
-            title: "Ask about this scan",
-            body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu deps --fix.",
-            suggestions: DEPS_SUGGESTIONS,
-          }
-        : {
-            title: "Scan your dependencies",
-            body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
+            title: `Study ${study.doc.title}`,
+            body: "Pick an action above or ask anything. Mofu reads the pages it needs and cites them, so you can check every answer.",
             suggestions: [],
           }
-      : mode === "dev"
-        ? repo
+        : {
+            title: "Study anything",
+            body: "Upload a PDF or notes, or paste an article link. Mofu summarizes at three levels, makes flashcards you can export to Anki and quizzes you, citing the pages.",
+            suggestions: [],
+          }
+      : dataMode
+        ? dataset
           ? {
-              title: `Ask about ${repo.fullName}`,
-              body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu task "…".',
-              suggestions: DEV_SUGGESTIONS,
+              title: `Ask about ${dataset.name}`,
+              body: "Every number comes from Python run on your file, right here in the browser. Charts appear in the chat.",
+              suggestions: suggestQuestions(dataset.profile),
             }
           : {
-              title: "Explain any public GitHub repository",
-              body: "Paste a GitHub URL above. Mofu reads its structure, manifests and key files in your browser, then explains how it works.",
+              title: "Analyze a spreadsheet",
+              body: "Drop a CSV, Excel or JSON file above. Mofu profiles it, answers questions with real calculations, draws charts and can pull in exchange rates, holidays, weather or World Bank data.",
               suggestions: [],
             }
-        : {
-            title: "What can I help with?",
-            body: "Mofu can look things up on Wikipedia, define words and remember your preferences. Analyze a spreadsheet in Data Analyst, or explain a repository and scan dependencies in Dev Tools. Study Buddy is on the way.",
-            suggestions: SUGGESTIONS,
-          };
+        : depsMode
+          ? depScan
+            ? {
+                title: "Ask about this scan",
+                body: "Mofu explains the findings and plans the upgrades. To apply them on a branch and run your tests, use the CLI: npx mofu deps --fix.",
+                suggestions: DEPS_SUGGESTIONS,
+              }
+            : {
+                title: "Scan your dependencies",
+                body: "Paste a public GitHub URL or upload package.json, package-lock.json, requirements.txt or pyproject.toml. Mofu checks every package against OSV and deps.dev, right in your browser.",
+                suggestions: [],
+              }
+          : mode === "dev"
+            ? repo
+              ? {
+                  title: `Ask about ${repo.fullName}`,
+                  body: 'Mofu has a map of the repository and its key files. To change code, open a pull request or run tests, use the CLI: npx mofu task "…".',
+                  suggestions: DEV_SUGGESTIONS,
+                }
+              : {
+                  title: "Explain any public GitHub repository",
+                  body: "Paste a GitHub URL above. Mofu reads its structure, manifests and key files in your browser, then explains how it works.",
+                  suggestions: [],
+                }
+            : {
+                title: "What can I help with?",
+                body: "Mofu can look things up on Wikipedia, define words and remember your preferences. Study a PDF or article in Study Buddy, analyze a spreadsheet in Data Analyst, or explain a repository and scan dependencies in Dev Tools.",
+                suggestions: SUGGESTIONS,
+              };
 
   const usageLabel = settings.byokKey
     ? `Your key · ${shortModel(settings.byokModel || config?.defaultModel || "")}`
@@ -551,6 +643,24 @@ export function App() {
             }}
             onReport={() => void send(REPORT_PROMPT)}
             onDownloadReport={downloadReport}
+          />
+        )}
+        {mode === "study" && (
+          <StudyPanel
+            // Remount on load/clear so the link field and page range start fresh.
+            key={study ? "loaded" : "empty"}
+            loaded={study}
+            loading={studyLoading}
+            error={studyError}
+            busy={busy}
+            maxPages={docLimits.pages}
+            onFile={(f, range) => void openStudy(() => loadStudyFile(f, docLimits, range))}
+            onUrl={(u) => void loadStudyUrl(u)}
+            onAction={(p) => void send(p)}
+            onClear={() => {
+              setStudy(null);
+              if (messages.length > 0) newChat();
+            }}
           />
         )}
         {mode === "dev" && (
@@ -644,6 +754,7 @@ export function App() {
               message={m}
               {...(verifyAgainstScan && status !== "streaming" && { verify: verifyAgainstScan })}
               {...(toolArtifacts && { artifacts: toolArtifacts })}
+              {...(mode === "study" && { study: { busy, onAsk: (t: string) => void send(t) } })}
             />
           ))
         )}

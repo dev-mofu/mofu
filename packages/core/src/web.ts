@@ -8,7 +8,12 @@ export { createModel, DEFAULT_MODEL } from "./provider.js";
 export type { ModelOptions } from "./provider.js";
 export { MofuError, toMofuError, redactSecrets } from "./errors.js";
 export type { MofuErrorKind } from "./errors.js";
-export { buildSystemPrompt, DEPS_SUMMARY_SECTION, DATA_SECTION } from "./prompts/system.js";
+export {
+  buildSystemPrompt,
+  DEPS_SUMMARY_SECTION,
+  DATA_SECTION,
+  STUDY_SECTION,
+} from "./prompts/system.js";
 export type { SystemPromptOptions } from "./prompts/system.js";
 export { RequestMemoryStore, memoryForPrompt, MAX_MEMORY_CHARS } from "./memory.js";
 export type { MemoryStore } from "./memory.js";
@@ -30,3 +35,4 @@ export { handleWorkerRequest, HARNESS_PY, DATA_DIR } from "./data/harness.js";
 export type { WorkerRequest, WorkerResponse, PyodideLike } from "./data/harness.js";
 export { PythonSandbox, SandboxTimeoutError } from "./data/sandbox-client.js";
 export type { WorkerPort, SandboxOptions } from "./data/sandbox-client.js";
+export * from "./study/index.js";

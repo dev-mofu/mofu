@@ -16,7 +16,15 @@ describe("ToolRegistry", () => {
     const registry = createDefaultRegistry();
     const web = registry.forSurface("web").map((t) => t.name);
     const cli = registry.forSurface("cli").map((t) => t.name);
-    expect(web.sort()).toEqual(["define_word", "save_memory", "wikipedia_summary"]);
+    expect(web.sort()).toEqual([
+      "cite_doi",
+      "define_word",
+      "find_books",
+      "related_words",
+      "save_memory",
+      "search_papers",
+      "wikipedia_summary",
+    ]);
     expect(cli).toEqual(ALL_TOOLS.map((t) => t.name));
   });
 
@@ -44,7 +52,15 @@ describe("ToolRegistry", () => {
 
   it("builds an AI SDK tool set for a surface", () => {
     const set = createDefaultRegistry().toToolSet("web", { approve: async () => true });
-    expect(Object.keys(set).sort()).toEqual(["define_word", "save_memory", "wikipedia_summary"]);
+    expect(Object.keys(set).sort()).toEqual([
+      "cite_doi",
+      "define_word",
+      "find_books",
+      "related_words",
+      "save_memory",
+      "search_papers",
+      "wikipedia_summary",
+    ]);
   });
 });
 

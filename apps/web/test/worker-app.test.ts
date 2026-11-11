@@ -319,11 +319,79 @@ describe("web tool set", () => {
   it("contains no file or command tools", () => {
     const tools = createWebRegistry().forSurface("web");
     expect(tools.map((t) => t.name).sort()).toEqual([
+      "cite_doi",
       "define_word",
+      "find_books",
+      "related_words",
       "save_memory",
+      "search_papers",
       "wikipedia_summary",
     ]);
     expect(tools.some((t) => t.kind === "exec")).toBe(false);
+  });
+});
+
+describe("POST /api/fetch-page", () => {
+  /** Fake DoH + page server: hostnames map to IPs, pages to HTML. */
+  function webFetch(dns: Record<string, string>, pages: Record<string, string>): typeof fetch {
+    return (async (input: string) => {
+      const url = new URL(input);
+      if (url.host === "cloudflare-dns.com") {
+        const name = url.searchParams.get("name") ?? "";
+        const type = url.searchParams.get("type");
+        const ip = dns[name];
+        const ok = ip && (type === "A") === !ip.includes(":");
+        return Response.json({ Answer: ok ? [{ type: type === "A" ? 1 : 28, data: ip }] : [] });
+      }
+      const html = pages[url.toString()];
+      return html
+        ? new Response(html, { headers: { "content-type": "text/html" } })
+        : new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+  }
+
+  const post = async (app: ReturnType<typeof createApp>, url: string, cookie: string | null) =>
+    app.request(
+      "http://localhost/api/fetch-page",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(cookie && { Cookie: cookie }) },
+        body: JSON.stringify({ url }),
+      },
+      testEnv(),
+    );
+
+  it("fetches a public page as text, with a session", async () => {
+    const { app } = setup({
+      fetch: webFetch(
+        { "example.org": "93.184.216.34" },
+        { "https://example.org/a": "<title>Hi</title><p>Hello there.</p>" },
+      ),
+    });
+    expect((await post(app, "https://example.org/a", null)).status).toBe(401);
+    const res = await post(app, "https://example.org/a", await sessionCookie());
+    expect(await res.json()).toEqual({
+      url: "https://example.org/a",
+      title: "Hi",
+      text: "Hello there.",
+    });
+  });
+
+  it("refuses hosts that resolve to internal addresses", async () => {
+    const { app } = setup({ fetch: webFetch({ "sneaky.example": "10.0.0.7" }, {}) });
+    const res = await post(app, "https://sneaky.example/", await sessionCookie());
+    expect(res.status).toBe(400);
+    expect((await errorOf(res)).message).toMatch(/isn't public/);
+  });
+});
+
+describe("Study Buddy mode", () => {
+  it("wraps the outline as information, not instructions", async () => {
+    const { studyModeSection } = await import("../src/worker/app.js");
+    expect(studyModeSection({ kind: "document", title: "x", text: "# Document: x" })).toContain(
+      "<document_outline>\n# Document: x\n</document_outline>",
+    );
+    expect(studyModeSection(undefined)).toMatch(/upload a PDF/);
   });
 });
 

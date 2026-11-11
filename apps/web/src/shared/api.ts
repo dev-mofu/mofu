@@ -11,7 +11,7 @@ export const MODE_LABELS: Record<Mode, string> = {
 };
 
 /** Modes that work today. The rest show "Coming soon" until their phase ships. */
-export const AVAILABLE_MODES: readonly Mode[] = ["general", "data", "dev"];
+export const AVAILABLE_MODES: readonly Mode[] = ["general", "data", "study", "dev"];
 
 /** Header carrying a user's own OpenRouter key. Never logged or stored server-side. */
 export const BYOK_HEADER = "X-OpenRouter-Key";
@@ -31,6 +31,13 @@ export const LIMITS = {
   /** Repository overview the browser builds and sends in Dev Tools mode. */
   maxContextChars: 16_000,
   sessionTtlMs: 2 * 60 * 60 * 1000,
+  /** Study documents on the free tier; your own key raises these. */
+  freeDocPages: 30,
+  freeDocChars: 60_000,
+  byokDocPages: 300,
+  byokDocChars: 400_000,
+  /** Text returned by /api/fetch-page. */
+  maxPageChars: 400_000,
 } as const;
 
 /** Suggested models for people using their own key. Any OpenRouter ID with tool support works. */
@@ -70,7 +77,15 @@ export type ChatContext =
     }
   | { kind: "dep-scan"; title: string; text: string }
   /** Profile of the user's file, built in the browser. */
-  | { kind: "dataset"; title: string; text: string };
+  | { kind: "dataset"; title: string; text: string }
+  /** Outline of a study document; the browser serves the pages through read_document. */
+  | { kind: "document"; title: string; text: string };
+
+export interface FetchedPageResponse {
+  url: string;
+  title: string;
+  text: string;
+}
 
 export interface UsageInfo {
   freeTierEnabled: boolean;

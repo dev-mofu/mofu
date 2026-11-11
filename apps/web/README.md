@@ -29,13 +29,14 @@ src/client/   React app: chat, settings (own key, model, theme), memory
 src/shared/   Types and limits shared by both
 ```
 
-| Route                 | Purpose                                                                         |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `GET /api/config`     | Public settings: Turnstile site key, default model, free limit                  |
-| `GET /api/usage`      | Free messages left today for this IP (doesn't use one up)                       |
-| `POST /api/session`   | Verifies a Turnstile token and sets a signed, HttpOnly session cookie (2 hours) |
-| `POST /api/key/check` | Checks a user's own OpenRouter key against OpenRouter's free key-info endpoint  |
-| `POST /api/chat`      | Streams the agent's reply (AI SDK UI message stream)                            |
+| Route                  | Purpose                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `GET /api/config`      | Public settings: Turnstile site key, default model, free limit                  |
+| `GET /api/usage`       | Free messages left today for this IP (doesn't use one up)                       |
+| `POST /api/session`    | Verifies a Turnstile token and sets a signed, HttpOnly session cookie (2 hours) |
+| `POST /api/key/check`  | Checks a user's own OpenRouter key against OpenRouter's free key-info endpoint  |
+| `POST /api/chat`       | Streams the agent's reply (AI SDK UI message stream)                            |
+| `POST /api/fetch-page` | Fetches a public web page for Study Buddy and returns its readable text         |
 
 ## Data Analyst
 
@@ -48,6 +49,16 @@ The file never leaves the browser. Pyodide (pinned to 314.0.7, loaded from jsDel
 Safety: after packages load, the worker deletes `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `importScripts` and `WebTransport`, so model-written Python can't send data anywhere. A run longer than 30 seconds terminates the worker; the next call starts a fresh one and reloads the file. Files are limited to 20 MB.
 
 Cost: tool results come back as follow-up requests. They don't use a free message, but they're capped at 10 per free message per IP per day (a separate `followups` counter in the same Durable Object).
+
+## Study Buddy
+
+Documents are read **in the browser**. PDFs use pdf.js (6.5.438, loaded only when a PDF is opened); `.txt` and `.md` are split into sections of about 3,000 characters.
+
+- **Limits:** 30 pages / 60,000 characters on the free tier, 300 pages / 400,000 characters with your own key. Longer PDFs aren't cut silently: the user picks a page range, and the card says when only part is loaded.
+- **Only what's needed goes to the model.** Each message carries an outline (title, page numbers, the start of each page; at most 6,000 characters) as `context` of kind `document`, wrapped in `<document_outline>` tags. The model calls `read_document` for the pages it needs (at most about 14,000 characters per call), which the browser answers from the loaded text.
+- **Flashcards and quizzes** are tool calls (`create_flashcards`, `create_quiz`) validated with zod in the browser; invalid ones go back to the model as errors to fix. The deck flips, tracks "knew it / didn't" on a Leitner schedule in `localStorage`, and exports a TSV for Anki. Multiple choice is graded in code with the choices shuffled per quiz; short answers are sent to the model with the model answer and page.
+- **Links:** `POST /api/fetch-page` (session required; each fetch counts as a follow-up) fetches the page from the Worker. Before every request and every redirect hop it resolves the host over DNS-over-HTTPS and refuses localhost, private, link-local, CGNAT, multicast and metadata addresses, non-http(s) URLs and URLs with credentials. Only HTML or plain text up to 2 MB is accepted; scripts, navigation and footers are stripped.
+- **Reference tools** (`wikipedia_summary`, `define_word`, `related_words`, `search_papers`, `find_books`, `cite_doi`) run in the Worker, because arXiv doesn't allow cross-origin requests. Citations are formatted by code from Crossref data.
 
 ## Dev Tools: explain a public GitHub repository
 

@@ -37,6 +37,7 @@ mofu "what does this repo do?"      # one question, then exit
 mofu task "add a --verbose flag"    # a coding task, end to end (see RepoPilot below)
 mofu explain                        # explain the repository you're in
 mofu tests src/utils.ts             # write and run unit tests for a file or folder
+mofu study notes.pdf                # summaries, flashcards and quizzes (see Study Buddy below)
 mofu -m qwen/qwen3.7-flash          # pick a model for this run
 ```
 
@@ -101,6 +102,28 @@ Mofu loads the file into a Python sandbox ([Pyodide](https://pyodide.org): panda
 It can pull in public data to join with yours: daily exchange rates (Frankfurter/ECB), public holidays (Nager.Date), historical weather (Open-Meteo, non-commercial use), and country facts and indicators like GDP or inflation (World Bank).
 
 The sandbox runs in a separate worker thread with an empty environment (no API keys) and no network access once its packages are loaded; it sees only your file and the data Mofu fetched for it. Runs are stopped after 30 seconds. When asked to approve analysis code you can answer `a` to approve all analysis code for the rest of the session. The first run downloads Pyodide's packages (about 30 MB) into `~/.mofu/pyodide-cache`.
+
+## Study Buddy
+
+```sh
+mofu study notes.pdf                    # also .txt and .md
+mofu study textbook.pdf --pages 40-90   # pick the pages to load (up to 300 at a time)
+mofu study https://example.com/article  # a public web page
+```
+
+Mofu reads the document locally (PDFs with [pdf.js](https://mozilla.github.io/pdf.js/)), prints its title, page count and word count, and sends the model only an outline. The model reads the pages it needs with `read_document` and cites them, like "(page 4)". Scanned PDFs (images of pages) have no text and are refused with a clear message.
+
+| Command              | What it does                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/summary [short     | detailed                                                                                                                                                                                                           | eli12]` | Summary at three levels, with page citations |
+| `/flashcards`        | Makes a deck (every card cites its page)                                                                                                                                                                           |
+| `/review`            | Reviews due cards in the terminal: Enter flips, `y`/`n` marks, `q` stops. A Leitner schedule (again in 1, 3, 7, 14 days) is saved in `~/.mofu/study`                                                               |
+| `/export [file.tsv]` | Saves the deck as a TSV that Anki imports (File → Import), with the page as a note and tags                                                                                                                        |
+| `/quiz`              | Runs a quiz right in the terminal. Multiple choice is graded by code (choices are shuffled so the answer isn't always B); short answers go to the model, which grades them against the document and cites the page |
+
+Ask anything else too. Reference tools: Wikipedia, `define_word`, `related_words` (Datamuse), `search_papers` (arXiv), `find_books` (Open Library) and `cite_doi` (Crossref; APA and MLA are formatted by code, not the model).
+
+Web links are fetched only from public addresses: every redirect hop is checked, and localhost, private, link-local and metadata addresses are refused. Pages are capped at 2 MB.
 
 ## DependencyGuard: dependency security
 

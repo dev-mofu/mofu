@@ -1,5 +1,8 @@
 import { lazy, Suspense } from "react";
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
+import { CreateFlashcardsInput, CreateQuizInput, shuffleChoices } from "@mofu/core/web";
+import { FlashcardDeck } from "./FlashcardDeck.js";
+import { QuizView } from "./QuizView.js";
 
 const LazyMarkdown = lazy(() => import("./Markdown.js"));
 
@@ -14,6 +17,13 @@ const TOOL_LABELS: Record<string, string> = {
   historical_weather: "Weather",
   country_info: "Countries",
   economic_indicator: "World Bank",
+  read_document: "Reading",
+  create_flashcards: "Flashcards",
+  create_quiz: "Quiz",
+  cite_doi: "Citation",
+  search_papers: "arXiv",
+  find_books: "Open Library",
+  related_words: "Related words",
 };
 
 /** Charts and exports from browser-run tools, by tool call. */
@@ -52,7 +62,17 @@ function toolSubject(name: string, input: unknown): string {
     );
   }
   const subject =
-    i.title ?? i.word ?? i.fact ?? i.filename ?? i.place ?? i.indicator ?? i.base ?? i.country;
+    i.title ??
+    i.word ??
+    i.fact ??
+    i.parts ??
+    i.doi ??
+    i.query ??
+    i.filename ??
+    i.place ??
+    i.indicator ??
+    i.base ??
+    i.country;
   return typeof subject === "string" ? subject : "";
 }
 
@@ -141,9 +161,37 @@ interface MessageViewProps {
   /** Returns IDs/versions in the text that the source data doesn't contain. */
   verify?: (text: string) => { ids: string[]; versions: string[] };
   artifacts?: ToolArtifacts;
+  /** Study Buddy: lets quizzes send follow-ups (grading, harder/easier). */
+  study?: { busy: boolean; onAsk: (text: string) => void };
 }
 
-export function MessageView({ message, verify, artifacts }: MessageViewProps) {
+/** Flashcards and quizzes render as interactive views once their input validated. */
+function StudyPart({
+  part,
+  study,
+}: {
+  part: ToolPart;
+  study: NonNullable<MessageViewProps["study"]>;
+}) {
+  const name = getToolName(part);
+  if (part.state !== "output-available" || (part.output as { error?: unknown })?.error) return null;
+  if (name === "create_flashcards") {
+    const deck = CreateFlashcardsInput.safeParse(part.input);
+    return deck.success ? (
+      <FlashcardDeck id={part.toolCallId} title={deck.data.title} cards={deck.data.cards} />
+    ) : null;
+  }
+  const quiz = CreateQuizInput.safeParse(part.input);
+  return quiz.success ? (
+    <QuizView
+      quiz={shuffleChoices(quiz.data, part.toolCallId)}
+      busy={study.busy}
+      onAsk={study.onAsk}
+    />
+  ) : null;
+}
+
+export function MessageView({ message, verify, artifacts, study }: MessageViewProps) {
   const text = message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
   if (message.role === "user") {
     return (
@@ -158,8 +206,18 @@ export function MessageView({ message, verify, artifacts }: MessageViewProps) {
     <div className="message message--assistant">
       {message.parts.map((part, i) => {
         if (part.type === "text") return <Markdown key={i} text={part.text} />;
-        if (isToolUIPart(part))
+        if (isToolUIPart(part)) {
+          const name = getToolName(part);
+          if (
+            study &&
+            (name === "create_flashcards" || name === "create_quiz") &&
+            part.state === "output-available"
+          ) {
+            const view = <StudyPart key={part.toolCallId} part={part} study={study} />;
+            if (!(part.output as { error?: unknown })?.error) return view;
+          }
           return <ToolRow key={part.toolCallId} part={part} {...(artifacts && { artifacts })} />;
+        }
         return null;
       })}
       {flagged.length > 0 && (

@@ -9,6 +9,9 @@ export type ChatArgs = {
   task?: boolean;
   /** Data Analyst: the file to load into the Python sandbox. */
   analyze?: string;
+  /** Study Buddy: a PDF, text file or URL, with an optional page range. */
+  study?: string;
+  pages?: string;
 };
 
 export type DepsArgs = { command: "deps"; model?: string; json: boolean; fix: boolean };
@@ -88,6 +91,21 @@ export function parseArgs(argv: string[]): ParsedArgs {
       );
     return { command: "chat", ...withModel, analyze: tail };
   }
+  if (first === "study") {
+    const words = [...others];
+    let pages: string | undefined;
+    const at = words.findIndex((w) => w === "--pages" || w.startsWith("--pages="));
+    if (at >= 0) {
+      const w = words[at]!;
+      pages = w.includes("=") ? w.slice("--pages=".length) : words[at + 1];
+      words.splice(at, w.includes("=") ? 1 : 2);
+      if (!pages) throw new ArgsError("--pages needs a range, e.g. --pages 10-40");
+    }
+    const target = words.join(" ").trim();
+    if (!target)
+      throw new ArgsError("mofu study needs a PDF, text file or link, e.g. mofu study notes.pdf");
+    return { command: "chat", ...withModel, study: target, ...(pages && { pages }) };
+  }
   if (first === "tests") {
     if (!tail)
       throw new ArgsError("mofu tests needs a file or folder, e.g. mofu tests src/utils.ts");
@@ -106,6 +124,8 @@ Usage:
   mofu explain                Explain the repository in the current directory
   mofu tests <path>           Write and run unit tests for a file or folder
   mofu analyze <file>         Analyze a CSV, Excel or JSON file with Python (charts in ./mofu-output)
+  mofu study <file-or-url>    Study a PDF, text/Markdown file or article: summaries, flashcards, quizzes
+    [--pages 10-40]           Which PDF pages to load (up to 300 at a time)
   mofu deps                   Scan dependencies for vulnerabilities and outdated packages
   mofu deps --json            Print the raw scan report as JSON (no AI involved)
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit

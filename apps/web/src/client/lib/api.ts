@@ -2,6 +2,7 @@ import {
   BYOK_HEADER,
   parseApiError,
   type ApiError,
+  type FetchedPageResponse,
   type KeyCheckResponse,
   type PublicConfig,
   type SessionResponse,
@@ -40,3 +41,10 @@ export const createSession = (token: string) =>
 
 export const checkKey = (key: string) =>
   request<KeyCheckResponse>("/api/key/check", { method: "POST", headers: { [BYOK_HEADER]: key } });
+
+export const fetchPage = (url: string) =>
+  request<FetchedPageResponse>("/api/fetch-page", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
