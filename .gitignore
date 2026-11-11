@@ -13,3 +13,6 @@ mofu-output/
 
 # Personal Claude Code settings
 .claude/settings.local.json
+
+# Third-party logo used only for local video renders
+pons-logo.png
