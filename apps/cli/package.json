@@ -1,26 +1,52 @@
 {
   "name": "mofu",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "An AI agent in your terminal that does real work on your files: coding tasks, data analysis, study notes, dependency and API checks.",
   "license": "MIT",
-  "private": true,
-  "description": "Mofu: an AI agent that does real work on your files.",
   "type": "module",
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "openrouter",
+    "coding-assistant",
+    "data-analysis",
+    "openapi",
+    "security"
+  ],
   "bin": {
     "mofu": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "prepack": "node build.mjs"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "dependencies": {
-    "@mofu/core": "workspace:*",
+    "@cfworker/json-schema": "4.1.1",
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "@scalar/openapi-parser": "0.29.16",
+    "ai": "^7.0.166",
+    "diff": "^9.0.0",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.14",
     "pdfjs-dist": "6.5.438",
     "picocolors": "^1.1.1",
+    "pyodide": "314.0.7",
+    "semver": "^7.8.6",
+    "yaml": "2.9.1",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@mofu/core": "workspace:*",
+    "esbuild": "0.28.2"
   }
 }

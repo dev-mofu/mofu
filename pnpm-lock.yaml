@@ -193,18 +193,52 @@ importers:
 
   apps/cli:
     dependencies:
-      '@mofu/core':
-        specifier: workspace:*
-        version: link:../../packages/core
+      '@cfworker/json-schema':
+        specifier: 4.1.1
+        version: 4.1.1
+      '@openrouter/ai-sdk-provider':
+        specifier: ^3.1.0
+        version: 3.1.0(ai@7.0.166(zod@4.6.7))(zod@4.6.7)
+      '@scalar/openapi-parser':
+        specifier: 0.29.16
+        version: 0.29.16
+      ai:
+        specifier: ^7.0.166
+        version: 7.0.166(zod@4.6.7)
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
+      fast-glob:
+        specifier: ^3.3.3
+        version: 3.3.3
+      ignore:
+        specifier: ^7.0.14
+        version: 7.0.14
       pdfjs-dist:
         specifier: 6.5.438
         version: 6.5.438
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
+      pyodide:
+        specifier: 314.0.7
+        version: 314.0.7
+      semver:
+        specifier: ^7.8.6
+        version: 7.8.6
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+    devDependencies:
+      '@mofu/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   apps/web:
     dependencies:

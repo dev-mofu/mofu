@@ -1,6 +1,6 @@
 {
   "name": "@mofu/web",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.worker.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "deploy": "vite build && wrangler deploy"
+    "deploy": "vite build && node scripts/check-deploy.mjs && wrangler deploy"
   },
   "engines": {
     "node": ">=22"

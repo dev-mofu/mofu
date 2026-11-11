@@ -3,6 +3,9 @@
 
 # The owner's OpenRouter key that pays for the free tier.
 OPENROUTER_API_KEY=
+# Cloudflare's always-passes Turnstile test keys, for local development only.
+# (Production: the real site key goes in wrangler.jsonc vars, the secret via wrangler secret put.)
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
 # Cloudflare's always-passes Turnstile test secret. Use the real secret in production.
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 # At least 32 random characters. Signs the session cookie.

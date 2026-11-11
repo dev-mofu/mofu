@@ -19,6 +19,7 @@
     // Kill switch: set to "false" to stop spending on the free tier. BYOK keeps working.
     "FREE_TIER_ENABLED": "true",
     // Cloudflare's always-passes test key. Replace with the production site key at launch.
-    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    // Production site key (public). Local development uses the test key from .dev.vars.
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAF8ddGpy3ROnj6Tt",
   },
 }
