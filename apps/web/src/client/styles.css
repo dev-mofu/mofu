@@ -246,6 +246,8 @@ textarea {
   font-size: 1.4rem;
   font-weight: 500;
   letter-spacing: 0.01em;
+  color: inherit;
+  text-decoration: none;
 }
 
 .led {

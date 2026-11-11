@@ -1,6 +1,7 @@
 {
   "name": "mofu",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Mofu: an AI agent that does real work on your files.",
   "type": "module",

@@ -747,7 +747,9 @@ export function App() {
       <header className="topbar">
         <div className="brand">
           <Mascot state={mascotState} px={2} />
-          <span className="wordmark">mofu</span>
+          <a className="wordmark" href="/" title="Mofu home">
+            mofu
+          </a>
           <span className={`led led--${led.toLowerCase()}`} role="status" aria-live="polite">
             {led}
           </span>

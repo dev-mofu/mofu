@@ -3,19 +3,415 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mofu</title>
-    <meta name="description" content="Mofu is an AI agent that does real work on your files." />
+    <title>Mofu: the AI agent that does the work</title>
+    <meta
+      name="description"
+      content="Drop a spreadsheet, a PDF or a project and Mofu does the work with real tools: data analysis with Python, study notes and quizzes, dependency and API checks. Free in your browser, or in your terminal with npx mofu."
+    />
     <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0f0d0e" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Meet Mofu, the AI agent that does the work" />
+    <meta
+      property="og:description"
+      content="An AI agent with real tools for data, study and code. Free in your browser, or npx mofu in your terminal."
+    />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@400;500&family=Silkscreen&display=swap"
       rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&family=Silkscreen&display=swap"
+      media="print"
+      onload="this.media = 'all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&family=Silkscreen&display=swap"
+      />
+    </noscript>
+    <script>
+      // Apply a saved theme before first paint, so there's no flash.
+      try {
+        var t = localStorage.getItem("mofu.landingTheme");
+        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/client/main.tsx"></script>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            data-dots="false"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#cli">CLI</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch theme">
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              shape-rendering="crispEdges"
+            >
+              <path class="sun" d="M7 1h2v2H7zM7 13h2v2H7zM1 7h2v2H1zM13 7h2v2h-2zM5 5h6v6H5z" />
+              <path
+                class="moon"
+                d="M6 2h4v1H8v1H7v2H6v4h1v2h1v1h2v1H6v-1H5v-1H4v-1H3V5h1V4h1V3h1z"
+              />
+            </svg>
+          </button>
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <canvas id="sky" class="sky" aria-hidden="true"></canvas>
+        <div class="hero-inner">
+          <h1 id="hero-title">Meet Mofu,<br />the AI agent that does the work.</h1>
+          <p class="lede">
+            Drop a file and it gets going with real tools: Python on your spreadsheets, quizzes from
+            your PDFs, security checks on your code. In your browser or your terminal.
+          </p>
+
+          <div class="demo" id="demo" data-phase="typing">
+            <p class="visually-hidden">
+              Animated demo: Mofu analyzes sales.csv and finds that March revenue dropped 18%; scans
+              package.json and finds 3 vulnerable packages, 1 critical; and turns chapter-3.pdf into
+              15 flashcards.
+            </p>
+            <canvas id="demo-mascot" class="demo-mascot" aria-hidden="true"></canvas>
+            <div class="demo-card" aria-hidden="true">
+              <span class="led" id="demo-led" data-phase="typing">READY</span>
+              <div class="demo-file">
+                <span class="file-dot"></span><span id="demo-file">sales.csv · 2,431 rows</span>
+              </div>
+              <p class="demo-prompt">
+                <span id="demo-typed">Why did revenue drop in March?</span
+                ><span class="caret"></span>
+              </p>
+              <div class="demo-visual" id="demo-visual" data-kind="data"></div>
+              <p class="demo-result" id="demo-result"></p>
+              <p class="demo-detail" id="demo-detail"></p>
+            </div>
+            <div class="demo-tabs" id="demo-tabs" aria-label="Choose a demo">
+              <button type="button" aria-pressed="true">Data</button>
+              <button type="button" aria-pressed="false">Dev</button>
+              <button type="button" aria-pressed="false">Study</button>
+            </div>
+          </div>
+
+          <div class="cta-row">
+            <a class="pill" href="/app/">Try it free <span aria-hidden="true">→</span></a>
+            <div class="copy-wrap">
+              <button
+                class="code-chip"
+                type="button"
+                data-copy="npx mofu"
+                aria-label="Copy npx mofu"
+              >
+                <span aria-hidden="true">$</span> npx mofu
+                <svg
+                  viewBox="0 0 16 16"
+                  width="14"
+                  height="14"
+                  aria-hidden="true"
+                  shape-rendering="crispEdges"
+                >
+                  <path d="M5 1h9v9h-2V3H5zM2 5h8v10H2zm2 2v6h4V7z" />
+                </svg>
+              </button>
+              <span class="copy-status" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+          <p class="fine">No account needed · 10 free messages a day · or bring your own key</p>
+        </div>
+      </section>
+
+      <section id="features" class="section" aria-labelledby="features-title">
+        <h2 id="features-title">One agent, real tools</h2>
+        <p class="section-lede">
+          Mofu doesn't guess numbers. It calculates, looks things up and checks its work.
+        </p>
+        <div class="timeline" id="timeline">
+          <div class="timeline-rail" aria-hidden="true">
+            <canvas id="timeline-cursor" class="timeline-cursor"></canvas>
+          </div>
+          <article class="feature">
+            <div class="feature-text">
+              <h3>Data Analyst</h3>
+              <p>
+                Drop a CSV, Excel or JSON file. Mofu profiles it, answers questions by running
+                Python (pandas) in your browser, draws charts and can pull in exchange rates,
+                holidays, weather or World Bank data.
+              </p>
+            </div>
+            <div class="feature-art">
+              <canvas data-illustration="chart" aria-hidden="true"></canvas>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-text">
+              <h3>Study Buddy</h3>
+              <p>
+                Upload a PDF or notes, or paste an article. Get summaries at three levels,
+                flashcards you can export to Anki and quizzes that grade themselves, with page
+                citations.
+              </p>
+            </div>
+            <div class="feature-art">
+              <canvas data-illustration="study" aria-hidden="true"></canvas>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-text">
+              <h3>Dev Tools</h3>
+              <p>
+                Explain any public GitHub repository, scan dependencies against OSV for known
+                vulnerabilities, and turn an OpenAPI spec into test cases, docs and a
+                breaking-change report.
+              </p>
+            </div>
+            <div class="feature-art">
+              <canvas data-illustration="dev" aria-hidden="true"></canvas>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-text">
+              <h3>In your terminal</h3>
+              <p>
+                <code>npx mofu</code> works on the folder you're in: coding tasks on a branch with
+                your tests, dependency upgrades, API test runs. It asks before changing a file or
+                running a command.
+              </p>
+            </div>
+            <div class="feature-art">
+              <canvas data-illustration="cli" aria-hidden="true"></canvas>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="how-title">
+        <h2 id="how-title">How it works</h2>
+        <ol class="steps">
+          <li>
+            <canvas data-mascot="ready" data-px="3" aria-hidden="true"></canvas>
+            <h3>Drop a file</h3>
+            <p>A spreadsheet, a PDF, a manifest, a spec, or just a question.</p>
+          </li>
+          <li>
+            <canvas data-mascot="focus" data-px="3" aria-hidden="true"></canvas>
+            <h3>Mofu works with real tools</h3>
+            <p>Python, public data sources, vulnerability databases and your own tests.</p>
+          </li>
+          <li>
+            <canvas data-mascot="found" data-px="3" aria-hidden="true"></canvas>
+            <h3>Get a usable result</h3>
+            <p>
+              Answers with sources, charts, flashcards, test files or a pull-request-ready branch.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="privacy" class="section" aria-labelledby="privacy-title">
+        <h2 id="privacy-title">Private where it counts</h2>
+        <ul class="privacy">
+          <li>
+            <strong>Your files are read in your browser.</strong> Spreadsheets, PDFs, manifests and
+            specs are opened on your device. Only what's needed to answer, like a data profile, the
+            pages being read or a list of package names, is sent to the AI model.
+          </li>
+          <li><strong>Python runs on your device,</strong> in a sandbox with no network access.</li>
+          <li>
+            <strong>No account.</strong> A quick bot check, then you're in. Settings, memory and
+            your own key are kept in your browser's storage.
+          </li>
+          <li>
+            <strong>We don't store your chats.</strong> Messages pass through Mofu's server to the
+            model provider via OpenRouter, whose own policies apply. The server only keeps a daily
+            message count per IP address, which it deletes after the day resets.
+          </li>
+          <li>
+            <strong>Your own key</strong> stays in your browser and is sent with each request only
+            to call the model. Mofu's server never logs or stores it.
+          </li>
+          <li>
+            <strong>In the terminal,</strong> everything runs on your machine, and Mofu asks before
+            changing files, running commands or touching git.
+          </li>
+        </ul>
+      </section>
+
+      <section id="cli" class="section" aria-labelledby="cli-title">
+        <h2 id="cli-title">Also in your terminal</h2>
+        <p class="section-lede">
+          Same agent, with access to your project. Needs Node.js 22 or newer.
+        </p>
+        <div
+          class="terminal"
+          role="img"
+          aria-label="Example terminal session: mofu deps finds three vulnerable packages and suggests upgrades."
+        >
+          <div class="terminal-bar" aria-hidden="true">
+            <i></i><i></i><i></i><span>~/shop-api</span>
+          </div>
+          <pre aria-hidden="true"><span class="t-prompt">$</span> npx mofu deps
+Scanning package.json + package-lock.json (214 packages)…
+
+  <span class="t-bad">critical</span>  minimist 1.2.5    GHSA-xvch-5gv4-984h  fix: 1.2.6
+  <span class="t-warn">high</span>      lodash 4.17.15    GHSA-p6mc-m468-83gw  fix: 4.17.21
+  <span class="t-warn">high</span>      axios 0.21.1      GHSA-cph5-m8f7-6c5x  fix: 0.21.2
+
+<span class="t-dim">3 vulnerable · 0 deprecated · 12 outdated</span>
+
+<span class="t-accent">mofu</span> Upgrade minimist first: it's pulled in by mkdirp and the
+     fix is a patch release. Then lodash and axios together…
+<span class="t-prompt">$</span> npx mofu deps --fix<span class="caret"></span></pre>
+        </div>
+        <div class="cta-row cta-row--left">
+          <div class="copy-wrap">
+            <button class="code-chip" type="button" data-copy="npx mofu" aria-label="Copy npx mofu">
+              <span aria-hidden="true">$</span> npx mofu
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                aria-hidden="true"
+                shape-rendering="crispEdges"
+              >
+                <path d="M5 1h9v9h-2V3H5zM2 5h8v10H2zm2 2v6h4V7z" />
+              </svg>
+            </button>
+            <span class="copy-status" role="status" aria-live="polite"></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="section" aria-labelledby="faq-title">
+        <h2 id="faq-title">FAQ</h2>
+        <div class="faq">
+          <details>
+            <summary>Is it free?</summary>
+            <p>
+              Yes. The web app gives you 10 free messages a day, with no account. For more, add your
+              own OpenRouter key in Settings. The CLI always uses your own key.
+            </p>
+          </details>
+          <details>
+            <summary>What are the limits?</summary>
+            <p>
+              Free: 10 messages a day per IP address, PDFs up to 30 pages at a time and data files
+              up to 20 MB. With your own key there's no daily cap and PDFs can be up to 300 pages.
+              The CLI handles bigger files.
+            </p>
+          </details>
+          <details>
+            <summary>Which models?</summary>
+            <p>
+              By default, Claude Haiku through OpenRouter: fast, cheap and good with tools. With
+              your own key you can pick any OpenRouter model that supports tool calling.
+            </p>
+          </details>
+          <details>
+            <summary>Can I bring my own key?</summary>
+            <p>
+              Yes, an OpenRouter key. It's kept in your browser and only used to call the model; you
+              pay OpenRouter directly for what you use.
+            </p>
+          </details>
+          <details>
+            <summary>What data do you store?</summary>
+            <p>
+              On our side, only a daily message count per IP address for the free tier. Your chats,
+              files and key aren't stored by Mofu's server. In your browser, Mofu keeps your
+              settings, what you asked it to remember and your flashcard progress.
+            </p>
+          </details>
+          <details>
+            <summary>Which file types?</summary>
+            <p>
+              CSV, TSV, Excel (.xlsx) and JSON for data; PDF, .txt and .md for studying;
+              package.json, package-lock.json, requirements.txt and pyproject.toml for dependency
+              scans; OpenAPI 3 or Swagger 2 specs in JSON or YAML. Scanned PDFs (images of text)
+              aren't supported yet.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="closing-title">
+        <div class="closing">
+          <canvas id="skyline" class="skyline" aria-hidden="true"></canvas>
+          <h2 id="closing-title">Give Mofu a file.</h2>
+          <p>It's free to try, and there's nothing to sign up for.</p>
+          <a class="pill" href="/app/">Try it free <span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#cli">CLI</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        Data from <a href="https://www.wikipedia.org/">Wikipedia</a> (CC BY-SA 4.0),
+        <a href="https://dictionaryapi.dev/">Free Dictionary API</a>,
+        <a href="https://www.datamuse.com/api/">Datamuse</a>,
+        <a href="https://arxiv.org/">arXiv</a>, <a href="https://www.crossref.org/">Crossref</a>,
+        <a href="https://openlibrary.org/">Open Library</a>,
+        <a href="https://frankfurter.dev/">Frankfurter</a> (ECB rates),
+        <a href="https://date.nager.at/">Nager.Date</a>,
+        <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0),
+        <a href="https://data.worldbank.org/">World Bank</a>, <a href="https://osv.dev/">OSV</a>,
+        <a href="https://deps.dev/">deps.dev</a> and <a href="https://github.com/">GitHub</a>.
+        Models via <a href="https://openrouter.ai/">OpenRouter</a>.
+      </p>
+      <p class="credits">
+        Mofu isn't affiliated with OpenRouter, the model providers or any of the data sources above.
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/main.ts"></script>
   </body>
 </html>

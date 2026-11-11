@@ -6,7 +6,7 @@ The Mofu web app: a React chat workspace and a Hono API, served by one Cloudflar
 
 ```sh
 cp apps/web/.dev.vars.example apps/web/.dev.vars   # then fill in the values
-pnpm dev:web                                       # http://localhost:5173
+pnpm dev:web                                       # landing: http://localhost:5173/  app: /app/
 ```
 
 `.dev.vars` needs:
@@ -24,10 +24,19 @@ Local development needs no Cloudflare login. After changing `wrangler.jsonc`, ru
 ## How it's put together
 
 ```
+index.html     Landing page (/), plain TypeScript, no React
+app/index.html The app (/app/)
+src/landing/  Landing page: pixel scenes, hero demo, timeline
 src/worker/   Hono API (/api/*), session cookies, Turnstile, per-IP limiter
 src/client/   React app: chat, settings (own key, model, theme), memory
-src/shared/   Types and limits shared by both
+src/shared/   Types and limits shared by both, and the mascot sprite
 ```
+
+## Landing page
+
+`/` is a separate, lightweight page (about 6 KB of JS and 4 KB of CSS, gzipped) so it loads fast on phones. All pixel art (night sky, moon, mountains, skyline, feature illustrations, the mascot) is drawn on canvas from data in `src/landing/art.ts` and `src/shared/sprite.ts`, so it's crisp at any size and follows the light/dark theme. Animations use `requestAnimationFrame`, stop while off screen or in a background tab, and under `prefers-reduced-motion` the page is static (the demo shows a finished result, and its Data/Dev/Study buttons still work). `public/og.png` was rendered from the same sprite.
+
+Every privacy and FAQ claim on the page matches the code in this repository; update the page when limits or data handling change.
 
 | Route                  | Purpose                                                                                                        |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
