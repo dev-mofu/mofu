@@ -16,7 +16,7 @@
   "assets": {
     // The React app is a single-page app; only /api/* reaches the Worker first.
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"],
+    "run_worker_first": ["/api/*", "/mcp"],
   },
   "durable_objects": {
     "bindings": [{ "name": "USAGE_LIMITER", "class_name": "UsageLimiter" }],
@@ -41,5 +41,7 @@
     // Token Scanner: scans a day per IP, and per wallet for $MOFU holders.
     "SCAN_FREE_DAILY": "10",
     "SCAN_HOLDER_DAILY": "50",
+    // MCP server at /mcp: tool calls a day per IP (scan_token, check_dependencies).
+    "MCP_DAILY_LIMIT": "50",
   },
 }

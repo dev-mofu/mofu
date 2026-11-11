@@ -1,9 +1,12 @@
-import { createApp } from "./app.js";
+import { createApp, defaultDeps } from "./app.js";
+import { createMcpApp } from "./mcp.js";
 
 export { UsageLimiter } from "./usage-limiter.js";
 
 const app = createApp();
+const mcp = createMcpApp(defaultDeps);
 
 export default {
-  fetch: app.fetch,
+  fetch: (req, env, ctx) =>
+    new URL(req.url).pathname === "/mcp" ? mcp.fetch(req, env, ctx) : app.fetch(req, env, ctx),
 } satisfies ExportedHandler<Env>;

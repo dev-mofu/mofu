@@ -88,6 +88,7 @@
             <li><a href="#data">Data Analyst</a></li>
             <li><a href="#study">Study Buddy</a></li>
             <li><a href="#dev">Dev Tools</a></li>
+            <li><a href="#mcp">MCP (AI apps)</a></li>
             <li><a href="#cli">The CLI</a></li>
             <li><a href="#cli-coding">Coding tasks</a></li>
             <li><a href="#cli-more">Study, data, deps, APIs</a></li>
@@ -299,6 +300,48 @@ npx mofu-cli          # chat in the current folder</code></pre>
           </p>
         </section>
 
+        <section id="mcp" data-reveal>
+          <h2>Use Mofu in your AI app (MCP)</h2>
+          <p>
+            Mofu runs an MCP server, so AI apps that support the Model Context Protocol can use its
+            tools directly. Nothing to install: add this URL.
+          </p>
+          <pre><code>https://mofu.works/mcp</code></pre>
+          <h3>Tools</h3>
+          <ul>
+            <li>
+              <strong>scan_token</strong>: the Token Scanner. Give it a contract address on
+              Robinhood Chain and it reports what the code allows (mint, pause, blacklist, fees,
+              limits, upgrades, owner, burned share).
+            </li>
+            <li>
+              <strong>check_dependencies</strong>: give it package.json, package-lock.json,
+              requirements.txt or pyproject.toml and it returns known vulnerabilities, the version
+              that fixes them and how far behind each package is.
+            </li>
+          </ul>
+          <p>
+            Both are Mofu's own code reading real data, not a model. Your AI app explains the
+            results. Up to 50 tool calls a day per IP address, no account needed.
+          </p>
+          <h3>Claude Code</h3>
+          <pre><code>claude mcp add --transport http mofu https://mofu.works/mcp</code></pre>
+          <h3>Claude Desktop and claude.ai</h3>
+          <p>Settings → Connectors → Add custom connector, then paste the URL.</p>
+          <h3>Cursor</h3>
+          <p>
+            Add to <code>~/.cursor/mcp.json</code> (or <code>.cursor/mcp.json</code> in a project):
+          </p>
+          <pre><code>{ "mcpServers": { "mofu": { "url": "https://mofu.works/mcp" } } }</code></pre>
+          <h3>VS Code</h3>
+          <p>Add to <code>.vscode/mcp.json</code>:</p>
+          <pre><code>{ "servers": { "mofu": { "type": "http", "url": "https://mofu.works/mcp" } } }</code></pre>
+          <p>
+            Then ask, for example: "Scan the token 0x… on Robinhood Chain" or "Check this
+            package.json for vulnerabilities".
+          </p>
+        </section>
+
         <section id="cli" data-reveal>
           <h2>The CLI</h2>
           <p>
@@ -485,6 +528,12 @@ npx mofu-cli          # chat in the current folder</code></pre>
                   <td>10 a day per IP; 50 for $MOFU holders</td>
                   <td>Same as free</td>
                   <td>Not in the CLI</td>
+                </tr>
+                <tr>
+                  <td>MCP tool calls</td>
+                  <td>50 a day per IP</td>
+                  <td>Same</td>
+                  <td>Not needed</td>
                 </tr>
                 <tr>
                   <td>PDF pages at a time</td>

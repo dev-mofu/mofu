@@ -242,6 +242,12 @@
             IP address (or per connected wallet) for the day, and caches a scan result for two
             minutes.
           </p>
+          <p>
+            Through the MCP server (<code>mofu.works/mcp</code>), your AI app sends Mofu the
+            contract address or the manifest files you ask it to check. Mofu uses them to answer
+            that one call (manifests go on to OSV and deps.dev as package names and versions) and
+            doesn't store them. A count of tool calls per IP address is kept for the day.
+          </p>
         </section>
 
         <section>
