@@ -1,128 +1,17 @@
 import "./landing.css";
 import {
-  buildMascotGrid,
-  drawGrid,
-  MASCOT_H,
-  MASCOT_W,
-  type MascotState,
-} from "../shared/sprite.js";
-import {
   CURSOR,
   drawPixels,
   fitCanvas,
-  ILLUSTRATIONS,
   NightSky,
   readPalette,
   Skyline,
+  type Palette,
 } from "./art.js";
+import { $, $$, animate, initCommon, reducedMotion } from "./common.js";
 import { Demo, type DemoElements } from "./demo.js";
 
-const $ = <T extends Element = HTMLElement>(sel: string) => document.querySelector<T>(sel);
-const $$ = <T extends Element = HTMLElement>(sel: string) => [...document.querySelectorAll<T>(sel)];
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-// --- Theme ------------------------------------------------------------------
-const THEME_KEY = "mofu.landingTheme";
-const themeListeners: Array<() => void> = [];
-
-function currentTheme(): "dark" | "light" {
-  const set = document.documentElement.dataset.theme;
-  if (set === "dark" || set === "light") return set;
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-function applyTheme(theme: "dark" | "light" | null): void {
-  if (theme) document.documentElement.dataset.theme = theme;
-  else delete document.documentElement.dataset.theme;
-  const toggle = $<HTMLButtonElement>("#theme-toggle");
-  const now = currentTheme();
-  toggle?.setAttribute(
-    "aria-label",
-    now === "dark" ? "Switch to light theme" : "Switch to dark theme",
-  );
-  toggle?.setAttribute("aria-pressed", String(now === "light"));
-  themeListeners.forEach((fn) => fn());
-}
-
-try {
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved === "dark" || saved === "light") applyTheme(saved);
-} catch {
-  // Storage blocked: follow the system theme.
-}
-$("#theme-toggle")?.addEventListener("click", () => {
-  const next = currentTheme() === "dark" ? "light" : "dark";
-  applyTheme(next);
-  try {
-    localStorage.setItem(THEME_KEY, next);
-  } catch {
-    // Not remembered; fine.
-  }
-});
-window
-  .matchMedia("(prefers-color-scheme: light)")
-  .addEventListener("change", () => applyTheme(null));
-applyTheme((document.documentElement.dataset.theme as "dark" | "light" | undefined) ?? null);
-
-// --- Copy `npx mofu` ----------------------------------------------------------
-for (const button of $$<HTMLButtonElement>("[data-copy]")) {
-  button.addEventListener("click", async () => {
-    const status = button.parentElement?.querySelector<HTMLElement>(".copy-status");
-    try {
-      await navigator.clipboard.writeText(button.dataset.copy ?? "");
-      if (status) status.textContent = "Copied!";
-      button.classList.add("copied");
-    } catch {
-      if (status) status.textContent = "Press Ctrl+C to copy";
-    }
-    window.setTimeout(() => {
-      if (status) status.textContent = "";
-      button.classList.remove("copied");
-    }, 1800);
-  });
-}
-
-// --- Static sprites -------------------------------------------------------------
-function drawMascot(canvas: HTMLCanvasElement, state: MascotState, px: number, dots = false): void {
-  const ctx = fitCanvas(canvas, MASCOT_W * px, MASCOT_H * px);
-  if (ctx) drawGrid(ctx, buildMascotGrid(state), { px, dots });
-}
-
-function drawStatic(): void {
-  const palette = readPalette();
-  for (const c of $$<HTMLCanvasElement>("canvas[data-mascot]")) {
-    drawMascot(
-      c,
-      (c.dataset.mascot as MascotState) || "ready",
-      Number(c.dataset.px ?? 3),
-      c.dataset.dots === "true",
-    );
-  }
-  for (const c of $$<HTMLCanvasElement>("canvas[data-illustration]")) {
-    const rows = ILLUSTRATIONS[c.dataset.illustration ?? ""];
-    if (!rows) continue;
-    const cell = Math.min(
-      9,
-      Math.max(4, Math.floor((c.parentElement!.clientWidth - 32) / rows[0]!.length)),
-    );
-    const ctx = fitCanvas(c, rows[0]!.length * cell, rows.length * cell);
-    if (ctx) drawPixels(ctx, rows, cell, palette);
-  }
-  const cursor = $<HTMLCanvasElement>("#timeline-cursor");
-  if (cursor) {
-    const ctx = fitCanvas(cursor, CURSOR[0]!.length * 3, CURSOR.length * 3);
-    if (ctx) drawPixels(ctx, CURSOR, 3, palette, false);
-  }
-}
-
-// --- Animated scenes ----------------------------------------------------------------
-interface Animated {
-  root: Element;
-  visible: boolean;
-  frame: (t: number) => void;
-}
-const animated: Animated[] = [];
-
+// --- Hero sky, closing skyline and the demo card -----------------------------------
 const skyCanvas = $<HTMLCanvasElement>("#sky");
 const sky = skyCanvas ? new NightSky(skyCanvas, readPalette()) : null;
 const skylineCanvas = $<HTMLCanvasElement>("#skyline");
@@ -146,74 +35,29 @@ const demo = demoRoot
     )
   : null;
 
-if (sky && skyCanvas) animated.push({ root: skyCanvas, visible: true, frame: (t) => sky.draw(t) });
-if (skyline && skylineCanvas)
-  animated.push({ root: skylineCanvas, visible: false, frame: (t) => skyline.draw(t) });
-if (demo && demoRoot) animated.push({ root: demoRoot, visible: true, frame: (t) => demo.frame(t) });
+if (sky && skyCanvas) animate(skyCanvas, (t) => sky.draw(t));
+if (skyline && skylineCanvas) animate(skylineCanvas, (t) => skyline.draw(t));
+if (demo && demoRoot) animate(demoRoot, (t) => demo.frame(t));
 
-function resizeAll(): void {
-  sky?.resize();
-  skyline?.resize();
-  drawStatic();
-  // One still frame so nothing is blank when animation is off or paused.
-  const t = performance.now();
-  sky?.draw(t);
-  skyline?.draw(t);
+function drawCursor(palette: Palette): void {
+  const cursor = $<HTMLCanvasElement>("#timeline-cursor");
+  const ctx = cursor && fitCanvas(cursor, CURSOR[0]!.length * 3, CURSOR.length * 3);
+  if (ctx) drawPixels(ctx, CURSOR, 3, palette, false);
 }
 
-themeListeners.push(() => {
-  const p = readPalette();
-  sky?.setPalette(p);
-  skyline?.setPalette(p);
-  drawStatic();
+function redraw(palette: Palette): void {
+  sky?.setPalette(palette);
+  skyline?.setPalette(palette);
+  drawCursor(palette);
   sky?.draw(performance.now());
   skyline?.draw(performance.now());
-});
-
-let running = false;
-function loop(t: number): void {
-  const active = animated.filter((a) => a.visible);
-  if (!active.length || document.hidden || reducedMotion.matches) {
-    running = false;
-    return;
-  }
-  active.forEach((a) => a.frame(t));
-  requestAnimationFrame(loop);
-}
-function startLoop(): void {
-  if (running || reducedMotion.matches) return;
-  running = true;
-  requestAnimationFrame(loop);
 }
 
-// Pause whatever is off screen.
-const observer = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    const a = animated.find((x) => x.root === entry.target);
-    if (a) a.visible = entry.isIntersecting;
-  }
-  startLoop();
-});
-animated.forEach((a) => observer.observe(a.root));
-document.addEventListener("visibilitychange", startLoop);
+initCommon({ redraw });
+if (reducedMotion.matches) demo?.renderStatic();
+reducedMotion.addEventListener("change", () => reducedMotion.matches && demo?.renderStatic());
 
-function applyMotion(): void {
-  document.documentElement.classList.toggle("reduced-motion", reducedMotion.matches);
-  if (reducedMotion.matches) demo?.renderStatic();
-  else startLoop();
-}
-reducedMotion.addEventListener("change", applyMotion);
-
-let resizeTimer = 0;
-window.addEventListener("resize", () => {
-  window.clearTimeout(resizeTimer);
-  resizeTimer = window.setTimeout(resizeAll, 150);
-});
-
-resizeAll();
-applyMotion();
-
-// --- Features timeline: the pointer follows your scroll -----------------------------
+// --- Features timeline: the pointer follows your scroll and fills the rail ------------
 const timeline = $("#timeline");
 const cursorEl = $("#timeline-cursor");
 function placeCursor(): void {
@@ -224,7 +68,9 @@ function placeCursor(): void {
     1,
     Math.max(0, (window.innerHeight * 0.55 - rect.top) / Math.max(1, rect.height)),
   );
-  cursorEl.style.transform = `translateY(${Math.round(progress * travel)}px)`;
+  const y = Math.round(progress * travel);
+  cursorEl.style.transform = `translateY(${y}px)`;
+  timeline.style.setProperty("--fill", `${y + 8}px`);
   $$("#timeline .feature").forEach((f) => {
     const r = f.getBoundingClientRect();
     f.classList.toggle(
@@ -248,6 +94,22 @@ window.addEventListener(
 );
 placeCursor();
 
-// Footer year.
-const year = $("#year");
-if (year) year.textContent = String(new Date().getFullYear());
+// --- The terminal types its session out when it scrolls into view ----------------------
+const pre = $("#cli .terminal pre");
+if (pre) {
+  const lines = pre.innerHTML.split("\n");
+  pre.innerHTML = lines.map((l) => `<span class="t-line">${l || " "}</span>`).join("");
+  const spans = $$("#cli .t-line");
+  if (reducedMotion.matches) spans.forEach((s) => s.classList.add("shown"));
+  else {
+    const typer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        typer.disconnect();
+        spans.forEach((s, i) => window.setTimeout(() => s.classList.add("shown"), 120 + i * 170));
+      },
+      { threshold: 0.4 },
+    );
+    typer.observe(pre);
+  }
+}

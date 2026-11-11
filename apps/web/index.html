@@ -25,14 +25,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&family=Silkscreen&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap"
       media="print"
       onload="this.media = 'all'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&family=Silkscreen&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&display=optional"
+      />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap"
       />
     </noscript>
     <script>
@@ -44,6 +54,7 @@
     </script>
   </head>
   <body>
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
     <a class="skip" href="#main">Skip to content</a>
 
     <header class="nav-wrap">
@@ -64,6 +75,7 @@
           <li><a href="#cli">CLI</a></li>
           <li><a href="#privacy">Privacy</a></li>
           <li><a href="#faq">FAQ</a></li>
+          <li><a href="/docs/">Docs</a></li>
         </ul>
         <div class="nav-actions">
           <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch theme">
@@ -151,7 +163,7 @@
       </section>
 
       <section id="features" class="section" aria-labelledby="features-title">
-        <h2 id="features-title">One agent, real tools</h2>
+        <h2 id="features-title" data-reveal>One agent, real tools</h2>
         <p class="section-lede">
           Mofu doesn't guess numbers. It calculates, looks things up and checks its work.
         </p>
@@ -159,7 +171,7 @@
           <div class="timeline-rail" aria-hidden="true">
             <canvas id="timeline-cursor" class="timeline-cursor"></canvas>
           </div>
-          <article class="feature">
+          <article class="feature" data-reveal>
             <div class="feature-text">
               <h3>Data Analyst</h3>
               <p>
@@ -172,7 +184,7 @@
               <canvas data-illustration="chart" aria-hidden="true"></canvas>
             </div>
           </article>
-          <article class="feature">
+          <article class="feature" data-reveal>
             <div class="feature-text">
               <h3>Study Buddy</h3>
               <p>
@@ -185,7 +197,7 @@
               <canvas data-illustration="study" aria-hidden="true"></canvas>
             </div>
           </article>
-          <article class="feature">
+          <article class="feature" data-reveal>
             <div class="feature-text">
               <h3>Dev Tools</h3>
               <p>
@@ -198,7 +210,7 @@
               <canvas data-illustration="dev" aria-hidden="true"></canvas>
             </div>
           </article>
-          <article class="feature">
+          <article class="feature" data-reveal>
             <div class="feature-text">
               <h3>In your terminal</h3>
               <p>
@@ -215,8 +227,8 @@
       </section>
 
       <section class="section" aria-labelledby="how-title">
-        <h2 id="how-title">How it works</h2>
-        <ol class="steps">
+        <h2 id="how-title" data-reveal>How it works</h2>
+        <ol class="steps" data-reveal>
           <li>
             <canvas data-mascot="ready" data-px="3" aria-hidden="true"></canvas>
             <h3>Drop a file</h3>
@@ -238,8 +250,8 @@
       </section>
 
       <section id="privacy" class="section" aria-labelledby="privacy-title">
-        <h2 id="privacy-title">Private where it counts</h2>
-        <ul class="privacy">
+        <h2 id="privacy-title" data-reveal>Private where it counts</h2>
+        <ul class="privacy" data-reveal>
           <li>
             <strong>Your files are read in your browser.</strong> Spreadsheets, PDFs, manifests and
             specs are opened on your device. Only what's needed to answer, like a data profile, the
@@ -267,12 +279,13 @@
       </section>
 
       <section id="cli" class="section" aria-labelledby="cli-title">
-        <h2 id="cli-title">Also in your terminal</h2>
+        <h2 id="cli-title" data-reveal>Also in your terminal</h2>
         <p class="section-lede">
           Same agent, with access to your project. Needs Node.js 22 or newer.
         </p>
         <div
           class="terminal"
+          data-reveal
           role="img"
           aria-label="Example terminal session: mofu deps finds three vulnerable packages and suggests upgrades."
         >
@@ -312,8 +325,8 @@ Scanning package.json + package-lock.json (214 packages)…
       </section>
 
       <section id="faq" class="section" aria-labelledby="faq-title">
-        <h2 id="faq-title">FAQ</h2>
-        <div class="faq">
+        <h2 id="faq-title" data-reveal>FAQ</h2>
+        <div class="faq" data-reveal>
           <details>
             <summary>Is it free?</summary>
             <p>
@@ -364,7 +377,7 @@ Scanning package.json + package-lock.json (214 packages)…
       </section>
 
       <section class="section" aria-labelledby="closing-title">
-        <div class="closing">
+        <div class="closing" data-reveal>
           <canvas id="skyline" class="skyline" aria-hidden="true"></canvas>
           <h2 id="closing-title">Give Mofu a file.</h2>
           <p>It's free to try, and there's nothing to sign up for.</p>
@@ -387,6 +400,7 @@ Scanning package.json + package-lock.json (214 packages)…
         </a>
         <ul class="footer-links">
           <li><a href="/app/">Open app</a></li>
+          <li><a href="/docs/">Docs</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#cli">CLI</a></li>
           <li><a href="#privacy">Privacy</a></li>

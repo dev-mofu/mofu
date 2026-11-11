@@ -18,11 +18,12 @@ export default defineConfig({
   environments: {
     client: {
       build: {
-        // Two pages: the landing page at / and the React app at /app/.
+        // Three pages: the landing page at /, docs at /docs/ and the React app at /app/.
         rollupOptions: {
           input: {
             landing: path.resolve(import.meta.dirname, "index.html"),
             app: path.resolve(import.meta.dirname, "app/index.html"),
+            docs: path.resolve(import.meta.dirname, "docs/index.html"),
           },
         },
       },

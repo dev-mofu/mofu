@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mofu docs: how to use the web app and the CLI</title>
+    <meta
+      name="description"
+      content="How to use Mofu: the web app's modes (Data Analyst, Study Buddy, Dev Tools), the npx mofu CLI and its commands, your own OpenRouter key, limits and privacy."
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0f0d0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mofu docs" />
+    <meta
+      property="og:description"
+      content="How to use Mofu in your browser and in your terminal."
+    />
+    <meta property="og:image" content="/og.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Raleway:wght@300;500&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <script>
+      try {
+        var t = localStorage.getItem("mofu.landingTheme");
+        if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="docs-page">
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+          <span class="docs-badge">docs</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/#features">Features</a></li>
+          <li><a href="#cli">CLI</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch theme">
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              aria-hidden="true"
+              shape-rendering="crispEdges"
+            >
+              <path class="sun" d="M7 1h2v2H7zM7 13h2v2H7zM1 7h2v2H1zM13 7h2v2h-2zM5 5h6v6H5z" />
+              <path
+                class="moon"
+                d="M6 2h4v1H8v1H7v2H6v4h1v2h1v1h2v1H6v-1H5v-1H4v-1H3V5h1V4h1V3h1z"
+              />
+            </svg>
+          </button>
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs">
+      <aside class="docs-toc" aria-label="On this page">
+        <details>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#start">Getting started</a></li>
+            <li><a href="#modes">The web app</a></li>
+            <li><a href="#data">Data Analyst</a></li>
+            <li><a href="#study">Study Buddy</a></li>
+            <li><a href="#dev">Dev Tools</a></li>
+            <li><a href="#cli">The CLI</a></li>
+            <li><a href="#cli-coding">Coding tasks</a></li>
+            <li><a href="#cli-more">Study, data, deps, APIs</a></li>
+            <li><a href="#keys">Your key and models</a></li>
+            <li><a href="#limits">Limits</a></li>
+            <li><a href="#privacy">Privacy and data</a></li>
+            <li><a href="#trouble">Troubleshooting</a></li>
+          </ol>
+        </details>
+      </aside>
+
+      <main id="content" class="docs-content">
+        <header class="docs-hero" data-reveal>
+          <canvas data-mascot="found" data-px="3" aria-hidden="true"></canvas>
+          <div>
+            <h1>Mofu docs</h1>
+            <p>Everything you need to use Mofu in your browser and in your terminal.</p>
+          </div>
+        </header>
+
+        <section id="start" data-reveal>
+          <h2>Getting started</h2>
+          <h3>In your browser</h3>
+          <ol>
+            <li>Open <a href="/app/">the app</a>. There's no account.</li>
+            <li>Pick a mode at the top: General, Data Analyst, Study Buddy or Dev Tools.</li>
+            <li>
+              Ask a question or load a file. Before your first message there's a quick bot check
+              (Cloudflare Turnstile).
+            </li>
+          </ol>
+          <p>You get 10 free messages a day. Add your own OpenRouter key in Settings for more.</p>
+          <h3>In your terminal</h3>
+          <p>
+            You need Node.js 22 or newer and an OpenRouter key from
+            <a href="https://openrouter.ai/keys">openrouter.ai/keys</a>.
+          </p>
+          <div class="code-block">
+            <pre><code>npx mofu auth     # save your key once (~/.mofu/config.json)
+npx mofu          # chat in the current folder</code></pre>
+            <div class="copy-wrap">
+              <button
+                class="code-chip code-chip--small"
+                type="button"
+                data-copy="npx mofu auth"
+                aria-label="Copy npx mofu auth"
+              >
+                Copy
+              </button>
+              <span class="copy-status" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+          <p>
+            Or set <code>OPENROUTER_API_KEY</code> for the current shell; it takes priority over the
+            saved key.
+          </p>
+        </section>
+
+        <section id="modes" data-reveal>
+          <h2>The web app</h2>
+          <p>
+            Each mode gives Mofu different tools. Switching modes keeps your memory and settings.
+          </p>
+          <dl class="docs-list">
+            <dt>General</dt>
+            <dd>
+              Questions and explanations. Mofu can look things up on Wikipedia, define words and
+              remember facts you ask it to (stored in your browser; see <strong>Memory</strong> at
+              the top).
+            </dd>
+            <dt>Data Analyst</dt>
+            <dd>Analyze a spreadsheet with real calculations. <a href="#data">More below.</a></dd>
+            <dt>Study Buddy</dt>
+            <dd>
+              Summaries, flashcards and quizzes from a PDF, notes or an article.
+              <a href="#study">More below.</a>
+            </dd>
+            <dt>Dev Tools</dt>
+            <dd>
+              Explain a GitHub repository, scan dependencies, work with an API spec.
+              <a href="#dev">More below.</a>
+            </dd>
+          </dl>
+          <p>
+            The LED badge next to the logo shows what Mofu is doing: READY, THINKING, ANALYZING,
+            STUDYING, SCANNING, DONE or ERROR.
+          </p>
+        </section>
+
+        <section id="data" data-reveal>
+          <h2>Data Analyst</h2>
+          <p>
+            Drop a <strong>CSV, TSV, Excel (.xlsx) or JSON</strong> file, up to 20 MB. Your file is
+            opened in your browser and never uploaded. Mofu profiles it first: columns and types,
+            missing values, duplicates, mixed formats and outliers.
+          </p>
+          <p>
+            Then ask in plain English. Mofu answers by running Python (pandas, matplotlib) in a
+            sandbox in your browser, so every number comes from real code. Charts appear in the chat
+            with a download link.
+          </p>
+          <p>It can join your data with public sources:</p>
+          <ul>
+            <li>daily exchange rates (Frankfurter, from the European Central Bank)</li>
+            <li>public holidays (Nager.Date)</li>
+            <li>historical weather (Open-Meteo, non-commercial use)</li>
+            <li>country facts and indicators like GDP or inflation (World Bank)</li>
+          </ul>
+          <p>
+            <strong>Generate report</strong> writes up the analysis, and
+            <strong>Download report</strong> saves it as Markdown with the charts. The first time
+            you use this mode, the browser downloads the Python runtime (Pyodide), which takes a
+            moment.
+          </p>
+        </section>
+
+        <section id="study" data-reveal>
+          <h2>Study Buddy</h2>
+          <p>
+            Upload a <strong>PDF, .txt or .md</strong> file, or paste a link to an article. Use the
+            page range for long PDFs: 30 pages at a time on the free tier, 300 with your own key.
+            Scanned PDFs (images of pages) have no text to read and aren't supported yet.
+          </p>
+          <ul>
+            <li>
+              <strong>Summary, Detailed summary, Explain like I'm 12:</strong> three levels, with
+              page citations.
+            </li>
+            <li>
+              <strong>Flashcards:</strong> flip a card, mark whether you knew it, and it comes back
+              on a schedule (1, 3, 7, 14 days). <strong>Export for Anki</strong> downloads a file
+              Anki imports.
+            </li>
+            <li>
+              <strong>Quiz me:</strong> multiple choice is graded instantly; short answers are
+              checked by Mofu against the document. Ask for <strong>Harder</strong> or
+              <strong>Easier</strong>.
+            </li>
+          </ul>
+          <p>
+            Mofu reads only the pages it needs and cites them, like "(page 4)". It can also look
+            things up on Wikipedia, find papers on arXiv and books on Open Library, and format
+            citations from a DOI.
+          </p>
+        </section>
+
+        <section id="dev" data-reveal>
+          <h2>Dev Tools</h2>
+          <h3>Explain a repo</h3>
+          <p>
+            Paste a public GitHub URL. Your browser reads the file tree, manifests, README and a few
+            entry points, and Mofu explains how the project works. It's read-only; to change code,
+            use the CLI.
+          </p>
+          <h3>Scan dependencies</h3>
+          <p>
+            Upload <code>package.json</code> with <code>package-lock.json</code>,
+            <code>requirements.txt</code> or <code>pyproject.toml</code>, or paste a GitHub URL.
+            Every package is checked against <a href="https://osv.dev">OSV</a> for known
+            vulnerabilities and against deps.dev for deprecated or unmaintained releases, right in
+            your browser. Then ask for an upgrade plan. Any vulnerability ID or version Mofu
+            mentions that isn't in the scan is flagged.
+          </p>
+          <h3>API spec</h3>
+          <p>
+            Load an <strong>OpenAPI 3 or Swagger 2</strong> spec (JSON or YAML) by upload, paste or
+            link. It's validated in your browser, with the exact path of any error. Then:
+          </p>
+          <ul>
+            <li>
+              <strong>Generate tests:</strong> test cases checked against the spec, downloadable as
+              JSON, a Vitest file or an <code>.http</code> file.
+            </li>
+            <li>
+              <strong>Generate docs:</strong> Markdown docs with parameter and response tables and
+              examples.
+            </li>
+            <li>
+              <strong>Compare with another version:</strong> breaking and non-breaking changes,
+              decided by Mofu's rules, not by AI.
+            </li>
+          </ul>
+          <p>
+            The web app never sends requests to your API. To run the tests, use
+            <code>npx mofu api test</code>.
+          </p>
+        </section>
+
+        <section id="cli" data-reveal>
+          <h2>The CLI</h2>
+          <p>
+            Run Mofu inside a project folder. It can only read and change files inside that folder,
+            and it asks before it edits a file (showing you the diff), runs a command or touches
+            git.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Command</th>
+                  <th scope="col">What it does</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>mofu</code></td>
+                  <td>Interactive chat in the current folder</td>
+                </tr>
+                <tr>
+                  <td><code>mofu "question"</code></td>
+                  <td>One answer, then exit</td>
+                </tr>
+                <tr>
+                  <td><code>mofu task "instruction"</code></td>
+                  <td>A coding task on a branch, with your tests</td>
+                </tr>
+                <tr>
+                  <td><code>mofu explain</code></td>
+                  <td>Explain the repository you're in</td>
+                </tr>
+                <tr>
+                  <td><code>mofu tests &lt;path&gt;</code></td>
+                  <td>Write and run unit tests for a file or folder</td>
+                </tr>
+                <tr>
+                  <td><code>mofu analyze &lt;file&gt;</code></td>
+                  <td>Data Analyst on a CSV, Excel or JSON file</td>
+                </tr>
+                <tr>
+                  <td><code>mofu study &lt;file-or-url&gt;</code></td>
+                  <td>Study Buddy; <code>--pages 40-90</code> for long PDFs</td>
+                </tr>
+                <tr>
+                  <td><code>mofu deps</code></td>
+                  <td>
+                    Scan dependencies; <code>--json</code> for raw data, <code>--fix</code> to
+                    upgrade
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>mofu api docs|tests|test|diff</code></td>
+                  <td>Docs, test cases, test runs and diffs from an API spec</td>
+                </tr>
+                <tr>
+                  <td><code>mofu auth</code></td>
+                  <td>Save your OpenRouter key</td>
+                </tr>
+                <tr>
+                  <td><code>-m, --model &lt;id&gt;</code></td>
+                  <td>Use another model for this run</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>In a chat, type <code>/help</code> for commands:</p>
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                <tr>
+                  <td><code>/model [id]</code></td>
+                  <td>Show or switch the model</td>
+                </tr>
+                <tr>
+                  <td><code>/clear</code></td>
+                  <td>Start a fresh conversation</td>
+                </tr>
+                <tr>
+                  <td><code>/memory</code>, <code>/forget</code></td>
+                  <td>Show or clear what Mofu remembers (<code>~/.mofu/memory.md</code>)</td>
+                </tr>
+                <tr>
+                  <td><code>/exit</code></td>
+                  <td>Quit. Ctrl+C stops a reply that's running.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="cli-coding" data-reveal>
+          <h2>Coding tasks</h2>
+          <p><code>mofu task "add a --verbose flag"</code> works like a careful colleague:</p>
+          <ol>
+            <li>Maps the repository and reads only what it needs.</li>
+            <li>Shows a short plan and waits for you to accept or change it.</li>
+            <li>
+              Creates a <code>mofu/&lt;task&gt;</code> branch, makes the edits and adds tests.
+            </li>
+            <li>Runs your tests and fixes failures, at most three times, then explains.</li>
+            <li>
+              Commits only the files it changed, and opens a pull request only if you say yes (needs
+              the GitHub CLI).
+            </li>
+          </ol>
+          <p>
+            It never commits on your default branch and never force-pushes. Those rules are enforced
+            in code, not just asked of the model.
+          </p>
+        </section>
+
+        <section id="cli-more" data-reveal>
+          <h2>Study, data, deps and APIs in the terminal</h2>
+          <ul>
+            <li>
+              <strong><code>mofu study notes.pdf</code></strong
+              >: <code>/summary short|detailed|eli12</code>, <code>/flashcards</code>,
+              <code>/review</code> (practice due cards), <code>/quiz</code>,
+              <code>/export deck.tsv</code> (for Anki).
+            </li>
+            <li>
+              <strong><code>mofu analyze sales.csv</code></strong
+              >: charts are saved to <code>./mofu-output/</code>. The first run downloads the Python
+              packages (about 30 MB) once.
+            </li>
+            <li>
+              <strong><code>mofu deps --fix</code></strong
+              >: pick upgrades, apply them on a branch with your package manager, run the tests and
+              commit.
+            </li>
+            <li>
+              <strong
+                ><code>mofu api test openapi.yaml --base-url http://localhost:3000</code></strong
+              >: shows the host and request count and asks first; warns if the host isn't local. Add
+              <code>--auth-header "Authorization: Bearer …"</code> (never printed) and
+              <code>--yes</code> for CI. Reports go to <code>./mofu-output/</code>.
+            </li>
+          </ul>
+        </section>
+
+        <section id="keys" data-reveal>
+          <h2>Your key and models</h2>
+          <p>
+            In the web app, open <strong>Settings</strong> and paste an OpenRouter key. It's
+            checked, then kept in your browser and sent with each message only to call the model.
+            With your own key there's no daily limit, and you can pick any OpenRouter model that
+            supports tool calling.
+          </p>
+          <p>
+            The default model is Claude Haiku: fast, cheap and reliable with tools. In the CLI the
+            model comes from <code>--model</code>, then the <code>MOFU_MODEL</code> variable, then
+            <code>"model"</code> in <code>~/.mofu/config.json</code>, then the default. Each CLI
+            reply ends with a token count.
+          </p>
+        </section>
+
+        <section id="limits" data-reveal>
+          <h2>Limits</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col"></th>
+                  <th scope="col">Free (web)</th>
+                  <th scope="col">Your key (web)</th>
+                  <th scope="col">CLI</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Messages</td>
+                  <td>10 a day per IP</td>
+                  <td>No daily cap</td>
+                  <td>No cap</td>
+                </tr>
+                <tr>
+                  <td>PDF pages at a time</td>
+                  <td>30</td>
+                  <td>300</td>
+                  <td>300</td>
+                </tr>
+                <tr>
+                  <td>Data files</td>
+                  <td>20 MB</td>
+                  <td>20 MB</td>
+                  <td>200 MB</td>
+                </tr>
+                <tr>
+                  <td>API specs</td>
+                  <td>2 MB</td>
+                  <td>2 MB</td>
+                  <td>2 MB</td>
+                </tr>
+                <tr>
+                  <td>Python run time</td>
+                  <td>30 s per run</td>
+                  <td>30 s per run</td>
+                  <td>30 s per run</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>The free daily count resets at midnight UTC.</p>
+        </section>
+
+        <section id="privacy" data-reveal>
+          <h2>Privacy and data</h2>
+          <ul>
+            <li>
+              Files are read in your browser. Only what's needed to answer (a data profile, the
+              pages being read, package names, an endpoint list) is sent to the model.
+            </li>
+            <li>Python runs on your device in a sandbox with no network access.</li>
+            <li>
+              Messages pass through Mofu's server to the model provider via OpenRouter, whose own
+              policies apply. Mofu's server doesn't store chats, files or keys.
+            </li>
+            <li>
+              The server keeps one thing: a daily message count per IP address, deleted after the
+              day resets.
+            </li>
+            <li>
+              Your browser keeps your settings, your key (if you add one), memory and flashcard
+              progress. Use <strong>Remove key</strong> in Settings, <strong>Clear all</strong> in
+              Memory, or clear your browser's site data.
+            </li>
+            <li>
+              In the terminal, everything runs on your machine. Your key and memory live in
+              <code>~/.mofu/</code>.
+            </li>
+          </ul>
+        </section>
+
+        <section id="trouble" data-reveal>
+          <h2>Troubleshooting</h2>
+          <dl class="docs-list">
+            <dt>"You've used all 10 free messages for today"</dt>
+            <dd>Wait for the reset (midnight UTC) or add your own key in Settings.</dd>
+            <dt>"This PDF looks scanned"</dt>
+            <dd>The PDF is images of pages with no text layer. Try a PDF with selectable text.</dd>
+            <dt>GitHub rate limit</dt>
+            <dd>
+              GitHub allows 60 anonymous requests an hour per IP. The app shows when the limit
+              resets.
+            </dd>
+            <dt>A spec or page link is refused</dt>
+            <dd>
+              Mofu only fetches public addresses. For a spec on a local server, save it first (<code
+                >curl -o openapi.json http://localhost:3000/openapi.json</code
+              >) and load the file.
+            </dd>
+            <dt>"No OpenRouter API key" in the CLI</dt>
+            <dd>Run <code>npx mofu auth</code> or set <code>OPENROUTER_API_KEY</code>.</dd>
+          </dl>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/docs.ts"></script>
+  </body>
+</html>

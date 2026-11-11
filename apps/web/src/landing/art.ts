@@ -116,7 +116,8 @@ export class NightSky {
     this.h = Math.round(rect.height);
     this.cell = this.w < 640 ? 3 : 4;
     const rand = seeded(7);
-    const count = Math.round((this.w * this.h) / 5200);
+    // Fewer than before: the page-wide Starfield shows through the hero too.
+    const count = Math.round((this.w * this.h) / 14000);
     this.stars = Array.from({ length: count }, () => ({
       x: Math.floor((rand() * this.w) / this.cell) * this.cell,
       y: Math.floor((rand() * this.h * 0.72) / this.cell) * this.cell,
@@ -391,4 +392,197 @@ export function drawPixels(
       else ctx.fillRect(x * cell, y * cell, cell, cell);
     }),
   );
+}
+
+interface FieldStar {
+  x: number;
+  y: number;
+  depth: number;
+  phase: number;
+  speed: number;
+  big: boolean;
+}
+
+interface Meteor {
+  x: number;
+  y: number;
+  born: number;
+}
+
+interface Mote {
+  x: number;
+  y: number;
+  drift: number;
+  phase: number;
+}
+
+/**
+ * The page-wide background: twinkling stars in two depths (they shift a little
+ * as you scroll), an occasional shooting star, and a few pink motes rising.
+ * A fixed canvas the size of the viewport.
+ */
+export class Starfield {
+  private ctx: CanvasRenderingContext2D | null = null;
+  private stars: FieldStar[] = [];
+  private motes: Mote[] = [];
+  private meteor: Meteor | null = null;
+  private nextMeteor = 0;
+  private w = 0;
+  private h = 0;
+  private readonly rand = seeded(99);
+
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private palette: Palette,
+  ) {}
+
+  setPalette(p: Palette): void {
+    this.palette = p;
+  }
+
+  resize(): void {
+    this.ctx = fitCanvas(this.canvas);
+    this.w = Math.round(this.canvas.getBoundingClientRect().width);
+    this.h = Math.round(this.canvas.getBoundingClientRect().height);
+    const rand = seeded(17);
+    const count = Math.round((this.w * this.h) / 6500);
+    this.stars = Array.from({ length: count }, () => ({
+      x: rand() * this.w,
+      y: rand() * this.h,
+      depth: rand() < 0.7 ? 0.04 : 0.1,
+      phase: rand() * Math.PI * 2,
+      speed: 0.5 + rand() * 1.5,
+      big: rand() < 0.06,
+    }));
+    this.motes = Array.from({ length: Math.round(this.w / 110) }, () => ({
+      x: rand() * this.w,
+      y: rand() * this.h,
+      drift: 0.008 + rand() * 0.012,
+      phase: rand() * Math.PI * 2,
+    }));
+  }
+
+  draw(time: number, scrollY: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const { ink, accent } = this.palette;
+    ctx.clearRect(0, 0, this.w, this.h);
+    for (const s of this.stars) {
+      // Parallax: far stars move less than near ones.
+      const y = (((s.y - scrollY * s.depth) % this.h) + this.h) % this.h;
+      const a = 0.18 + 0.5 * (0.5 + 0.5 * Math.sin(time * 0.001 * s.speed + s.phase));
+      ctx.fillStyle = `rgba(${ink},${a.toFixed(3)})`;
+      const x = Math.round(s.x);
+      const yy = Math.round(y);
+      ctx.fillRect(x, yy, 2, 2);
+      if (s.big && a > 0.5) {
+        ctx.fillRect(x - 3, yy, 2, 2);
+        ctx.fillRect(x + 3, yy, 2, 2);
+        ctx.fillRect(x, yy - 3, 2, 2);
+        ctx.fillRect(x, yy + 3, 2, 2);
+      }
+    }
+    // Pink motes rise slowly and wrap around.
+    for (const m of this.motes) {
+      const y = (((m.y - time * m.drift - scrollY * 0.06) % this.h) + this.h) % this.h;
+      const x = m.x + Math.sin(time * 0.0007 + m.phase) * 10;
+      const a = 0.25 + 0.3 * (0.5 + 0.5 * Math.sin(time * 0.002 + m.phase));
+      ctx.fillStyle = `rgba(${accent},${a.toFixed(3)})`;
+      ctx.fillRect(Math.round(x), Math.round(y), 3, 3);
+    }
+    // A shooting star every 5–11 seconds: a dotted streak that fades.
+    if (!this.meteor && time > this.nextMeteor) {
+      this.meteor = {
+        x: this.rand() * this.w * 0.8 + this.w * 0.1,
+        y: this.rand() * this.h * 0.5,
+        born: time,
+      };
+    }
+    if (this.meteor) {
+      const age = (time - this.meteor.born) / 900;
+      if (age >= 1) {
+        this.meteor = null;
+        this.nextMeteor = time + 5000 + this.rand() * 6000;
+      } else {
+        const headX = this.meteor.x - age * 260;
+        const headY = this.meteor.y + age * 130;
+        for (let i = 0; i < 10; i++) {
+          const a = (1 - age) * (1 - i / 10) * 0.9;
+          ctx.fillStyle = `rgba(${ink},${a.toFixed(3)})`;
+          ctx.fillRect(Math.round(headX + i * 6), Math.round(headY - i * 3), 2, 2);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * A feature illustration that draws itself dot by dot (diagonal sweep) the
+ * first time it's seen, then lets its pink dots shimmer.
+ */
+export class PixelIllustration {
+  private ctx: CanvasRenderingContext2D | null = null;
+  private cell = 6;
+  private revealStart = -1;
+  private readonly cells: Array<{ x: number; y: number; ch: string; order: number }>;
+
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly rows: string[],
+    private palette: Palette,
+    private readonly animate: boolean,
+  ) {
+    const maxOrder = rows.length + rows[0]!.length;
+    this.cells = rows.flatMap((row, y) =>
+      [...row].flatMap((ch, x) => (ch === "." ? [] : [{ x, y, ch, order: (x + y) / maxOrder }])),
+    );
+  }
+
+  setPalette(p: Palette): void {
+    this.palette = p;
+  }
+
+  resize(): void {
+    const width = this.canvas.parentElement!.clientWidth - 32;
+    this.cell = Math.min(9, Math.max(4, Math.floor(width / this.rows[0]!.length)));
+    this.ctx = fitCanvas(
+      this.canvas,
+      this.rows[0]!.length * this.cell,
+      this.rows.length * this.cell,
+    );
+  }
+
+  /** Starts the reveal the first time the illustration is on screen. */
+  start(time: number): void {
+    if (this.revealStart < 0) this.revealStart = time;
+  }
+
+  draw(time: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const c = this.cell;
+    const { ink, accent } = this.palette;
+    const progress = !this.animate
+      ? 1
+      : this.revealStart < 0
+        ? 0
+        : Math.min(1, (time - this.revealStart) / 1100);
+    ctx.clearRect(0, 0, this.rows[0]!.length * c, this.rows.length * c);
+    for (const cell of this.cells) {
+      if (cell.order > progress * 1.05) continue;
+      let alpha = cell.ch === ":" ? 0.35 : 0.85;
+      // The newest dots flash bright as the sweep passes.
+      if (progress < 1 && progress * 1.05 - cell.order < 0.06) alpha = 1;
+      if (cell.ch === "+") {
+        const shimmer =
+          this.animate && progress >= 1
+            ? 0.65 + 0.35 * Math.sin(time * 0.004 + cell.x * 0.7 + cell.y)
+            : 1;
+        ctx.fillStyle = `rgba(${accent},${shimmer.toFixed(3)})`;
+      } else {
+        ctx.fillStyle = `rgba(${ink},${alpha})`;
+      }
+      dot(ctx, cell.x * c, cell.y * c, c);
+    }
+  }
 }

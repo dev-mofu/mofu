@@ -26,7 +26,8 @@ Local development needs no Cloudflare login. After changing `wrangler.jsonc`, ru
 ```
 index.html     Landing page (/), plain TypeScript, no React
 app/index.html The app (/app/)
-src/landing/  Landing page: pixel scenes, hero demo, timeline
+docs/index.html Docs (/docs/): web app, CLI, keys, limits, privacy
+src/landing/  Landing and docs pages: pixel scenes, starfield, hero demo, timeline
 src/worker/   Hono API (/api/*), session cookies, Turnstile, per-IP limiter
 src/client/   React app: chat, settings (own key, model, theme), memory
 src/shared/   Types and limits shared by both, and the mascot sprite
@@ -34,9 +35,11 @@ src/shared/   Types and limits shared by both, and the mascot sprite
 
 ## Landing page
 
-`/` is a separate, lightweight page (about 6 KB of JS and 4 KB of CSS, gzipped) so it loads fast on phones. All pixel art (night sky, moon, mountains, skyline, feature illustrations, the mascot) is drawn on canvas from data in `src/landing/art.ts` and `src/shared/sprite.ts`, so it's crisp at any size and follows the light/dark theme. Animations use `requestAnimationFrame`, stop while off screen or in a background tab, and under `prefers-reduced-motion` the page is static (the demo shows a finished result, and its Data/Dev/Study buttons still work). `public/og.png` was rendered from the same sprite.
+`/` is a separate, lightweight page (about 6 KB of JS and 4 KB of CSS, gzipped) so it loads fast on phones. All pixel art (night sky, moon, mountains, skyline, feature illustrations, the mascot) is drawn on canvas from data in `src/landing/art.ts` and `src/shared/sprite.ts`, so it's crisp at any size and follows the light/dark theme. A page-wide starfield (twinkling stars, shooting stars, pink motes; 30 fps) sits behind every section, illustrations draw themselves dot by dot, sections fade in as you scroll and the terminal types itself out. Animations use one `requestAnimationFrame` loop, stop while off screen or in a background tab, and under `prefers-reduced-motion` the page is static (the demo shows a finished result, and its Data/Dev/Study buttons still work). `public/og.png` was rendered from the same sprite.
 
-Every privacy and FAQ claim on the page matches the code in this repository; update the page when limits or data handling change.
+Body fonts use `display=optional` so a late font never shifts the layout (the pixel font swaps; it only appears in fixed-size badges). The docs page shares the same styles and scripts (`src/landing/common.ts`).
+
+Every privacy, FAQ and docs claim matches the code in this repository; update the page when limits or data handling change.
 
 | Route                  | Purpose                                                                                                        |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------- |

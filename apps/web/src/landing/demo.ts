@@ -3,7 +3,7 @@
  * Pure timing logic is exported for tests; the DOM side is driven by rAF and
  * only runs while the card is on screen.
  */
-import { buildPeekGrid, drawGrid, MASCOT_W, PAW_ROWS, type MascotState } from "../shared/sprite.js";
+import { buildPeekGrid, drawGrid, MASCOT_W, type MascotState } from "../shared/sprite.js";
 import { fitCanvas } from "./art.js";
 
 export interface Scenario {
@@ -152,14 +152,14 @@ export class Demo {
   private drawMascot(state: MascotState, force = false): void {
     if (this.mascotState === state && !force) return;
     this.mascotState = state;
-    const px = window.innerWidth < 640 ? 4 : 5;
+    // Must match the sizes reserved in landing.css (.demo-mascot), which also sets the
+    // negative margin that rests the paws on the card: (PAW_ROWS - 1) * px.
+    const px = window.matchMedia("(max-width: 480px)").matches ? 4 : 5;
     const grid = buildPeekGrid(state);
     const ctx = fitCanvas(this.ui.mascot, MASCOT_W * px, grid.length * px);
     if (!ctx) return;
     ctx.clearRect(0, 0, MASCOT_W * px, grid.length * px);
     drawGrid(ctx, grid, { px });
-    // The paws (last rows) rest on the card's top edge.
-    this.ui.mascot.style.marginBottom = `${-(PAW_ROWS - 1) * px}px`;
   }
 
   private build(s: Scenario): void {

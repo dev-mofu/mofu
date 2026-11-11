@@ -372,9 +372,11 @@ h3 {
   position: relative;
   z-index: 2;
   margin-left: 28px;
-  /* Reserve the sprite's size (16 rows + paws at 5px) so nothing shifts while it draws. */
+  /* Reserve the sprite's size (16 rows + paws at 5px) so nothing shifts while it draws,
+     and let the paws (all but their last row) overlap the card's top edge. */
   width: 130px;
   height: 100px;
+  margin-bottom: -15px;
 }
 
 .demo-card {
@@ -1062,6 +1064,7 @@ h3 {
     margin-left: 16px;
     width: 104px;
     height: 80px;
+    margin-bottom: -12px;
   }
   .led {
     right: 12px;
@@ -1070,4 +1073,189 @@ h3 {
   .demo-visual[data-kind="data"] {
     gap: 6px;
   }
+}
+
+/* ---------- Motion: starfield, reveals and small loops ---------- */
+.starfield {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Hidden only when JS is running (it adds .js), so content never depends on it. */
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.js [data-reveal].revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Items inside a revealed group arrive one after another. */
+.js .steps[data-reveal] li,
+.js .privacy[data-reveal] li,
+.js .faq[data-reveal] details {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
+}
+
+.js .revealed li,
+.js .revealed details {
+  opacity: 1;
+  transform: none;
+}
+
+.js .revealed > :nth-child(2) {
+  transition-delay: 0.1s;
+}
+.js .revealed > :nth-child(3) {
+  transition-delay: 0.2s;
+}
+.js .revealed > :nth-child(4) {
+  transition-delay: 0.3s;
+}
+.js .revealed > :nth-child(5) {
+  transition-delay: 0.4s;
+}
+.js .revealed > :nth-child(6) {
+  transition-delay: 0.5s;
+}
+
+/* Hero: the text rises in on load (transform only, so it never delays the first paint). */
+.hero-inner > h1,
+.hero-inner > .lede,
+.hero-inner > .demo,
+.hero-inner > .cta-row {
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.hero-inner > .lede {
+  animation-delay: 0.08s;
+}
+.hero-inner > .demo {
+  animation-delay: 0.16s;
+}
+.hero-inner > .cta-row {
+  animation-delay: 0.24s;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(18px);
+  }
+}
+
+/* The demo card glows while Mofu works. */
+.demo-card {
+  transition: box-shadow 0.4s ease;
+}
+
+.demo[data-phase="working"] .demo-card {
+  box-shadow:
+    0 30px 60px -30px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(var(--px-accent), 0.35),
+    0 0 36px -6px rgba(var(--px-accent), 0.4);
+}
+
+.demo-mascot {
+  animation: peek 3.2s ease-in-out infinite;
+}
+
+@keyframes peek {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Buttons. */
+.pill:hover {
+  box-shadow: 0 0 0 5px rgba(var(--px-accent), 0.18);
+}
+
+.code-chip:hover {
+  border-color: rgba(var(--px-accent), 0.6);
+}
+
+/* Timeline: the rail fills with pink dots up to the pointer. */
+.timeline-rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--fill, 0);
+  background: radial-gradient(circle, rgb(var(--px-accent)) 1.4px, transparent 1.9px) center top /
+    18px 10px repeat-y;
+}
+
+.timeline-cursor {
+  z-index: 1;
+  filter: drop-shadow(0 0 4px rgba(var(--px-accent), 0.7));
+}
+
+.feature {
+  transition:
+    border-color 0.3s ease,
+    transform 0.3s ease,
+    opacity 0.7s ease;
+}
+
+.feature:hover {
+  transform: translateY(-3px);
+}
+
+/* How it works: each mascot bobs on its own beat. */
+.steps canvas {
+  animation: bob 2.6s ease-in-out infinite;
+}
+.steps li:nth-child(2) canvas {
+  animation-delay: -0.9s;
+}
+.steps li:nth-child(3) canvas {
+  animation-delay: -1.7s;
+}
+
+@keyframes bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Terminal lines type in one by one. */
+.t-line {
+  display: block;
+  min-height: 1.6em;
+}
+
+.js .t-line:not(.shown) {
+  opacity: 0;
+}
+
+.js .t-line {
+  transition: opacity 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal],
+  .js .steps[data-reveal] li,
+  .js .privacy[data-reveal] li,
+  .js .faq[data-reveal] details,
+  .js .t-line {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+.js .feature.revealed:hover {
+  transform: translateY(-3px);
 }
