@@ -1206,3 +1206,58 @@ h3 {
     display: none;
   }
 }
+
+/* ---------- $MOFU contract card (hero) ---------- */
+.token {
+  max-width: 560px;
+  margin: 2.2rem auto 0;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(26, 23, 24, 0.82);
+}
+
+.token-tag {
+  margin: 0 0 0.8rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.token-ticker {
+  font-family: var(--font-head);
+  color: var(--accent-text);
+}
+
+.token-copy {
+  display: flex;
+  justify-content: center;
+}
+
+.token-ca {
+  max-width: 100%;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.token-ca-text {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.token-link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: var(--accent-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.token-link:hover {
+  text-decoration: underline;
+}
+
+.token-note {
+  margin: 0.8rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}

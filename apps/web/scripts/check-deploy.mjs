@@ -33,6 +33,16 @@ for (const file of walk(assets)) {
   }
 }
 
+// The $MOFU contract card must be filled in (scripts/set-token.mjs) before it goes live.
+if (
+  existsSync(path.join(assets, "index.html")) &&
+  /__MOFU_CA__|__PONS_URL__/.test(readFileSync(path.join(assets, "index.html"), "utf8"))
+) {
+  problems.push(
+    "The $MOFU card still has placeholders. Run: node scripts/set-token.mjs <CA> <PONS_URL>",
+  );
+}
+
 if (
   !existsSync(path.join(assets, "index.html")) ||
   !existsSync(path.join(assets, "app/index.html"))
