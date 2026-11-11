@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { phaseAt, SCENARIO_MS, SCENARIOS, TIMING } from "../src/landing/demo.js";
-import { CURSOR, ILLUSTRATIONS, ridge, seeded } from "../src/landing/art.js";
+import { CURSOR, ILLUSTRATIONS, mix, seeded } from "../src/landing/art.js";
 import {
   buildMascotGrid,
   buildPeekGrid,
@@ -47,13 +47,14 @@ describe("pixel art data", () => {
     expect(peek.at(-2)!.join("")).toContain("OWLWLO");
   });
 
-  it("makes the same mountains every time", () => {
-    expect(ridge(50, 11, 20, 10)).toEqual(ridge(50, 11, 20, 10));
-    expect(ridge(50, 11, 20, 10)).toHaveLength(50);
-    expect(Math.min(...ridge(200, 3, 2, 30))).toBeGreaterThanOrEqual(1);
+  it("makes the same random scenery every time and mixes colors toward the ink", () => {
     const a = seeded(1);
     const b = seeded(1);
     expect([a(), a()]).toEqual([b(), b()]);
+    const p = { ink: "255,255,255", accent: "255,79,154", bg: "0,0,0" };
+    expect(mix(p, 0)).toBe("rgb(0,0,0)");
+    expect(mix(p, 1)).toBe("rgb(255,255,255)");
+    expect(mix(p, 0.5)).toBe("rgb(128,128,128)");
   });
 
   it("keeps illustration rows rectangular", () => {

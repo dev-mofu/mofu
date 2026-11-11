@@ -8,6 +8,18 @@ export interface Palette {
   ink: string;
   /** "r,g,b" of the pink accent. */
   accent: string;
+  /** "r,g,b" of the page background (for solid, layered scenery). */
+  bg: string;
+}
+
+function hexToRgb(hex: string): string | null {
+  const m = hex.trim().match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return m
+    ? m
+        .slice(1)
+        .map((h) => parseInt(h, 16))
+        .join(",")
+    : null;
 }
 
 export function readPalette(): Palette {
@@ -15,7 +27,15 @@ export function readPalette(): Palette {
   return {
     ink: css.getPropertyValue("--px-ink").trim() || "233,227,229",
     accent: css.getPropertyValue("--px-accent").trim() || "255,79,154",
+    bg: hexToRgb(css.getPropertyValue("--bg")) ?? "15,13,14",
   };
+}
+
+/** An opaque color `t` of the way from the background to the ink (0 = background, 1 = ink). */
+export function mix(p: Palette, t: number): string {
+  const a = p.bg.split(",").map(Number);
+  const b = p.ink.split(",").map(Number);
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i]! - v) * t)).join(",")})`;
 }
 
 /** Sizes a canvas to its CSS box (or the given size) and returns a DPR-scaled context. */
@@ -55,22 +75,6 @@ const dot = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) 
   ctx.fill();
 };
 
-/** Ridge heights (in cells) by midpoint displacement; same seed, same mountains. */
-export function ridge(cols: number, seed: number, base: number, rough: number): number[] {
-  const rand = seeded(seed);
-  let size = 1;
-  while (size < cols) size *= 2;
-  const h = new Array<number>(size + 1).fill(base);
-  h[0] = base + rand() * rough;
-  h[size] = base + rand() * rough;
-  for (let step = size, amp = rough; step > 1; step /= 2, amp *= 0.55) {
-    for (let i = step / 2; i < size; i += step) {
-      h[i] = (h[i - step / 2]! + h[i + step / 2]!) / 2 + (rand() - 0.5) * amp * 2;
-    }
-  }
-  return h.slice(0, cols).map((v) => Math.max(1, Math.round(v)));
-}
-
 const CLOUDS = [
   [
     "......xxxxxx..........",
@@ -94,6 +98,7 @@ interface Star {
 export class NightSky {
   private stars: Star[] = [];
   private staticLayer: HTMLCanvasElement | null = null;
+  private lights: Array<{ x: number; y: number; phase: number; pink: boolean }> = [];
   private ctx: CanvasRenderingContext2D | null = null;
   private w = 0;
   private h = 0;
@@ -163,27 +168,128 @@ export class NightSky {
       ctx.fillStyle = `rgba(${ink},0.55)`;
       dot(ctx, (mx + x) * c, (my + y) * c, c);
     }
-    // Mountains: a far, faint range and a near, denser one, dithered downwards.
-    const cols = Math.ceil(this.w / c);
-    const rows = Math.ceil(this.h / c);
-    const layers = [
-      // Heights in pixels, not a share of the hero, so tall heroes don't grow mountains over the CTA.
-      { heights: ridge(cols, 11, 80 / c, 70 / c), alpha: 0.2, density: 0.5 },
-      { heights: ridge(cols, 23, 40 / c, 50 / c), alpha: 0.38, density: 0.7 },
-    ];
-    for (const { heights, alpha, density } of layers) {
-      const rand = seeded(alpha * 1000);
-      heights.forEach((height, x) => {
-        for (let y = 0; y < height; y++) {
-          const fromTop = y / Math.max(1, height);
-          const ridgeLine = height - y <= 1;
-          if (!ridgeLine && rand() > density * (0.45 + fromTop * 0.55)) continue;
-          ctx.fillStyle = `rgba(${ink},${ridgeLine ? alpha + 0.3 : alpha})`;
-          ctx.fillRect(x * c, (rows - height + y) * c, c - 1, c - 1);
-        }
-      });
-    }
+    this.buildCity(ctx, c);
     this.staticLayer = layer;
+  }
+
+  /**
+   * A pixel city along the bottom of the hero, in three layers drawn opaque so
+   * nearer blocks hide farther ones: hazy towers at the back, moonlit buildings
+   * (a lit face and a shadow face, rooftop details, windows) in the middle, and
+   * dark low-rise in front, whose few lights twinkle (see draw()).
+   */
+  private buildCity(ctx: CanvasRenderingContext2D, c: number): void {
+    const p = this.palette;
+    const scale = this.w < 640 ? 0.62 : 1;
+    const snap = (v: number) => Math.round(v / c) * c;
+    this.lights = [];
+    // Tones are a share of the way from the background to the ink. At night (dark theme) the
+    // front is darkest and edges catch moonlight; by day (light theme) the front is darkest too,
+    // the back fades into the sky, and edges are the sunlit, lighter side.
+    const day = p.bg.split(",").reduce((s, v) => s + Number(v), 0) / 3 > 128;
+    const tones = day
+      ? [
+          { body: 0.1, lit: 0.07, edge: 0.04 },
+          { body: 0.2, lit: 0.14, edge: 0.08 },
+          { body: 0.34, lit: 0.27, edge: 0.18 },
+        ]
+      : [
+          { body: 0.17, lit: 0.21, edge: 0.3 },
+          { body: 0.1, lit: 0.16, edge: 0.34 },
+          { body: 0.045, lit: 0.07, edge: 0.18 },
+        ];
+    const layers = [
+      {
+        seed: 31,
+        minH: 90,
+        maxH: 180,
+        minW: 5,
+        maxW: 11,
+        ...tones[0]!,
+        windows: 0.06,
+        front: false,
+      },
+      {
+        seed: 47,
+        minH: 55,
+        maxH: 135,
+        minW: 7,
+        maxW: 15,
+        ...tones[1]!,
+        windows: 0.2,
+        front: false,
+      },
+      { seed: 59, minH: 22, maxH: 62, minW: 6, maxW: 13, ...tones[2]!, windows: 0.12, front: true },
+    ];
+    for (const L of layers) {
+      const rand = seeded(L.seed);
+      let x = -snap(rand() * 40);
+      while (x < this.w) {
+        const bw = Math.round(L.minW + rand() * (L.maxW - L.minW)) * c;
+        const bh = snap((L.minH + rand() * (L.maxH - L.minH)) * scale);
+        const top = this.h - bh;
+        const litW = snap(bw * (0.3 + rand() * 0.2));
+        // Body: shadow face, then the moonlit face on the left.
+        ctx.fillStyle = mix(p, L.body);
+        ctx.fillRect(x, top, bw, bh);
+        ctx.fillStyle = mix(p, L.lit);
+        ctx.fillRect(x, top, litW, bh);
+        // Rooftop: a setback, an antenna, a water tank or a spire.
+        const roof = rand();
+        ctx.fillStyle = mix(p, L.lit);
+        if (roof < 0.22 && bw > 6 * c) {
+          const sw = snap(bw * 0.5);
+          const sh = snap(c * (3 + rand() * 4));
+          ctx.fillRect(x + snap((bw - sw) / 2), top - sh, sw, sh);
+        } else if (roof < 0.42) {
+          ctx.fillStyle = mix(p, L.edge);
+          ctx.fillRect(
+            x + snap(bw * (0.2 + rand() * 0.6)),
+            top - c * (3 + Math.floor(rand() * 4)),
+            Math.max(1, c / 2),
+            c * 6,
+          );
+        } else if (roof < 0.55 && bw > 5 * c) {
+          const tx = x + snap(bw * 0.6);
+          ctx.fillRect(tx, top - 3 * c, 2 * c, 2 * c);
+          ctx.fillRect(tx, top - c, Math.max(1, c / 2), c);
+          ctx.fillRect(tx + 2 * c - Math.max(1, c / 2), top - c, Math.max(1, c / 2), c);
+        } else if (roof < 0.62 && !L.front) {
+          const mid = x + snap(bw / 2) - c;
+          ctx.fillRect(mid, top - 4 * c, 2 * c, 4 * c);
+          ctx.fillStyle = mix(p, L.edge);
+          ctx.fillRect(mid + c / 2, top - 8 * c, Math.max(1, c / 2), 4 * c);
+        }
+        // Roofline and lit edge catch the moonlight.
+        ctx.fillStyle = mix(p, L.edge);
+        ctx.fillRect(x, top, bw, Math.max(1, c / 2));
+        ctx.fillRect(x, top, Math.max(1, c / 2), bh);
+        // Windows: a grid, some lit. The front layer's lit windows twinkle in draw().
+        for (let wy = top + 2 * c; wy < this.h - 2 * c; wy += 2 * c) {
+          for (let wx = x + c; wx <= x + bw - 2 * c; wx += 2 * c) {
+            const r = rand();
+            if (r < L.windows) {
+              const pink = rand() < 0.07;
+              if (L.front) this.lights.push({ x: wx, y: wy, phase: rand() * 30, pink });
+              else {
+                ctx.fillStyle = pink
+                  ? `rgba(${p.accent},0.85)`
+                  : mix(p, L.front ? 0.7 : 0.45 + rand() * 0.25);
+                ctx.fillRect(wx, wy, c - 1, c - 1);
+              }
+            } else if (r < L.windows + 0.25) {
+              // Unlit windows give the facades texture.
+              ctx.fillStyle = mix(p, L.body + 0.03);
+              ctx.fillRect(wx, wy, c - 1, c - 1);
+            }
+          }
+        }
+        x += bw + (L.front ? 0 : c * Math.floor(rand() * 2));
+      }
+    }
+    // A street line along the very bottom.
+    ctx.fillStyle = mix(p, 0.2);
+    ctx.fillRect(0, this.h - Math.max(1, c / 2), this.w, Math.max(1, c / 2));
   }
 
   draw(time: number): void {
@@ -217,6 +323,12 @@ export class NightSky {
       );
     });
     if (this.staticLayer) ctx.drawImage(this.staticLayer, 0, 0, this.w, this.h);
+    // Lights in the front buildings switch on and off now and then.
+    for (const l of this.lights) {
+      if (Math.sin(time * 0.0005 + l.phase) < -0.55) continue;
+      ctx.fillStyle = l.pink ? `rgba(${this.palette.accent},0.9)` : mix(this.palette, 0.75);
+      ctx.fillRect(l.x, l.y, c - 1, c - 1);
+    }
   }
 }
 
