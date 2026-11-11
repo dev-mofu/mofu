@@ -42,14 +42,24 @@ export async function townHolders(opts: {
 }): Promise<TownHoldersResponse> {
   if (!opts.apiKey) return { status: "unavailable" };
   if (cache && opts.now - cache.at < CACHE_MS) return cache.body;
-  const url = `https://api.covalenthq.com/v1/${opts.chain}/tokens/${opts.token}/token_holders_v2/?page-size=12`;
+  const url = `https://api.covalenthq.com/v1/${opts.chain}/tokens/${opts.token}/token_holders_v2/`;
   const res = await opts.fetch(url, {
     headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: "application/json" },
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`GoldRush HTTP ${res.status}`);
   const json = (await res.json()) as { data?: { items?: GoldRushItem[] } };
-  const items = (json.data?.items ?? []).filter((i) => i.address && i.balance).slice(0, 10);
+  // GoldRush rejects custom page sizes on this chain; take the first page and keep the top ten.
+  const items = (json.data?.items ?? [])
+    .filter((i) => i.address && i.balance && /^\d+$/.test(i.balance))
+    .sort((a, b) =>
+      BigInt(b.balance!) > BigInt(a.balance!)
+        ? 1
+        : BigInt(b.balance!) < BigInt(a.balance!)
+          ? -1
+          : 0,
+    )
+    .slice(0, 10);
   const holders = await Promise.all(
     items.map(async (i): Promise<TownHolder> => {
       const address = i.address!.toLowerCase();
@@ -75,7 +85,7 @@ export async function townHolders(opts: {
     updatedAt: new Date(opts.now).toISOString(),
     holders,
   };
-  cache = { at: opts.now, body };
+  if (holders.length > 0) cache = { at: opts.now, body };
   return body;
 }
 

@@ -1265,8 +1265,8 @@ async function main() {
     cardSprites.forEach((s) => {
       const { index, count } = s.userData as { index: number; count: number };
       const a = t * 0.18 * slow + (index / count) * Math.PI * 2;
-      const r = count === 1 ? 0 : 6.6;
-      const y = count === 1 ? tower.top + 7.2 : 4 + (index / count) * 11;
+      const r = count === 1 ? 0 : 7.4;
+      const y = count === 1 ? tower.top + 7.2 : 3.6 + (index / count) * 15;
       s.position.set(Math.sin(a) * r, y + Math.sin(t * 1.2 + index) * 0.15, Math.cos(a) * r);
     });
     const fp = flies.pts.geometry.attributes.position as THREE.BufferAttribute;
