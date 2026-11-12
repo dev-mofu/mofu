@@ -36,10 +36,15 @@ interface TokenPanelProps {
   error: string | null;
   onScan: (address: string) => void;
   onTx: (hash: string) => void;
+  /** Checks the wallet connected in the browser. */
+  onMyWallet: () => void;
 }
 
-/** Input for Dev Tools → Scan a token: a contract address scans it, a tx hash explains it. */
-export function TokenPanel({ scanning, error, onScan, onTx }: TokenPanelProps) {
+/**
+ * Input for Dev Tools → Scan a token: a contract address scans it, a wallet address gets Wallet
+ * Health, a tx hash is explained.
+ */
+export function TokenPanel({ scanning, error, onScan, onTx, onMyWallet }: TokenPanelProps) {
   const [value, setValue] = useState("");
   const input = value.trim();
   const isAddress = ADDRESS.test(input);
@@ -55,12 +60,12 @@ export function TokenPanel({ scanning, error, onScan, onTx }: TokenPanelProps) {
   return (
     <form className="repo-form token-form" onSubmit={submit}>
       <label htmlFor="token-ca" className="visually-hidden">
-        Token contract address or transaction hash on Robinhood Chain
+        Token or wallet address, or a transaction hash, on Robinhood Chain
       </label>
       <input
         id="token-ca"
         type="text"
-        placeholder="Paste a token address or a transaction hash (0x…) on Robinhood Chain"
+        placeholder="Paste a token, a wallet or a transaction hash (0x…) on Robinhood Chain"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={scanning}
@@ -72,7 +77,7 @@ export function TokenPanel({ scanning, error, onScan, onTx }: TokenPanelProps) {
       </button>
       {input && !isAddress && !isTx && (
         <p className="status status--bad repo-error">
-          A token address is 0x plus 40 characters; a transaction hash is 0x plus 64.
+          An address (token or wallet) is 0x plus 40 characters; a transaction hash is 0x plus 64.
         </p>
       )}
       {error && (
@@ -90,6 +95,10 @@ export function TokenPanel({ scanning, error, onScan, onTx }: TokenPanelProps) {
             disabled={scanning}
           >
             Scan $MOFU
+          </button>{" "}
+          or{" "}
+          <button type="button" className="link-button" onClick={onMyWallet} disabled={scanning}>
+            check my wallet's approvals
           </button>
         </p>
       )}
@@ -129,6 +138,8 @@ interface TokenReportProps {
   onClear: () => void;
   /** Opens the holder-perks settings (shown on the locked part of the report). */
   onUnlock: () => void;
+  /** Scans another token (a lookalike or one of the creator's other launches). */
+  onScanOther: (address: string) => void;
 }
 
 export function TokenReport({
@@ -138,6 +149,7 @@ export function TokenReport({
   onExplain,
   onClear,
   onUnlock,
+  onScanOther,
 }: TokenReportProps) {
   const [copied, setCopied] = useState(false);
   const t = report.token;
@@ -301,8 +313,54 @@ export function TokenReport({
               <span>Other launches</span>{" "}
               {o.otherLaunchCount === 0
                 ? "none through the same launcher in its recent history"
-                : `${o.otherLaunchCount} other token${o.otherLaunchCount === 1 ? "" : "s"} through the same launcher recently`}
+                : `${o.otherLaunchCount} other token${o.otherLaunchCount === 1 ? "" : "s"} through the same launcher recently${
+                    (o.otherLaunchDetails ?? []).length
+                      ? `, ${o.otherLaunchDetails.filter((l) => l.active).length} of the ${o.otherLaunchDetails.length} checked still active this week`
+                      : ""
+                  }`}
             </li>
+          </ul>
+          {(o.otherLaunchDetails ?? []).length > 0 && (
+            <ul className="launch-list">
+              {o.otherLaunchDetails.map((l) => (
+                <li key={l.address}>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => onScanOther(l.address)}
+                  >
+                    {l.symbol ? `${l.symbol}` : (l.name ?? short(l.address))}
+                  </button>{" "}
+                  <span className="muted small">{l.name && l.symbol ? l.name : ""}</span>{" "}
+                  <span className={`launch-status launch-status--${l.active ? "active" : "quiet"}`}>
+                    {l.active ? "active this week" : `quiet since ${fmtDate(l.lastActive)}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {report.lookalikes.length > 0 && (
+        <div className="token-section">
+          <h3>Same name or ticker</h3>
+          <ul className="launch-list">
+            {report.lookalikes.map((l) => (
+              <li key={l.address}>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onScanOther(l.address)}
+                >
+                  {l.symbol ? `${l.symbol}` : (l.name ?? short(l.address))}
+                </button>{" "}
+                <Addr a={l.address} />{" "}
+                <span className="muted small">
+                  {l.createdAt ? `created ${fmtDate(l.createdAt)}` : "creation date unknown"}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       )}

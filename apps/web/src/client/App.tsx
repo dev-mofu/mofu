@@ -28,10 +28,17 @@ import {
   fetchUsage,
   scanTokenAddress,
   explainTx,
+  checkWallet,
 } from "./lib/api.js";
 import { TokenPanel, TokenReport, TxReportView } from "./components/TokenScan.js";
-import { formatTokenScanForModel, formatTxForModel } from "../shared/token-scan-text.js";
-import type { TokenScanReport, TxReport } from "../shared/api.js";
+import { WalletHealthView } from "./components/WalletHealth.js";
+import {
+  formatTokenScanForModel,
+  formatTxForModel,
+  formatWalletForModel,
+} from "../shared/token-scan-text.js";
+import type { TokenScanReport, TxReport, WalletReport } from "../shared/api.js";
+import { walletAccount, WalletError } from "./lib/wallet.js";
 import { StudyPanel } from "./components/StudyPanel.js";
 import { ApiPanel } from "./components/ApiPanel.js";
 import { ApiResults } from "./components/ApiResults.js";
@@ -147,6 +154,10 @@ export function App() {
     remaining: number | null;
   } | null>(null);
   const [txScan, setTxScan] = useState<{ report: TxReport; remaining: number | null } | null>(null);
+  const [walletScan, setWalletScan] = useState<{
+    report: WalletReport;
+    remaining: number | null;
+  } | null>(null);
   const [tokenScanning, setTokenScanning] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [depScan, setDepScan] = useState<{ report: ScanReport; source: string } | null>(null);
@@ -172,6 +183,7 @@ export function App() {
   const [apiVersion, setApiVersion] = useState(0);
 
   const latest = useRef({
+    walletScan,
     txScan,
     tokenScan,
     settings,
@@ -186,6 +198,7 @@ export function App() {
     apiContext,
   });
   latest.current = {
+    walletScan,
     txScan,
     tokenScan,
     settings,
@@ -247,6 +260,13 @@ export function App() {
               kind: "api-spec",
               title: latest.current.api.index.title,
               text: latest.current.apiContext,
+            };
+          } else if (m === "dev" && tool === "token" && latest.current.walletScan) {
+            const w = latest.current.walletScan.report;
+            context = {
+              kind: "wallet",
+              title: w.address.slice(0, 42),
+              text: formatWalletForModel(w),
             };
           } else if (m === "dev" && tool === "token" && latest.current.txScan) {
             const tx = latest.current.txScan.report;
@@ -635,7 +655,14 @@ export function App() {
     setTokenScanning(true);
     try {
       const res = await scanTokenAddress(address);
+      if (!res.report.isContract) {
+        // A wallet, not a contract: show its approvals and holdings instead.
+        setTokenScanning(false);
+        await runWalletCheck(address);
+        return;
+      }
       setTxScan(null);
+      setWalletScan(null);
       setTokenScan({ report: res.report, remaining: res.remaining });
       // Show the report from its top, also on small screens where the thread scrolls.
       window.setTimeout(() => {
@@ -668,6 +695,7 @@ export function App() {
     try {
       const res = await explainTx(hash);
       setTokenScan(null);
+      setWalletScan(null);
       setTxScan({ report: res.report, remaining: res.remaining });
       window.setTimeout(() => {
         document.querySelector(".token-report")?.scrollIntoView({ block: "start" });
@@ -687,6 +715,51 @@ export function App() {
       );
     } finally {
       setTokenScanning(false);
+    }
+  };
+
+  const runWalletCheck = async (address: string) => {
+    setTokenError(null);
+    if (!(await ensureSession())) return;
+    setTokenScanning(true);
+    try {
+      const res = await checkWallet(address);
+      setTokenScan(null);
+      setTxScan(null);
+      setWalletScan({ report: res.report, remaining: res.remaining });
+      window.setTimeout(() => {
+        document.querySelector(".token-report")?.scrollIntoView({ block: "start" });
+      }, 50);
+      if (messages.length > 0) {
+        if (busy) void stop();
+        clearError();
+        setMessages([]);
+      }
+      const url = new URL(location.href);
+      url.searchParams.delete("tx");
+      url.searchParams.set("scan", res.report.address);
+      history.replaceState(null, "", url);
+    } catch (err) {
+      setTokenError(
+        err instanceof ApiRequestError ? err.message : "Couldn't check that wallet. Try again.",
+      );
+    } finally {
+      setTokenScanning(false);
+    }
+  };
+
+  const checkMyWallet = async () => {
+    setTokenError(null);
+    try {
+      await runWalletCheck(await walletAccount());
+    } catch (err) {
+      setTokenError(
+        err instanceof WalletError
+          ? err.kind === "no-wallet"
+            ? "No wallet found in this browser. Paste your wallet address instead."
+            : err.message
+          : "Couldn't read your wallet. Paste your address instead.",
+      );
     }
   };
 
@@ -771,26 +844,32 @@ export function App() {
   const apiMode = mode === "dev" && devTool === "api";
   const tokenMode = mode === "dev" && devTool === "token";
   const emptyCopy = tokenMode
-    ? txScan
+    ? walletScan
       ? {
-          title: "Ask about this transaction",
-          body: "Mofu explains what happened and what any approval allows. It won't tell you to buy or sell.",
-          suggestions: ["Is any approval here risky?", "Explain this like I'm new to crypto"],
+          title: "Ask about this wallet",
+          body: "Mofu explains which approvals matter and how revoking works. It never asks for your seed phrase.",
+          suggestions: ["Which approval should I revoke first?", "What is an unlimited approval?"],
         }
-      : tokenScan
+      : txScan
         ? {
-            title: "Ask about this token",
-            body: "Mofu explains what the contract can and can't do. It won't tell you to buy or sell.",
-            suggestions: [
-              "What's the biggest risk in this contract?",
-              "Explain these findings like I'm new to crypto",
-            ],
+            title: "Ask about this transaction",
+            body: "Mofu explains what happened and what any approval allows. It won't tell you to buy or sell.",
+            suggestions: ["Is any approval here risky?", "Explain this like I'm new to crypto"],
           }
-        : {
-            title: "Scan a token or explain a transaction",
-            body: "Paste a token address to see what its contract can do and who holds it, or a transaction hash to see in plain English what it did, approvals included. Everything is read from Robinhood Chain.",
-            suggestions: [],
-          }
+        : tokenScan
+          ? {
+              title: "Ask about this token",
+              body: "Mofu explains what the contract can and can't do. It won't tell you to buy or sell.",
+              suggestions: [
+                "What's the biggest risk in this contract?",
+                "Explain these findings like I'm new to crypto",
+              ],
+            }
+          : {
+              title: "Scan a token, a wallet or a transaction",
+              body: "Paste a token address to see what its contract can do, whether it can be sold and who holds it; a wallet address to see its approvals and revoke risky ones; or a transaction hash to see in plain English what it did. Everything is read from Robinhood Chain.",
+              suggestions: [],
+            }
     : apiMode
       ? api
         ? {
@@ -991,12 +1070,14 @@ export function App() {
             </div>
             {devTool === "token" ? (
               !tokenScan &&
-              !txScan && (
+              !txScan &&
+              !walletScan && (
                 <TokenPanel
                   scanning={tokenScanning}
                   error={tokenError}
                   onScan={(a) => void scanToken(a)}
                   onTx={(h) => void explainTransaction(h)}
+                  onMyWallet={() => void checkMyWallet()}
                 />
               )
             ) : devTool === "api" ? (
@@ -1088,6 +1169,29 @@ export function App() {
               if (messages.length > 0) newChat();
             }}
             onUnlock={() => setDialog("settings")}
+            onScanOther={(a) => void scanToken(a)}
+          />
+        )}
+        {tokenMode && walletScan && (
+          <WalletHealthView
+            report={walletScan.report}
+            remaining={walletScan.remaining}
+            busy={busy || tokenScanning}
+            onExplain={() =>
+              void send(
+                "Explain this wallet check in plain language: which approvals matter most, why, and which ones I should revoke.",
+              )
+            }
+            onRecheck={() => void runWalletCheck(walletScan.report.address)}
+            onClear={() => {
+              setWalletScan(null);
+              setTokenError(null);
+              const url = new URL(location.href);
+              url.searchParams.delete("scan");
+              history.replaceState(null, "", url);
+              if (messages.length > 0) newChat();
+            }}
+            onScanToken={(a) => void scanToken(a)}
           />
         )}
         {tokenMode && txScan && (

@@ -1,7 +1,8 @@
 /**
  * Browser wallet (MetaMask, Rabby, Coinbase Wallet, a wallet app's built-in browser…) through
- * the standard EIP-1193 provider. Only two calls are used: read the account and sign a message.
- * Nothing here can send a transaction or approve a contract.
+ * the standard EIP-1193 provider. Three things only: read the account, sign the holder message,
+ * and send a revoke, approve(spender, 0), which removes a permission and can't move tokens.
+ * Nothing here approves a contract or sends funds.
  */
 import type { HolderStatus } from "../../shared/api.js";
 import { holderChallenge, holderVerify } from "./api.js";
@@ -63,3 +64,78 @@ export async function connectHolderWallet(): Promise<HolderStatus> {
 export const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 export const formatTokens = (whole: string) => BigInt(whole).toLocaleString("en-US");
+
+const CHAIN_ID = "0x1237"; // 4663, Robinhood Chain
+
+/** The connected account, asking the wallet for access if needed. */
+export async function walletAccount(): Promise<string> {
+  const eth = injectedWallet();
+  if (!eth) throw new WalletError("no-wallet", "No wallet found in this browser.");
+  try {
+    const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+    if (!accounts?.[0]) throw new Error("no account");
+    return accounts[0].toLowerCase();
+  } catch (err) {
+    throw walletError(err);
+  }
+}
+
+async function useRobinhoodChain(eth: Eip1193Provider) {
+  const current = (await eth.request({ method: "eth_chainId" }).catch(() => null)) as string | null;
+  if (current?.toLowerCase() === CHAIN_ID) return;
+  try {
+    await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID }] });
+  } catch (err) {
+    if ((err as { code?: unknown } | null)?.code !== 4902) throw walletError(err);
+    try {
+      await eth.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: CHAIN_ID,
+            chainName: "Robinhood Chain",
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            rpcUrls: ["https://rpc.mainnet.chain.robinhood.com"],
+            blockExplorerUrls: ["https://robinhoodchain.blockscout.com"],
+          },
+        ],
+      });
+    } catch (e) {
+      throw walletError(e);
+    }
+  }
+}
+
+const word = (a: string) => a.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+
+/** The calldata of a revoke: approve(spender, 0). Exported for tests. */
+export const revokeData = (spender: string) => `0x095ea7b3${word(spender)}${"0".repeat(64)}`;
+
+/**
+ * Sends approve(spender, 0) on `token` from `owner`. The wallet shows it before anything is sent;
+ * returns the transaction hash.
+ */
+export async function revokeApproval(
+  owner: string,
+  token: string,
+  spender: string,
+): Promise<string> {
+  const eth = injectedWallet();
+  if (!eth) throw new WalletError("no-wallet", "No wallet found in this browser.");
+  const account = await walletAccount();
+  if (account !== owner.toLowerCase()) {
+    throw new WalletError(
+      "failed",
+      `Your wallet is on ${shortAddress(account)}. Switch to ${shortAddress(owner)}, the wallet that gave this approval.`,
+    );
+  }
+  await useRobinhoodChain(eth);
+  try {
+    return (await eth.request({
+      method: "eth_sendTransaction",
+      params: [{ from: account, to: token, data: revokeData(spender), value: "0x0" }],
+    })) as string;
+  } catch (err) {
+    throw walletError(err);
+  }
+}

@@ -92,6 +92,7 @@ describe("MCP server", () => {
       result: { tools: Array<{ name: string; annotations: { readOnlyHint: boolean } }> };
     };
     expect(list.result.tools.map((t) => t.name)).toEqual([
+      "check_wallet",
       "scan_token",
       "check_dependencies",
       "explain_transaction",
@@ -124,7 +125,7 @@ describe("MCP server", () => {
     };
     expect(res.result.isError).toBeUndefined();
     expect(res.result.structuredContent.verdict).toBe("clean");
-    expect(res.result.content[0]!.text).toContain(`mofu.works/app/?scan=${TOKEN}`);
+    expect(res.result.content[0]!.text).toContain(`mofu.works/token/${TOKEN}`);
   });
 
   it("reports bad input and unsupported files as tool errors", async () => {

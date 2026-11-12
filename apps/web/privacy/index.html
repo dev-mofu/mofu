@@ -248,6 +248,14 @@
             minutes.
           </p>
           <p>
+            Wallet Health sends the wallet address you paste (or the one your wallet connects) to
+            Mofu's server, which reads its token approvals and balances from GoldRush and the chain.
+            Mofu doesn't store the address or the results beyond a few seconds of caching; each
+            check counts as a scan for the day's limit. The names and tickers of tokens it sees are
+            remembered, without the wallet, to spot lookalike tokens later. A revoke is sent by your
+            wallet straight to Robinhood Chain; it doesn't pass through Mofu.
+          </p>
+          <p>
             When a scanned contract is a token, its address, name, symbol and result are added to
             the public list at <a href="/token/">mofu.works/token</a> and get their own page. The
             list never shows who scanned a token or when you did. Token pages are cached for about
@@ -261,8 +269,9 @@
           </p>
           <p>
             The public counters on <a href="/stats/">mofu.works/stats</a> (messages, scans,
-            transactions explained, Mofu Guard checks and stops, MCP calls, wallets connected, votes)
-            are plain totals. They don't record who did what, from where, or about which address.
+            transactions explained, Mofu Guard checks and stops, MCP calls, wallets connected,
+            votes) are plain totals. They don't record who did what, from where, or about which
+            address.
           </p>
         </section>
 

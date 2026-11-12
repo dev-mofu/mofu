@@ -63,9 +63,13 @@ if (stats) {
             ],
             [nf.format(c("token_scan")), "Token scans"],
             [nf.format(c("tx_explain")), "Transactions explained"],
+            [nf.format(c("wallet_check")), "Wallets checked", "approvals and holdings"],
             [
               nf.format(
-                c("mcp_scan_token") + c("mcp_explain_transaction") + c("mcp_check_dependencies"),
+                c("mcp_scan_token") +
+                  c("mcp_explain_transaction") +
+                  c("mcp_check_dependencies") +
+                  c("mcp_check_wallet"),
               ),
               "MCP tool calls",
               "from AI apps like Claude and Cursor",

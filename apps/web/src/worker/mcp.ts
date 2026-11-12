@@ -8,7 +8,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { formatScanForModel, scanDependencies } from "@mofu/core/web";
-import { formatTokenScanForModel, formatTxForModel } from "../shared/token-scan-text.js";
+import {
+  formatTokenScanForModel,
+  formatTxForModel,
+  formatWalletForModel,
+} from "../shared/token-scan-text.js";
+import { walletReport } from "./wallet.js";
 import { explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import type { AppDeps } from "./app.js";
 import { statsFromEnv, type StatKey } from "./stats.js";
@@ -28,11 +33,40 @@ const MAX_TOTAL_CHARS = 600_000;
 const INSTRUCTIONS =
   "Mofu's tools read real data and return facts: scan_token reads a token contract on Robinhood Chain, " +
   "explain_transaction decodes a Robinhood Chain transaction, " +
+  "check_wallet lists a wallet's token approvals (re-checked on chain, risky ones flagged) and holdings, " +
   "check_dependencies looks up known vulnerabilities for a project's packages. Report what the results " +
   "say and what they can't see. For tokens, never give buy, sell or price advice and never call a token " +
   "safe: describe what the contract's code allows.";
 
 const TOOLS = [
+  {
+    name: "check_wallet",
+    title: "Check a wallet's approvals on Robinhood Chain",
+    description:
+      "Wallet Health for an address on Robinhood Chain (chain ID 4663): every active token approval, " +
+      "re-checked on chain, with the spender described (known contract, launch curve, pool, or a plain wallet) " +
+      "and risky ones flagged (spender is a wallet, a brand-new little-used contract, or the allowance is " +
+      "unlimited); plus the tokens it holds. To remove an approval the owner sends approve(spender, 0) from " +
+      "their own wallet, or uses mofu.works/app. Deterministic, not AI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        address: {
+          type: "string",
+          description: "Wallet address: 0x followed by 40 hex characters.",
+          pattern: "^0x[0-9a-fA-F]{40}$",
+        },
+      },
+      required: ["address"],
+      additionalProperties: false,
+    },
+    annotations: {
+      title: "Check a wallet's approvals on Robinhood Chain",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
   {
     name: "scan_token",
     title: "Scan a Robinhood Chain token",
@@ -252,7 +286,7 @@ export function createMcpApp(deps: AppDeps) {
           content: [
             {
               type: "text",
-              text: `${formatTokenScanForModel(report)}\n\nShareable report: https://mofu.works/app/?scan=${report.address}`,
+              text: `${formatTokenScanForModel(report)}\n\nShareable report: https://mofu.works/token/${report.address}`,
             },
           ],
           structuredContent: report as unknown as Record<string, unknown>,
@@ -260,6 +294,32 @@ export function createMcpApp(deps: AppDeps) {
       } catch {
         return toolText("Couldn't reach Robinhood Chain right now. Try again in a minute.", true);
       }
+    }
+
+    if (name === "check_wallet") {
+      const address = String((args as { address?: unknown } | null)?.address ?? "").trim();
+      if (!isAddress(address)) {
+        return toolText(
+          "address must be a wallet address: 0x followed by 40 hex characters.",
+          true,
+        );
+      }
+      const data = chainData(c.env, parseRpcUrls(c.env.HOLDER_RPC_URL));
+      if (!data) return toolText("Wallet checks aren't available right now.", true);
+      const report = await walletReport({ ...data, now: deps.now() }, address);
+      if (report.status.approvals === "unavailable" && report.status.holdings === "unavailable") {
+        return toolText("That wallet couldn't be read right now. Try again in a minute.", true);
+      }
+      c.record("mcp_check_wallet");
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${formatWalletForModel(report)}\n\nCheck and revoke in the browser: https://mofu.works/app/?scan=${report.address}`,
+          },
+        ],
+        structuredContent: report as unknown as Record<string, unknown>,
+      };
     }
 
     if (name === "explain_transaction") {

@@ -86,7 +86,9 @@ export type ChatContext =
   /** Token Scanner: a report built from Robinhood Chain data. */
   | { kind: "token-scan"; title: string; text: string }
   /** Transaction explainer: a decoded Robinhood Chain transaction. */
-  | { kind: "tx"; title: string; text: string };
+  | { kind: "tx"; title: string; text: string }
+  /** Wallet Health: a wallet's approvals and holdings. */
+  | { kind: "wallet"; title: string; text: string };
 
 export interface FetchedPageResponse {
   url: string;
@@ -170,7 +172,9 @@ export interface TokenCheck {
     | "upgrade"
     | "owner"
     | "destroy"
-    | "concentration";
+    | "concentration"
+    | "sell"
+    | "lookalike";
   label: string;
   status: "ok" | "warn" | "risk" | "info";
   detail: string;
@@ -204,8 +208,93 @@ export interface TokenScanReport {
   distribution: TokenDistribution;
   /** Who created the token; only in the full report. */
   origin: TokenOrigin | null;
+  /** A simulated buy and sell; null when there was nowhere to test it. */
+  sellTest: SellTest | null;
+  /** Other tokens Mofu has seen with the same name or ticker. */
+  lookalikes: TokenLookalike[];
   /** What this scan can't see. */
   limits: string[];
+}
+
+/** A buy and a sell simulated on Robinhood Chain (eth_simulateV1): nothing is sent. */
+export interface SellTest {
+  status: "passed" | "failed" | "unknown";
+  /** "curve": a real buy then sell on the Pons launch curve. "transfer": token moves to and from the pool. */
+  method: "curve" | "transfer";
+  /** Where it was tested: the curve or pool address. */
+  venue: string;
+  /** Share of the tokens lost on the way in, 0–100. */
+  buyTaxPercent: number | null;
+  /** Share lost on the way out, 0–100. */
+  sellTaxPercent: number | null;
+  /** ETH you'd get back from a small buy sold straight away, 0–100 (curve only; fees and price impact included). */
+  roundTripPercent: number | null;
+  detail: string;
+}
+
+export interface TokenLookalike {
+  address: string;
+  name: string | null;
+  symbol: string | null;
+  /** When its first transaction happened, if known. */
+  createdAt: string | null;
+}
+
+/** What Mofu can say about an address without guessing. */
+export interface AddressInfo {
+  address: string;
+  kind: "wallet" | "burn" | "token" | "curve" | "pool" | "contract";
+  /** A name: from Mofu's list of known contracts, or read from the chain (token name, pool pair). */
+  label: string | null;
+  /** True when the label comes from Mofu's own list. */
+  known: boolean;
+  txCount: number | null;
+  firstSeen: string | null;
+  ageDays: number | null;
+}
+
+export interface WalletApproval {
+  token: string;
+  tokenName: string | null;
+  tokenSymbol: string | null;
+  /** Whole tokens the wallet holds now, when known. */
+  balance: string | null;
+  spender: AddressInfo;
+  unlimited: boolean;
+  /** Whole tokens the spender may take ("unlimited" when unlimited). */
+  allowance: string;
+  approvedAt: string | null;
+  txHash: string | null;
+  risk: "ok" | "warn" | "risk";
+  reasons: string[];
+}
+
+export interface WalletHolding {
+  token: string;
+  name: string | null;
+  symbol: string | null;
+  /** Whole tokens, formatted. */
+  balance: string;
+}
+
+/** Wallet Health: what a wallet holds and which approvals it has given. */
+export interface WalletReport {
+  address: string;
+  isContract: boolean;
+  /** ETH balance, formatted. */
+  eth: string | null;
+  holdings: WalletHolding[];
+  holdingsTotal: number;
+  approvals: WalletApproval[];
+  status: { holdings: "ok" | "unavailable"; approvals: "ok" | "unavailable" };
+  checkedAt: string;
+  limits: string[];
+}
+
+export interface WalletResponse {
+  report: WalletReport;
+  remaining: number;
+  limit: number;
 }
 
 export interface TokenScanResponse {
@@ -249,6 +338,8 @@ export interface TokenOrigin {
   /** Other tokens the creator launched through the same launcher, in its latest 100 transactions. */
   otherLaunches: string[];
   otherLaunchCount: number;
+  /** A closer look at up to five of those launches. */
+  otherLaunchDetails: LaunchHistory[];
 }
 
 export interface TxTransfer {
@@ -313,4 +404,14 @@ export interface VoteResponse {
   /** True when a connected wallet holds enough $MOFU to vote. */
   canVote: boolean;
   minTokens: string;
+}
+
+/** One of the creator's other launches, and whether it still sees any activity. */
+export interface LaunchHistory {
+  address: string;
+  name: string | null;
+  symbol: string | null;
+  lastActive: string | null;
+  /** Any transaction in the last seven days. */
+  active: boolean;
 }

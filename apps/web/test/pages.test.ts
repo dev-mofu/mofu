@@ -59,6 +59,10 @@ function setup(limit = "300") {
     async tokens(n = 1000) {
       return [...listed.values()].sort((a, b) => b.at - a.at).slice(0, n);
     },
+    async rememberTokens() {},
+    async similar() {
+      return [];
+    },
   };
   const deps: AppDeps = {
     createModel: () => {
@@ -85,7 +89,7 @@ function setup(limit = "300") {
     SCAN_HOLDER_DAILY: "50",
     PAGE_DAILY_LIMIT: limit,
   } as unknown as Env;
-  return { pages: createPagesApp(deps), app: createApp(deps), env, listed };
+  return { pages: createPagesApp(deps), app: createApp(deps), env, listed, states };
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -191,6 +195,28 @@ describe("token pages", () => {
     );
     expect(go.status).toBe(302);
     expect(go.headers.get("Location")).toBe(`/token/${TOKEN}`);
+  });
+});
+
+describe("token scan quota", () => {
+  it("doesn't count a scan of a wallet address (Wallet Health counts instead)", async () => {
+    const { app, env, states } = setup();
+    const session = `${SESSION_COOKIE}=${(await createSessionToken(SECRET, NOW, 60_000)).token}`;
+    const scan = (address: string) =>
+      app.request(
+        "http://localhost/api/token-scan",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: session },
+          body: JSON.stringify({ address }),
+        },
+        env,
+      );
+    const wallet = (await (await scan(WALLET)).json()) as { remaining: number };
+    expect(wallet.remaining).toBe(10);
+    expect([...states.keys()].some((k) => k.endsWith(":scans"))).toBe(false);
+    const token = (await (await scan(TOKEN)).json()) as { remaining: number };
+    expect(token.remaining).toBe(9);
   });
 });
 

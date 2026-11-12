@@ -14,6 +14,7 @@ import { isAddress } from "./holder.js";
 import { tokenIndexFromEnv, type IndexedToken } from "./stats.js";
 import { renderTokenCard, shortAddress, VERDICT_TEXT } from "./token-card.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
+import { withLookalikes } from "./lookalike.js";
 
 const ORIGIN = "https://mofu.works";
 const REPORT_TTL = 30 * 60;
@@ -148,6 +149,14 @@ export function tokenMain(r: TokenScanReport, scannedAt: number): string {
         </section>
 
         ${limits ? `<section id="limits"><h2>What this scan can't see</h2><ul>${limits}</ul></section>` : ""}
+
+        <section id="badge">
+          <h2>Show this scan on your site</h2>
+          <p>A live badge that links back here. It updates when the scan does.</p>
+          <p><img src="/token/${a}.svg" alt="Scanned by Mofu: ${verdict}" height="20" /></p>
+          <pre><code>${escapeHtml(badgeSnippet(a, verdict))}</code></pre>
+          <button class="pill pill--small pill--ghost token-copy" type="button" data-copy="${escapeHtml(badgeSnippet(a, verdict))}">Copy badge code</button>
+        </section>
 
         <section id="more">
           <h2>Check another token</h2>
@@ -293,20 +302,23 @@ export function createPagesApp(deps: PagesDeps) {
     if (urls.length === 0) return "error";
     const apiKey = (c.env as Env & { GOLDRUSH_API_KEY?: string }).GOLDRUSH_API_KEY;
     try {
-      const full = await scanToken(
-        urls,
-        address,
-        deps.fetch,
-        apiKey
-          ? {
-              apiKey,
-              chain: String(c.env.GOLDRUSH_CHAIN ?? "robinhood-mainnet"),
-              rpcUrls: urls,
-              fetch: deps.fetch,
-              now,
-            }
-          : undefined,
-      );
+      const data = apiKey
+        ? {
+            apiKey,
+            chain: String(c.env.GOLDRUSH_CHAIN ?? "robinhood-mainnet"),
+            rpcUrls: urls,
+            fetch: deps.fetch,
+            now,
+          }
+        : undefined;
+      const scanned = await scanToken(urls, address, deps.fetch, data);
+      let idx: ReturnType<typeof index> | null = null;
+      try {
+        idx = index(c.env);
+      } catch {
+        idx = null;
+      }
+      const full = await withLookalikes(scanned, idx, data);
       const body = { report: summaryOnly(full), at: now };
       memory.set(address, body);
       if (memory.size > 500) memory.clear();
@@ -388,10 +400,25 @@ export function createPagesApp(deps: PagesDeps) {
   app.get("/token/:id", async (c) => {
     const id = c.req.param("id");
     const png = id.endsWith(".png");
-    const raw = png ? id.slice(0, -4) : id;
-    if (!isAddress(raw)) return png ? c.notFound() : notFound(c, "That isn't a contract address.");
+    const svg = id.endsWith(".svg");
+    const ext = png ? ".png" : svg ? ".svg" : "";
+    const raw = ext ? id.slice(0, -4) : id;
+    if (!isAddress(raw)) return ext ? c.notFound() : notFound(c, "That isn't a contract address.");
     const address = raw.toLowerCase();
-    if (raw !== address) return c.redirect(`/token/${address}${png ? ".png" : ""}`, 301);
+    if (raw !== address) return c.redirect(`/token/${address}${ext}`, 301);
+
+    if (svg) {
+      const r = await report(c, address);
+      const body =
+        typeof r === "string" || !r.report.isContract ? badgeSvg(null) : badgeSvg(r.report.verdict);
+      return c.body(body, 200, {
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "public, max-age=1800",
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+        "X-Content-Type-Options": "nosniff",
+        "Access-Control-Allow-Origin": "*",
+      });
+    }
 
     if (png) {
       const edge = cache();
@@ -464,3 +491,24 @@ export function createPagesApp(deps: PagesDeps) {
 /** Paths the pages app answers (the rest of the site is static assets or the API). */
 export const isPagesPath = (path: string) =>
   path === "/token" || path.startsWith("/token/") || path === "/sitemap-tokens.xml";
+
+/** HTML for embedding the badge. */
+export const badgeSnippet = (address: string, verdict: string) =>
+  `<a href="${ORIGIN}/token/${address}"><img src="${ORIGIN}/token/${address}.svg" alt="Scanned by Mofu: ${verdict}" height="20"></a>`;
+
+const BADGE: Record<TokenScanReport["verdict"] | "none", [string, string]> = {
+  clean: ["no red flags", "#2f9e6a"],
+  caution: ["things to check", "#b7791f"],
+  risky: ["strong owner control", "#c0392b"],
+  none: ["not available", "#6b6468"],
+};
+
+/** A shields-style badge: "Scanned by Mofu | <verdict>". Only fixed words, never token text. */
+export function badgeSvg(verdict: TokenScanReport["verdict"] | null): string {
+  const [text, color] = BADGE[verdict ?? "none"];
+  const left = "Scanned by Mofu";
+  const lw = Math.round(left.length * 6.4 + 22);
+  const rw = Math.round(text.length * 6.4 + 14);
+  const w = lw + rw;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${left}: ${text}"><title>${left}: ${text}</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="${w}" height="20" rx="4" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="${lw}" height="20" fill="#1a1718"/><rect x="${lw}" width="${rw}" height="20" fill="${color}"/><rect width="${w}" height="20" fill="url(#s)"/></g><g fill="#fff" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11"><rect x="6" y="6" width="8" height="8" rx="2" fill="#ff4f9a"/><text x="${lw / 2 + 7}" y="14" text-anchor="middle">${left}</text><text x="${lw + rw / 2}" y="14" text-anchor="middle">${text}</text></g></svg>`;
+}

@@ -3,8 +3,16 @@
  * decoded transactions. Public RPCs can't answer these, so every function needs the API key.
  * Contracts are told apart from wallets with eth_getCode on the fallback RPC list.
  */
-import type { TokenHolder, TokenOrigin, TxApproval, TxReport, TxTransfer } from "../shared/api.js";
-import { rpcCall } from "./chain.js";
+import type {
+  LaunchHistory,
+  TokenHolder,
+  TokenOrigin,
+  TxApproval,
+  TxReport,
+  TxTransfer,
+} from "../shared/api.js";
+import { callOf, rpcBatch, rpcCall } from "./chain.js";
+import { decodeString } from "./token-scan.js";
 
 const BASE = "https://api.covalenthq.com/v1";
 const ZERO = "0x0000000000000000000000000000000000000000";
@@ -40,7 +48,8 @@ const isContract = async (o: ChainDataOptions, address: string) => {
   const code = await rpcCall<string>(o.rpcUrls, "eth_getCode", [address, "latest"], o.fetch).catch(
     () => "0x",
   );
-  return !!code && code !== "0x";
+  // EIP-7702 wallets carry a delegation designator (0xef0100…), not contract code.
+  return !!code && code !== "0x" && !code.toLowerCase().startsWith("0xef0100");
 };
 
 const share = (part: bigint, total: bigint) =>
@@ -114,7 +123,50 @@ interface Summary {
   items?: Array<{
     total_count?: number;
     earliest_transaction?: { tx_hash?: string; block_signed_at?: string };
+    latest_transaction?: { tx_hash?: string; block_signed_at?: string };
   }>;
+}
+
+const str = (h: string | null | undefined) => {
+  if (!h || h === "0x") return null;
+  try {
+    return decodeString(h);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Deployer history: name, ticker and last activity of up to five other tokens the creator
+ * launched. "Active" means any transaction in the last seven days.
+ */
+export async function launchHistory(
+  o: ChainDataOptions,
+  tokens: readonly string[],
+  now: number,
+): Promise<LaunchHistory[]> {
+  const list = tokens.slice(0, 5);
+  if (list.length === 0) return [];
+  const [meta, summaries] = await Promise.all([
+    rpcBatch(
+      o.rpcUrls,
+      list.flatMap((t) => [callOf(t, "0x06fdde03"), callOf(t, "0x95d89b41")]),
+      o.fetch,
+    ).catch(() => list.flatMap(() => [null, null])),
+    Promise.all(
+      list.map((t) => gr<Summary>(o, `address/${t}/transactions_summary/`).catch(() => null)),
+    ),
+  ]);
+  return list.map((address, i) => {
+    const lastActive = summaries[i]?.items?.[0]?.latest_transaction?.block_signed_at ?? null;
+    return {
+      address,
+      name: str(meta[i * 2]),
+      symbol: str(meta[i * 2 + 1]),
+      lastActive,
+      active: lastActive !== null && now - Date.parse(lastActive) < 7 * 86_400_000,
+    };
+  });
 }
 
 const param = (e: LogEvent, name: string) =>
@@ -168,6 +220,7 @@ export async function tokenOrigin(
         others.add(sender);
     }
   }
+  const otherLaunchDetails = await launchHistory(o, [...others], now).catch(() => []);
   return {
     creator,
     launcher: minted ? launcher : null,
@@ -182,6 +235,7 @@ export async function tokenOrigin(
     creatorHoldsPercent: balance !== null && totalSupply ? share(balance, totalSupply) : null,
     otherLaunches: [...others].slice(0, 5),
     otherLaunchCount: others.size,
+    otherLaunchDetails,
   };
 }
 

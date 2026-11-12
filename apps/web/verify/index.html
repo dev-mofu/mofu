@@ -189,6 +189,12 @@ Nonce: …</code></pre>
             If a site asks you to approve tokens, send a transaction or sign anything else "to
             verify" or "to claim", it isn't Mofu.
           </p>
+          <p>
+            The one transaction Mofu offers is a <strong>revoke</strong> in Wallet Health:
+            <code>approve(spender, 0)</code> on a token, which removes a permission you gave. Your
+            wallet shows it as removing an approval, the amount is zero, and it can't move your
+            tokens. You choose when to send it; Mofu never asks.
+          </p>
         </section>
 
         <section id="never">

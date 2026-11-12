@@ -10,6 +10,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import type { TokenCheck, TokenScanReport } from "../shared/api.js";
 import { ethCall, RevertError, rpcCall } from "./chain.js";
 import { tokenOrigin, topHolders, type ChainDataOptions } from "./chain-data.js";
+import { sellTest } from "./sell-test.js";
 
 export const CHAIN_NAME = "Robinhood Chain";
 
@@ -197,7 +198,9 @@ export async function scanToken(
 ): Promise<TokenScanReport> {
   const addr = address.toLowerCase();
   const code = await rpcCall<string>(urls, "eth_getCode", [addr, "latest"], fetchFn);
-  const codeSize = code && code !== "0x" ? (code.length - 2) / 2 : 0;
+  // An EIP-7702 wallet has a delegation designator (0xef0100…) as code: a wallet, not a contract.
+  const delegated = !!code && code.toLowerCase().startsWith("0xef0100");
+  const codeSize = code && code !== "0x" && !delegated ? (code.length - 2) / 2 : 0;
   const base: Omit<TokenScanReport, "checks" | "verdict" | "distribution" | "origin"> = {
     address: addr,
     chainName: CHAIN_NAME,
@@ -207,9 +210,11 @@ export async function scanToken(
     owner: { status: "none", address: null, holdsPercent: null },
     proxy: { kind: "none", implementation: null },
     burnedPercent: null,
+    sellTest: null,
+    lookalikes: [],
     limits: [
       "Checks look for common function names in the contract's code. A contract that hides or renames them can't be fully judged this way.",
-      "Liquidity, price and trading activity aren't part of this scan.",
+      "Liquidity depth, price and trading activity aren't part of this scan.",
     ],
   };
   const noDistribution = {
@@ -508,6 +513,27 @@ export async function scanToken(
   if (distribution.status === "unavailable")
     base.limits.push("Holder distribution couldn't be read right now.");
 
+  // Can it be sold? A simulated buy and sell where it trades (needs the holder list to find it).
+  let sold: TokenScanReport["sellTest"] = null;
+  if (distribution.status === "full") {
+    sold = await sellTest(urls, fetchFn, addr, distribution.holders, decimals ?? 18).catch(
+      () => null,
+    );
+  }
+  if (sold) {
+    const worst = Math.max(sold.buyTaxPercent ?? 0, sold.sellTaxPercent ?? 0);
+    checks.push({
+      id: "sell",
+      label: "Can you sell it?",
+      status: sold.status === "failed" || worst >= 50 ? "risk" : worst >= 10 ? "warn" : "ok",
+      detail: sold.detail,
+    });
+  } else if (distribution.status === "full") {
+    base.limits.push(
+      "No launch curve or pool was found among the top holders, so a buy and sell couldn't be simulated.",
+    );
+  }
+
   const verdict = checks.some((c) => c.status === "risk")
     ? "risky"
     : checks.some((c) => c.status === "warn")
@@ -523,6 +549,7 @@ export async function scanToken(
     verdict,
     distribution,
     origin,
+    sellTest: sold,
   };
 }
 

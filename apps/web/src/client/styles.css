@@ -1897,3 +1897,114 @@ a.ghost-button {
   border-radius: 12px;
   font-size: 0.9rem;
 }
+
+/* Wallet Health and Approval Checker */
+.token-check > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.approval-meta {
+  font-size: 0.82rem;
+}
+
+.approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+}
+
+.approval-actions .status {
+  margin: 0;
+}
+
+.wallet-holdings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wallet-holdings li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.wallet-holdings li:last-child {
+  border-bottom: 0;
+}
+
+.wallet-token {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wallet-token .small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wallet-balance {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wallet-verdict {
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.wallet-verdict--ok {
+  color: var(--ok);
+}
+
+.wallet-verdict--warn {
+  color: #f2b84b;
+}
+
+.wallet-verdict--risk {
+  color: var(--bad);
+}
+
+.launch-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.launch-list li {
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.launch-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.launch-status--active {
+  color: var(--ok);
+}
+
+.launch-status--quiet {
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .wallet-holdings li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .wallet-verdict,
+  .wallet-holdings .link-button {
+    justify-self: start;
+  }
+}

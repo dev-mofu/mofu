@@ -1,4 +1,4 @@
-import type { TokenScanReport, TxReport } from "./api.js";
+import type { TokenScanReport, TxReport, WalletReport } from "./api.js";
 
 /** Plain text of a report for the model; the report is data, the model only explains it. */
 export function formatTokenScanForModel(r: TokenScanReport): string {
@@ -28,6 +28,24 @@ export function formatTokenScanForModel(r: TokenScanReport): string {
       ? [
           `Created by ${r.origin.creator}${r.origin.launcher ? ` through launcher ${r.origin.launcher}` : ""} on ${r.origin.createdAt ?? "unknown date"}.`,
           `Creator wallet: first seen ${r.origin.creatorFirstSeen ?? "unknown"} (${r.origin.creatorAgeDays ?? "?"} days), ${r.origin.creatorTxCount ?? "?"} transactions, still holds ${r.origin.creatorHoldsPercent ?? "?"}% of supply, launched ${r.origin.otherLaunchCount} other tokens through the same launcher recently.`,
+          ...(r.origin.otherLaunchDetails ?? []).map(
+            (l) =>
+              `  other launch ${l.address} ${l.name ?? "?"} (${l.symbol ?? "?"}): ${l.active ? "active in the last 7 days" : `quiet, last activity ${l.lastActive ?? "unknown"}`}`,
+          ),
+        ]
+      : []),
+    ...(r.sellTest
+      ? [
+          `Sell test (${r.sellTest.method}, simulated, at ${r.sellTest.venue}): ${r.sellTest.status}; buy tax ${r.sellTest.buyTaxPercent ?? "?"}%, sell tax ${r.sellTest.sellTaxPercent ?? "?"}%${r.sellTest.roundTripPercent !== null ? `, round trip returned ${r.sellTest.roundTripPercent}% of the ETH` : ""}.`,
+        ]
+      : []),
+    ...((r.lookalikes ?? []).length
+      ? [
+          "Other tokens with the same name or ticker that Mofu has seen:",
+          ...r.lookalikes.map(
+            (l) =>
+              `  ${l.address} ${l.name ?? "?"} (${l.symbol ?? "?"}), created ${l.createdAt ?? "unknown"}`,
+          ),
         ]
       : []),
     "Not covered:",
@@ -57,5 +75,23 @@ export function formatTxForModel(r: TxReport): string {
     `Other events: ${r.otherEvents.join(", ") || "none"}`,
     "Flags:",
     ...(r.flags.length ? r.flags.map((f) => `- [${f.level}] ${f.text}`) : ["- none"]),
+  ].join("\n");
+}
+
+/** Plain text of a Wallet Health report for the model. */
+export function formatWalletForModel(r: WalletReport): string {
+  return [
+    `Wallet: ${r.address} on Robinhood Chain${r.isContract ? " (a contract, not a plain wallet)" : ""}`,
+    `ETH: ${r.eth ?? "unknown"}. Tokens held: ${r.holdingsTotal}.`,
+    ...r.holdings.map(
+      (h) => `  ${h.balance} ${h.symbol ?? "?"} (${h.name ?? "unknown"}) ${h.token}`,
+    ),
+    `Active token approvals: ${r.approvals.length} (${r.approvals.filter((a) => a.risk === "risk").length} risky, ${r.approvals.filter((a) => a.risk === "warn").length} to check).`,
+    ...r.approvals.map(
+      (a) =>
+        `- [${a.risk}] ${a.tokenSymbol ?? a.token} → spender ${a.spender.address} (${a.spender.label ?? a.spender.kind}); allowance ${a.allowance}; wallet holds ${a.balance ?? "?"}. ${a.reasons.join(" ")}`,
+    ),
+    "Not covered:",
+    ...r.limits.map((l) => `- ${l}`),
   ].join("\n");
 }

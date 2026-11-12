@@ -31,7 +31,10 @@ interface Chain {
 function chainFetch(chain: Chain, calls: string[] = []): typeof fetch {
   return (async (url: string, init?: RequestInit) => {
     if (url !== RPC) return new Response("no", { status: 404 });
-    const { method, params } = JSON.parse(String(init?.body)) as { method: string; params: [{ to: string; data: string } & string, string] };
+    const { method, params } = JSON.parse(String(init?.body)) as {
+      method: string;
+      params: [{ to: string; data: string } & string, string];
+    };
     calls.push(method);
     const ok = (result: string) => Response.json({ jsonrpc: "2.0", id: 1, result });
     if (method === "eth_getCode") return ok(chain.code[params[0]] ?? "0x");

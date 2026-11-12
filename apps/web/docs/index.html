@@ -291,13 +291,41 @@ npx mofu-cli          # chat in the current folder</code></pre>
           <p>
             The scan is Mofu's own code reading bytecode and storage, not AI. Choose
             <strong>Explain this</strong> to have Mofu talk you through it (that uses a message).
-            Share a scan with its link: <code>mofu.works/app/?scan=0x…</code>.
+            Every scan also has a public page with a share card: <code>mofu.works/token/0x…</code>.
+          </p>
+          <p>
+            <strong>Can you sell it?</strong> Mofu simulates a small buy and an immediate sell where
+            the token trades (on a Pons launch curve: a real buy for 0.001 ETH and a sell, on a
+            pool: tokens moving in and out the way a swap does). Nothing is sent. You see whether
+            the sell went through, the buy and sell tax, and on a curve how much ETH came back.
+          </p>
+          <p>
+            <strong>Is it the real one?</strong> If other tokens Mofu has seen use the same name or
+            ticker, the scan lists them and says which came first. Anything that calls itself MOFU
+            but isn't the official contract is called out.
           </p>
           <p>
             With the full report (for $MOFU holders) you also see the top 10 holders, with pools and
             burned tokens labeled, and who created the token: the creator wallet, how old it is, how
-            much it still holds and whether it launched other tokens through the same launcher.
-            Everyone sees the top 10 share and a flag when one wallet holds more than 10% or 20%.
+            much it still holds and whether it launched other tokens through the same launcher, with
+            each of those launches marked active or quiet. Everyone sees the top 10 share and a flag
+            when one wallet holds more than 10% or 20%.
+          </p>
+          <h3>Check a wallet and revoke approvals</h3>
+          <p>
+            Paste a wallet address in the same box, or choose
+            <strong>check my wallet's approvals</strong>. Mofu lists every token approval the wallet
+            has given that is still active (re-checked on the chain), says who the spender is (a
+            known contract, a launch curve, a pool, or a plain wallet, with its age and how busy it
+            is) and flags the risky ones: spenders that are plain wallets, brand-new little-used
+            contracts, and unlimited approvals. It also lists the tokens the wallet holds, each with
+            a quick scan.
+          </p>
+          <p>
+            <strong>Revoke</strong> sends one transaction from your wallet,
+            <code>approve(spender, 0)</code>, which removes the permission and can't move your
+            tokens. It's the only transaction Mofu ever offers. Approvals for whole NFT collections
+            aren't checked yet.
           </p>
           <h3>Explain a transaction</h3>
           <p>
@@ -308,8 +336,8 @@ npx mofu-cli          # chat in the current folder</code></pre>
           </p>
           <p>
             It looks for common function names, so a contract that hides or renames them can't be
-            fully judged, and it doesn't cover liquidity, price or holder distribution. It's a
-            technical check, not financial advice.
+            fully judged, and it doesn't cover liquidity depth or price. It's a technical check, not
+            financial advice.
           </p>
         </section>
 
@@ -332,13 +360,19 @@ npx mofu-cli          # chat in the current folder</code></pre>
               it decodes the transfers, mints, burns and approvals, flagging risky approvals.
             </li>
             <li>
+              <strong>check_wallet</strong>: give it a wallet address on Robinhood Chain and it
+              lists the active token approvals, who each spender is and which are risky, plus the
+              tokens the wallet holds. Handy for agents: check before you trade, and know what to
+              revoke.
+            </li>
+            <li>
               <strong>check_dependencies</strong>: give it package.json, package-lock.json,
               requirements.txt or pyproject.toml and it returns known vulnerabilities, the version
               that fixes them and how far behind each package is.
             </li>
           </ul>
           <p>
-            All three are Mofu's own code reading real data, not a model. Your AI app explains the
+            All four are Mofu's own code reading real data, not a model. Your AI app explains the
             results. Up to 50 tool calls a day per IP address, no account needed.
           </p>
           <h3>Claude Code</h3>

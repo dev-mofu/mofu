@@ -11,6 +11,7 @@ import {
   type TokenScanResponse,
   type TxResponse,
   type VoteResponse,
+  type WalletResponse,
   type UsageInfo,
 } from "../../shared/api.js";
 
@@ -94,3 +95,21 @@ export const castVote = (option: string) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ option }),
   });
+
+export const checkWallet = (address: string) =>
+  request<WalletResponse>("/api/wallet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  });
+
+export interface QuickCheck {
+  isContract: boolean;
+  name: string | null;
+  symbol: string | null;
+  verdict: "clean" | "caution" | "risky";
+}
+
+/** The light contract check Mofu Guard uses; for the tokens a wallet holds. */
+export const quickCheck = (address: string) =>
+  request<QuickCheck>(`/api/guard/check?address=${address}&quiet=1`);

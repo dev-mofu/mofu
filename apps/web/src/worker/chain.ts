@@ -61,3 +61,73 @@ export function ethCall(
 ): Promise<string> {
   return rpcCall<string>(urls, "eth_call", [{ to, data }, "latest"], fetchFn);
 }
+
+export interface BatchCall {
+  method: string;
+  params: unknown[];
+}
+
+/** One answer of a batch: the result, or null when the call reverted. */
+export type BatchResult = string | null;
+
+/**
+ * Several calls in one JSON-RPC batch (one subrequest). Endpoints that refuse batches, or answer
+ * with anything but results and reverts, are skipped; when none takes the batch, the calls run
+ * one by one, a few at a time.
+ */
+export async function rpcBatch(
+  urls: readonly string[],
+  calls: readonly BatchCall[],
+  fetchFn: typeof fetch,
+  timeoutMs = 10_000,
+): Promise<BatchResult[]> {
+  if (calls.length === 0) return [];
+  const body = calls.map((c, id) => ({ jsonrpc: "2.0", id, method: c.method, params: c.params }));
+  for (const url of urls) {
+    try {
+      const res = await fetchFn(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) continue;
+      const answers = (await res.json()) as Array<{
+        id?: number;
+        result?: string;
+        error?: { code?: number; message?: string };
+      }>;
+      if (!Array.isArray(answers) || answers.length !== calls.length) continue;
+      const out: BatchResult[] = new Array(calls.length).fill(null);
+      let usable = true;
+      for (const a of answers) {
+        if (typeof a.id !== "number" || a.id < 0 || a.id >= calls.length) usable = false;
+        else if (a.error) {
+          const m = a.error.message ?? "";
+          if (!(a.error.code === 3 || /revert/i.test(m))) usable = false;
+        } else out[a.id] = typeof a.result === "string" ? a.result : null;
+      }
+      if (usable) return out;
+    } catch {
+      // next endpoint
+    }
+  }
+  const out: BatchResult[] = [];
+  for (let i = 0; i < calls.length; i += 3) {
+    const part = await Promise.all(
+      calls
+        .slice(i, i + 3)
+        .map((c) =>
+          rpcCall<string>(urls, c.method, c.params, fetchFn, timeoutMs).catch(() => null),
+        ),
+    );
+    out.push(...part);
+  }
+  return out;
+}
+
+/** eth_call as a batch entry. */
+export const callOf = (to: string, data: string, from?: string): BatchCall => ({
+  method: "eth_call",
+  params: [from ? { from, to, data } : { to, data }, "latest"],
+});
