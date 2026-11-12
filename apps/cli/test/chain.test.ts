@@ -103,6 +103,15 @@ describe("chain output", () => {
     expect(text).toContain("✓ Mint");
     expect(text).toContain("! Fees");
     expect(text).toContain("Sell test: passed · buy tax 0% · sell tax 0% · 94.86% of the ETH back");
+    // With the server's "Can you sell it?" check, the summary isn't repeated.
+    const withCheck = {
+      ...report,
+      checks: [
+        ...report.checks,
+        { id: "sell", label: "Can you sell it?", status: "ok" as const, detail: "Yes." },
+      ],
+    };
+    expect(strip(formatTokenReport(withCheck, "u").join("\n"))).not.toContain("Sell test:");
     expect(text).toContain("1 other token(s)");
     expect(text).toContain("https://mofu.works/token/x");
     const wallet = strip(formatTokenReport({ ...report, isContract: false }, "u").join("\n"));

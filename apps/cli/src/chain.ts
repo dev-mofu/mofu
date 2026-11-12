@@ -125,7 +125,11 @@ export function formatTokenReport(r: TokenReport, url: string): string[] {
     const text = c.status === "ok" ? pc.dim(c.detail) : c.detail;
     out.push(`  ${MARK[c.status]} ${c.label.padEnd(width)}  ${text}`);
   }
-  if (r.sellTest?.status === "passed") {
+  // The "Can you sell it?" check already says it; the summary is for reports without that check.
+  const sellCheck = r.checks.some((c) => c.id === "sell");
+  if (sellCheck) {
+    // nothing to add
+  } else if (r.sellTest?.status === "passed") {
     const back =
       r.sellTest.roundTripPercent !== null
         ? ` · ${r.sellTest.roundTripPercent}% of the ETH back`
