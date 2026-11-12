@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://mofu.works/sitemap.xml
+Sitemap: https://mofu.works/sitemap-tokens.xml

@@ -166,11 +166,21 @@ export function TokenReport({
           <button type="button" className="pill-button" onClick={onExplain} disabled={busy}>
             Explain this
           </button>
+          {report.isContract && (
+            <a
+              className="ghost-button"
+              href={`https://x.com/intent/post?text=${encodeURIComponent(`${title} on Robinhood Chain, checked with Mofu's Token Scanner.`)}&url=${encodeURIComponent(`https://mofu.works/token/${report.address}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Share on X
+            </a>
+          )}
           <button
             type="button"
             className="ghost-button"
             onClick={() =>
-              void copy(`${location.origin}/app/?scan=${report.address}`, () => {
+              void copy(`${location.origin}/token/${report.address}`, () => {
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 1800);
               })

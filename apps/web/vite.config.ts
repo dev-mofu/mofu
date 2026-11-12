@@ -31,6 +31,7 @@ export default defineConfig({
             verify: path.resolve(import.meta.dirname, "verify/index.html"),
             devlog: path.resolve(import.meta.dirname, "devlog/index.html"),
             stats: path.resolve(import.meta.dirname, "stats/index.html"),
+            token: path.resolve(import.meta.dirname, "token/index.html"),
           },
         },
       },

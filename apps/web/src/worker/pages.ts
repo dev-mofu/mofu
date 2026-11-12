@@ -1,0 +1,466 @@
+/**
+ * Public token pages: mofu.works/token/0x… (a server-rendered scan summary search engines can
+ * index), its share card /token/0x….png, the list of scanned tokens at /token/ and their sitemap.
+ *
+ * Everything shown comes from the summary scan (no holder list, no creator), the same view anyone
+ * gets in the app without holding $MOFU. Token names and symbols are set by whoever deployed the
+ * contract, so they're always escaped.
+ */
+import { Hono, type Context } from "hono";
+import type { TokenCheck, TokenScanReport } from "../shared/api.js";
+import type { AppDeps } from "./app.js";
+import { parseRpcUrls } from "./chain.js";
+import { isAddress } from "./holder.js";
+import { tokenIndexFromEnv, type IndexedToken } from "./stats.js";
+import { renderTokenCard, shortAddress, VERDICT_TEXT } from "./token-card.js";
+import { scanToken, summaryOnly } from "./token-scan.js";
+
+const ORIGIN = "https://mofu.works";
+const REPORT_TTL = 30 * 60;
+const CARD_TTL = 60 * 60;
+
+type PagesContext = Context<{ Bindings: Env }>;
+
+export type PagesDeps = AppDeps;
+
+export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+const escapeXml = escapeHtml;
+
+/** Name and symbol as one line, e.g. "Mofu ($MOFU)". */
+export function tokenTitle(t: { name: string | null; symbol: string | null }, address: string) {
+  const name = clean(t.name);
+  const symbol = clean(t.symbol);
+  if (name && symbol) return `${name} ($${symbol})`;
+  return name ?? (symbol ? `$${symbol}` : `Contract ${shortAddress(address)}`);
+}
+
+/** Control characters, zero-width and text-direction marks (they can disguise a name). */
+const HIDDEN: Array<[number, number]> = [
+  [0x00, 0x1f],
+  [0x7f, 0x9f],
+  [0x200b, 0x200f],
+  [0x202a, 0x202e],
+  [0x2066, 0x2069],
+  [0xfeff, 0xfeff],
+];
+
+/** Trims names to something printable: no control characters, at most 60 characters. */
+function clean(s: string | null): string | null {
+  if (!s) return null;
+  const visible = [...s]
+    .filter(
+      (ch) => !HIDDEN.some(([lo, hi]) => ch.codePointAt(0)! >= lo && ch.codePointAt(0)! <= hi),
+    )
+    .join("")
+    .trim();
+  const out = [...visible].slice(0, 60).join("");
+  return out || null;
+}
+
+const pct = (n: number | null) => (n === null ? null : `${Number(n.toFixed(n < 10 ? 2 : 1))}%`);
+
+const STATUS_WORD: Record<TokenCheck["status"], [string, string]> = {
+  ok: ["OK", "ok"],
+  warn: ["Check", "warn"],
+  risk: ["Risk", "bad"],
+  info: ["Info", "info"],
+};
+
+const VERDICT_CLASS = { clean: "ok", caution: "warn", risky: "bad" } as const;
+
+/** The page's description: verdict plus the facts people search for. */
+export function describeToken(r: TokenScanReport): string {
+  const title = tokenTitle(r.token, r.address);
+  const has = (id: TokenCheck["id"]) => r.checks.find((k) => k.id === id)?.status;
+  const facts = [
+    `mint ${has("mint") === "ok" ? "off" : "possible"}`,
+    `owner ${r.owner.status === "active" ? "active" : r.owner.status}`,
+  ];
+  const top = pct(r.distribution.top10Percent);
+  if (top) facts.push(`top 10 hold ${top}`);
+  return `${title} on Robinhood Chain: ${VERDICT_TEXT[r.verdict].toLowerCase()}. ${facts.join(", ")}. A free contract check by Mofu.`;
+}
+
+/** The main column of a token page. */
+export function tokenMain(r: TokenScanReport, scannedAt: number): string {
+  const a = r.address;
+  const title = escapeHtml(tokenTitle(r.token, a));
+  const verdict = VERDICT_TEXT[r.verdict];
+  const pageUrl = `${ORIGIN}/token/${a}`;
+  const shareText = `${tokenTitle(r.token, a)} on Robinhood Chain: ${verdict.toLowerCase()}. Checked with Mofu's Token Scanner.`;
+  const shareX = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}`;
+  const checks = r.checks
+    .map((k) => {
+      const [word, cls] = STATUS_WORD[k.status];
+      return `<li><span class="token-tag token-tag--${cls}">${word}</span> <strong>${escapeHtml(k.label)}</strong><br />${escapeHtml(k.detail)}</li>`;
+    })
+    .join("\n            ");
+  const d = r.distribution;
+  const holderFacts = [
+    pct(d.top10Percent) &&
+      `<li>The top 10 holders (burn addresses not counted) hold <strong>${pct(d.top10Percent)}</strong> of the supply. Pools and launch curves count as holders.</li>`,
+    d.largestWallet &&
+      `<li>The biggest plain wallet, <code>${shortAddress(d.largestWallet.address)}</code>, holds <strong>${pct(d.largestWallet.percent)}</strong>.</li>`,
+    pct(r.burnedPercent) && `<li>Burned: <strong>${pct(r.burnedPercent)}</strong>.</li>`,
+    r.token.totalSupply &&
+      `<li>Total supply: ${escapeHtml(Number(r.token.totalSupply).toLocaleString("en-US"))}.</li>`,
+  ].filter(Boolean);
+  const limits = r.limits.map((l) => `<li>${escapeHtml(l)}</li>`).join("");
+  const when = new Date(scannedAt).toUTCString().replace(/:\d\d GMT$/, " UTC");
+
+  return `<header class="docs-hero">
+          <div>
+            <p class="token-kicker">Token scan · Robinhood Chain</p>
+            <h1>${title}</h1>
+            <p><span class="verify-verdict--${VERDICT_CLASS[r.verdict]}">${verdict}</span></p>
+          </div>
+        </header>
+
+        <section id="summary">
+          <div class="copy-wrap">
+            <button class="code-chip" type="button" data-copy="${a}" aria-label="Copy the contract address">
+              <span>${a}</span>
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path d="M5 1h9v9h-2V3H5zM2 5h8v10H2zm2 2v6h4V7z" /></svg>
+            </button>
+            <span class="copy-status" role="status" aria-live="polite"></span>
+          </div>
+          <img class="token-card" src="/token/${a}.png" width="1200" height="630" alt="Mofu's share card for ${title}: ${verdict}." />
+          <div class="token-actions">
+            <a class="pill pill--small" href="${shareX}" rel="noopener" target="_blank">Share on X</a>
+            <button class="pill pill--small pill--ghost" type="button" data-copy="${pageUrl}">Copy link</button>
+            <a class="pill pill--small pill--ghost" href="/app/?scan=${a}">Open the full scan</a>
+          </div>
+          <p class="token-note">Read from Robinhood Chain by Mofu's Token Scanner, ${when}. This checks what the contract code allows and who holds the supply. It isn't financial advice and can't tell you what a team will do.</p>
+        </section>
+
+        <section id="checks">
+          <h2>What the code allows</h2>
+          <ul class="token-checks">
+            ${checks}
+          </ul>
+        </section>
+
+        <section id="holders">
+          <h2>Who holds it</h2>
+          ${holderFacts.length ? `<ul>${holderFacts.join("")}</ul>` : "<p>Holder data isn't available for this token right now.</p>"}
+          <p>The top holder list and who created the token are in the <a href="/app/?scan=${a}">full scan</a>, a perk for $MOFU holders.</p>
+        </section>
+
+        ${limits ? `<section id="limits"><h2>What this scan can't see</h2><ul>${limits}</ul></section>` : ""}
+
+        <section id="more">
+          <h2>Check another token</h2>
+          ${lookupForm()}
+          <p>Recently scanned: <a href="/token/">all tokens</a>. Mofu Guard runs the same check before you sign: <a href="/guard/">get the extension</a>.</p>
+        </section>`;
+}
+
+const lookupForm = () => `<form class="token-form" action="/token/" method="get">
+            <label for="token-address">Contract address</label>
+            <div class="token-form-row">
+              <input id="token-address" name="address" placeholder="0x…" required pattern="^0x[0-9a-fA-F]{40}$" autocomplete="off" spellcheck="false" />
+              <button class="pill pill--small" type="submit">Scan</button>
+            </div>
+          </form>`;
+
+export function indexMain(tokens: IndexedToken[]): string {
+  const rows = tokens
+    .map((t) => {
+      const v = VERDICT_TEXT[t.verdict];
+      return `<tr><td><a href="/token/${t.address}">${escapeHtml(tokenTitle(t, t.address))}</a></td><td><span class="verify-verdict--${VERDICT_CLASS[t.verdict]}">${v}</span></td><td><code>${shortAddress(t.address)}</code></td></tr>`;
+    })
+    .join("\n");
+  return `<header class="docs-hero">
+          <div>
+            <h1>Token scans</h1>
+            <p>Tokens on Robinhood Chain that people checked with Mofu, newest first.</p>
+          </div>
+        </header>
+        <section id="lookup">
+          <h2>Check a token</h2>
+          ${lookupForm()}
+          <p class="token-note">Free, no wallet needed. Mofu reads the contract's code and holdings on Robinhood Chain and tells you what the owner can do.</p>
+        </section>
+        <section id="recent">
+          <h2>Recently scanned</h2>
+          ${
+            rows
+              ? `<div class="table-wrap"><table><thead><tr><th scope="col">Token</th><th scope="col">Result</th><th scope="col">Contract</th></tr></thead><tbody>${rows}</tbody></table></div>`
+              : "<p>No scans yet. Be the first.</p>"
+          }
+          <p class="token-note">A token shows up here after someone scans it in the app. Being listed isn't an endorsement.</p>
+        </section>`;
+}
+
+interface PageHead {
+  title: string;
+  description: string;
+  canonical: string;
+  image?: string;
+  imageAlt?: string;
+  noindex?: boolean;
+}
+
+function headHtml(h: PageHead): string {
+  const image = h.image ?? `${ORIGIN}/og-card.png`;
+  const alt =
+    h.imageAlt ?? "The pixel mascot Mofu next to the words: the AI agent that does the work.";
+  return [
+    `<title>${escapeHtml(h.title)}</title>`,
+    `<meta name="description" content="${escapeHtml(h.description)}" />`,
+    `<link rel="canonical" href="${h.canonical}" />`,
+    h.noindex ? `<meta name="robots" content="noindex" />` : "",
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:title" content="${escapeHtml(h.title)}" />`,
+    `<meta property="og:description" content="${escapeHtml(h.description)}" />`,
+    `<meta property="og:url" content="${h.canonical}" />`,
+    `<meta property="og:image" content="${image}" />`,
+    `<meta property="og:image:type" content="image/png" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="${escapeHtml(alt)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:image" content="${image}" />`,
+    `<meta name="twitter:image:alt" content="${escapeHtml(alt)}" />`,
+  ]
+    .filter(Boolean)
+    .join("\n    ");
+}
+
+/** A bare page for tests and local runs without the built template. */
+const FALLBACK_TEMPLATE = `<!doctype html><html lang="en"><head><meta charset="utf-8" /><!--mofu:head--></head><body><main id="content"><!--mofu:main--></main></body></html>`;
+
+async function template(c: PagesContext): Promise<string> {
+  const assets = (c.env as Env & { ASSETS?: Fetcher }).ASSETS;
+  if (!assets) return FALLBACK_TEMPLATE;
+  try {
+    const res = await assets.fetch(new URL("/token/", c.req.url));
+    const html = res.ok ? await res.text() : "";
+    return html.includes("<!--mofu:main-->") ? html : FALLBACK_TEMPLATE;
+  } catch {
+    return FALLBACK_TEMPLATE;
+  }
+}
+
+async function page(c: PagesContext, head: PageHead, main: string, status = 200) {
+  const html = (await template(c))
+    .replace("<!--mofu:head-->", () => headHtml(head))
+    .replace("<!--mofu:main-->", () => main);
+  return c.html(html, status as 200, {
+    "Cache-Control": status === 200 ? "public, max-age=300" : "no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+}
+
+const cache = (): Cache | null =>
+  typeof caches !== "undefined" ? (caches as unknown as { default: Cache }).default : null;
+
+export function createPagesApp(deps: PagesDeps) {
+  const app = new Hono<{ Bindings: Env }>();
+  const memory = new Map<string, { report: TokenScanReport; at: number }>();
+  const index = (env: Env) => (deps.getTokenIndex ?? tokenIndexFromEnv)(env);
+  const waitUntil = (c: PagesContext, p: Promise<unknown>) => {
+    try {
+      c.executionCtx.waitUntil(p);
+    } catch {
+      // no execution context in tests
+    }
+  };
+
+  /** The summary scan for an address: memory, then the edge cache, then the chain. */
+  async function report(
+    c: PagesContext,
+    address: string,
+  ): Promise<{ report: TokenScanReport; at: number } | "limited" | "error"> {
+    const now = deps.now();
+    const hit = memory.get(address);
+    if (hit && now - hit.at < REPORT_TTL * 1000) return hit;
+    const key = new Request(`${ORIGIN}/__cache/token-report/${address}`);
+    const edge = cache();
+    const cached = await edge?.match(key).catch(() => undefined);
+    if (cached) {
+      const body = (await cached.json()) as { report: TokenScanReport; at: number };
+      memory.set(address, body);
+      return body;
+    }
+    // Uncached scans cost chain reads, so they're limited per IP like the app's scanner.
+    const limit = Math.max(0, Number.parseInt(String(c.env.PAGE_DAILY_LIMIT ?? "300"), 10) || 0);
+    const ip = c.req.header("CF-Connecting-IP") ?? "local";
+    const usage = await deps.getLimiter(c.env).check(ip, limit, true, "pages");
+    if (!usage.allowed) return "limited";
+    const urls = parseRpcUrls(c.env.HOLDER_RPC_URL);
+    if (urls.length === 0) return "error";
+    const apiKey = (c.env as Env & { GOLDRUSH_API_KEY?: string }).GOLDRUSH_API_KEY;
+    try {
+      const full = await scanToken(
+        urls,
+        address,
+        deps.fetch,
+        apiKey
+          ? {
+              apiKey,
+              chain: String(c.env.GOLDRUSH_CHAIN ?? "robinhood-mainnet"),
+              rpcUrls: urls,
+              fetch: deps.fetch,
+              now,
+            }
+          : undefined,
+      );
+      const body = { report: summaryOnly(full), at: now };
+      memory.set(address, body);
+      if (memory.size > 500) memory.clear();
+      if (edge)
+        waitUntil(
+          c,
+          edge
+            .put(
+              key,
+              new Response(JSON.stringify(body), {
+                headers: {
+                  "Content-Type": "application/json",
+                  "Cache-Control": `public, max-age=${REPORT_TTL}`,
+                },
+              }),
+            )
+            .catch(() => undefined),
+        );
+      return body;
+    } catch {
+      return "error";
+    }
+  }
+
+  const notFound = (c: PagesContext, why: string) =>
+    page(
+      c,
+      {
+        title: "Token not found · Mofu",
+        description: why,
+        canonical: `${ORIGIN}/token/`,
+        noindex: true,
+      },
+      `<header class="docs-hero"><div><h1>Nothing to show here</h1><p>${escapeHtml(why)}</p></div></header>
+        <section id="lookup"><h2>Check a token</h2>${lookupForm()}</section>`,
+      404,
+    );
+
+  const busy = (c: PagesContext, limited: boolean) =>
+    page(
+      c,
+      {
+        title: "Token scan · Mofu",
+        description: "Try again in a minute.",
+        canonical: `${ORIGIN}/token/`,
+        noindex: true,
+      },
+      `<header class="docs-hero"><div><h1>${limited ? "That's a lot of scans" : "Robinhood Chain didn't answer"}</h1><p>${
+        limited
+          ? "This network has used today's page scans. Scans in the app still work."
+          : "Mofu couldn't read the chain right now. Please try again in a minute."
+      }</p></div></header>`,
+      limited ? 429 : 503,
+    );
+
+  app.get("/token", (c) => c.redirect("/token/", 301));
+
+  app.get("/token/", async (c) => {
+    const q = (c.req.query("address") ?? "").trim();
+    if (q)
+      return isAddress(q)
+        ? c.redirect(`/token/${q.toLowerCase()}`, 302)
+        : notFound(c, "That isn't a contract address: 0x followed by 40 characters.");
+    const tokens = await index(c.env)
+      .tokens(100)
+      .catch(() => [] as IndexedToken[]);
+    return page(
+      c,
+      {
+        title: "Token scans on Robinhood Chain · Mofu",
+        description:
+          "Free contract checks for tokens on Robinhood Chain: can the owner mint, pause, blacklist or change the code, and who holds the supply.",
+        canonical: `${ORIGIN}/token/`,
+      },
+      indexMain(tokens),
+    );
+  });
+
+  app.get("/token/:id", async (c) => {
+    const id = c.req.param("id");
+    const png = id.endsWith(".png");
+    const raw = png ? id.slice(0, -4) : id;
+    if (!isAddress(raw)) return png ? c.notFound() : notFound(c, "That isn't a contract address.");
+    const address = raw.toLowerCase();
+    if (raw !== address) return c.redirect(`/token/${address}${png ? ".png" : ""}`, 301);
+
+    if (png) {
+      const edge = cache();
+      const key = new Request(`${ORIGIN}/token/${address}.png`);
+      const cached = await edge?.match(key).catch(() => undefined);
+      if (cached) return cached;
+      const r = await report(c, address);
+      // No scan to draw: fall back to the site's own card.
+      if (typeof r === "string") return c.redirect("/og-card.png", 302);
+      const bytes = await renderTokenCard(r.report);
+      const res = new Response(bytes, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": `public, max-age=${CARD_TTL}`,
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+      if (edge)
+        waitUntil(
+          c,
+          edge.put(key, res.clone()).catch(() => undefined),
+        );
+      return res;
+    }
+
+    const r = await report(c, address);
+    if (r === "limited" || r === "error") return busy(c, r === "limited");
+    if (!r.report.isContract)
+      return notFound(
+        c,
+        "There's no contract at this address on Robinhood Chain. It may be a wallet.",
+      );
+    const title = tokenTitle(r.report.token, address);
+    const isToken = Boolean(r.report.token.name || r.report.token.symbol);
+    return page(
+      c,
+      {
+        title: `${title} token scan: ${VERDICT_TEXT[r.report.verdict].toLowerCase()} · Mofu`,
+        description: describeToken(r.report),
+        canonical: `${ORIGIN}/token/${address}`,
+        image: `${ORIGIN}/token/${address}.png`,
+        imageAlt: `Mofu's scan of ${title}: ${VERDICT_TEXT[r.report.verdict]}.`,
+        noindex: !isToken,
+      },
+      tokenMain(r.report, r.at),
+    );
+  });
+
+  app.get("/sitemap-tokens.xml", async (c) => {
+    const tokens = await index(c.env)
+      .tokens()
+      .catch(() => [] as IndexedToken[]);
+    const urls = [
+      `<url><loc>${ORIGIN}/token/</loc></url>`,
+      ...tokens.map(
+        (t) =>
+          `<url><loc>${ORIGIN}/token/${escapeXml(t.address)}</loc><lastmod>${new Date(t.at).toISOString().slice(0, 10)}</lastmod></url>`,
+      ),
+    ];
+    return c.body(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`,
+      200,
+      { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    );
+  });
+
+  return app;
+}
+
+/** Paths the pages app answers (the rest of the site is static assets or the API). */
+export const isPagesPath = (path: string) =>
+  path === "/token" || path.startsWith("/token/") || path === "/sitemap-tokens.xml";

@@ -16,7 +16,9 @@
   "assets": {
     // The React app is a single-page app; only /api/* reaches the Worker first.
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/mcp"],
+    "binding": "ASSETS",
+    // Token pages (/token/0x…) and their sitemap are rendered by the Worker too.
+    "run_worker_first": ["/api/*", "/mcp", "/token", "/token/*", "/sitemap-tokens.xml"],
   },
   "durable_objects": {
     "bindings": [
@@ -53,6 +55,8 @@
     "MCP_DAILY_LIMIT": "50",
     // Mofu Guard extension: contract checks a day per IP (each signing prompt and hover scan).
     "GUARD_DAILY_LIMIT": "500",
+    // Token pages: uncached scans a day per IP (pages are cached for 30 minutes after a scan).
+    "PAGE_DAILY_LIMIT": "300",
     // Mofu Town tower: top holders come from GoldRush; the key is the GOLDRUSH_API_KEY secret.
     "GOLDRUSH_CHAIN": "robinhood-mainnet",
   },

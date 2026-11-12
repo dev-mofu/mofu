@@ -55,7 +55,13 @@ import { scanToken, summaryOnly } from "./token-scan.js";
 import { ChainDataError, explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import { townHolders } from "./town-holders.js";
 import { ROUND, votesFromEnv, type Votes } from "./vote.js";
-import { statsFromEnv, type StatKey, type Stats } from "./stats.js";
+import {
+  statsFromEnv,
+  tokenIndexFromEnv,
+  type StatKey,
+  type Stats,
+  type TokenIndex,
+} from "./stats.js";
 import { topHolders } from "./chain-data.js";
 import {
   challengeMessage,
@@ -95,6 +101,8 @@ export interface AppDeps {
   getVotes?: (env: Env) => Votes;
   /** Public usage counters; defaults to the STATS Durable Object. */
   getStats?: (env: Env) => Stats;
+  /** The list of scanned tokens for /token/; defaults to the STATS Durable Object. */
+  getTokenIndex?: (env: Env) => TokenIndex;
 }
 
 export const defaultDeps: AppDeps = {
@@ -333,6 +341,29 @@ export function createApp(deps: AppDeps = defaultDeps) {
     try {
       const done = (deps.getStats ?? statsFromEnv)(c.env)
         .add(key)
+        .catch(() => undefined);
+      try {
+        c.executionCtx.waitUntil(done);
+      } catch {
+        // no execution context in tests
+      }
+    } catch {
+      // no STATS binding
+    }
+  };
+
+  /** Lists a scanned token on mofu.works/token/ (contracts with a name or symbol only). */
+  const noteToken = (c: AppContext, r: TokenScanReport) => {
+    if (!r.isContract || !(r.token.name || r.token.symbol)) return;
+    try {
+      const done = (deps.getTokenIndex ?? tokenIndexFromEnv)(c.env)
+        .noteToken({
+          address: r.address.toLowerCase(),
+          name: r.token.name,
+          symbol: r.token.symbol,
+          verdict: r.verdict,
+          at: deps.now(),
+        })
         .catch(() => undefined);
       try {
         c.executionCtx.waitUntil(done);
@@ -771,6 +802,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
       }
       scanCache.set(address, { report, at: now });
       record(c, "token_scan");
+      noteToken(c, report);
       if (scanCache.size > 500) scanCache.clear();
     }
     // The full report (top holders, who created it) is a $MOFU holder perk.

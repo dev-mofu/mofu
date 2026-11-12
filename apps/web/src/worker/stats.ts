@@ -22,3 +22,24 @@ export interface Stats {
 }
 
 export const statsFromEnv = (env: Env): Stats => env.STATS.get(env.STATS.idFromName("global"));
+
+/** A token someone scanned, listed on mofu.works/token/ and in the token sitemap. */
+export interface IndexedToken {
+  address: string;
+  name: string | null;
+  symbol: string | null;
+  verdict: "clean" | "caution" | "risky";
+  /** When it was last scanned (ms). */
+  at: number;
+}
+
+/** Most recent first; the index keeps this many. */
+export const TOKEN_INDEX_MAX = 1000;
+
+export interface TokenIndex {
+  noteToken(token: IndexedToken): Promise<void>;
+  tokens(limit?: number): Promise<IndexedToken[]>;
+}
+
+export const tokenIndexFromEnv = (env: Env): TokenIndex =>
+  env.STATS.get(env.STATS.idFromName("global"));

@@ -340,3 +340,127 @@
   font-size: 0.88rem;
   line-height: 1.5;
 }
+
+/* Token pages (/token/0x…), rendered by the Worker */
+.token-kicker {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-led);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: var(--accent-text);
+}
+.docs-hero h1 {
+  overflow-wrap: anywhere;
+}
+.token-card {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 1rem 0 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  image-rendering: pixelated;
+}
+.token-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.9rem;
+}
+.token-actions .pill,
+.token-form .pill {
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.pill--ghost {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.pill--ghost:hover {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.token-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.token-checks {
+  list-style: none;
+  padding: 0;
+}
+.token-checks li {
+  margin: 0 0 0.9rem;
+  line-height: 1.5;
+}
+.token-tag {
+  display: inline-block;
+  min-width: 3.4rem;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.token-tag--ok {
+  background: rgba(91, 211, 148, 0.15);
+  color: var(--ok);
+}
+.token-tag--warn {
+  background: rgba(242, 184, 75, 0.15);
+  color: #f2b84b;
+}
+.token-tag--bad {
+  background: rgba(255, 138, 128, 0.15);
+  color: #ff8a80;
+}
+.token-tag--info {
+  background: var(--surface);
+  color: var(--muted);
+}
+.token-form label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 700;
+}
+.token-form-row {
+  display: flex;
+  gap: 0.5rem;
+}
+.token-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9rem;
+}
+.token-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* A full contract address fits on a phone: the chip wraps instead of widening the page. */
+.docs-content .code-chip {
+  max-width: 100%;
+  text-align: left;
+}
+.docs-content .code-chip span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.docs-content .token-actions a.pill {
+  color: var(--pill-text);
+  text-decoration: none;
+}
+.docs-content .token-actions a.pill--ghost {
+  color: var(--text);
+}

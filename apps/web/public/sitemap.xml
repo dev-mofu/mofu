@@ -2,7 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://mofu.works/</loc></url>
   <url><loc>https://mofu.works/docs/</loc></url>
+  <url><loc>https://mofu.works/token/</loc></url>
+  <url><loc>https://mofu.works/guard/</loc></url>
   <url><loc>https://mofu.works/town/</loc></url>
+  <url><loc>https://mofu.works/verify/</loc></url>
+  <url><loc>https://mofu.works/stats/</loc></url>
+  <url><loc>https://mofu.works/devlog/</loc></url>
   <url><loc>https://mofu.works/privacy/</loc></url>
   <url><loc>https://mofu.works/terms/</loc></url>
 </urlset>
