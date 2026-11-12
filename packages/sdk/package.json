@@ -1,6 +1,6 @@
 {
   "name": "mofu-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Robinhood Chain token and wallet checks for agents, bots and scripts: Mofu's Token Scanner, Wallet Health, webhooks and a buy rule.",
   "license": "MIT",
   "homepage": "https://mofu.works/docs/#sdk",

@@ -338,6 +338,13 @@ npx mofu-cli          # chat in the current folder</code></pre>
             a quick scan.
           </p>
           <p>
+            <strong>Lookalike addresses.</strong> Wallet Health also reads the wallet's last 100
+            transactions for address poisoning: transfers someone else made from or to an address
+            that starts and ends like one you send to (or like your own), and 0-token transfers
+            "from" you that you never made. Never copy an address from your history; Mofu Guard
+            stops a send to a lookalike before your wallet sees it.
+          </p>
+          <p>
             <strong>Revoke</strong> sends one transaction from your wallet,
             <code>approve(spender, 0)</code>, which removes the permission and can't move your
             tokens. It's the only transaction Mofu ever offers. Approvals for whole NFT collections

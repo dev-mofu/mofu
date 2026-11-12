@@ -106,6 +106,17 @@
               <strong>Hover to scan.</strong> Hover a contract address on any page (X, a DEX, a
               chat) to see its scan, or select one and right-click → Scan with Mofu.
             </li>
+            <li>
+              <strong>Catches lookalike addresses.</strong> Scammers plant addresses that start and
+              end like one you use, hoping you copy the wrong one from your history. Mofu Guard
+              remembers who you've sent to, in your browser only, and stops a send to a lookalike of
+              one of them or of your own address.
+            </li>
+            <li>
+              <strong>Labels on X.</strong> When a post shows a contract address that exists on
+              Robinhood Chain, a small label with Mofu's verdict (clean, caution or risky) appears
+              under it. Turn it off in the extension's switches.
+            </li>
           </ul>
           <p>
             It never holds your keys, never signs anything and never sends a transaction. It only
@@ -154,8 +165,17 @@
               wallet is sent with it.
             </li>
             <li>
-              Your two switches (protection and hover scan) are saved in your browser's extension
-              storage.
+              Labels on X send the contract addresses shown in posts you scroll past to
+              <code>mofu.works</code>, the same way a hover scan does: only the addresses, not the
+              posts, your account or anything else on the page.
+            </li>
+            <li>
+              The addresses you send to through a wallet request are remembered in your browser's
+              extension storage to catch lookalikes later. They never leave your browser.
+            </li>
+            <li>
+              Your switches (protection, hover scan, labels on X) are saved in your browser's
+              extension storage.
             </li>
           </ul>
         </section>

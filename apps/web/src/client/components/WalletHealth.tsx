@@ -229,6 +229,52 @@ export function WalletHealthView({
         </p>
       )}
 
+      {(report.poisoning ?? []).length > 0 && (
+        <div className="token-section">
+          <h3>Lookalike addresses in your history</h3>
+          <p className="muted small">
+            Someone sent these transfers to plant an address that starts and ends like one you use.
+            If you copy an address from your history, you could send to the scammer. Copy addresses
+            from their source, and check every character.
+          </p>
+          <ul className="token-checks">
+            {report.poisoning.map((p) => (
+              <li key={p.address} className={`token-check token-check--${p.risk}`}>
+                <span className="token-check-icon" aria-hidden="true">
+                  {p.risk === "risk" ? "✕" : "!"}
+                </span>
+                <div>
+                  <strong>
+                    {p.resembles
+                      ? p.resemblesSelf
+                        ? "A lookalike of your own address"
+                        : "A lookalike of an address you've sent to"
+                      : "A 0-token transfer you didn't make"}
+                  </strong>
+                  {/* Full addresses: shortened, a lookalike and the real one look the same. */}
+                  <p>
+                    Don't send to <code className="token-addr">{p.address}</code>
+                  </p>
+                  {p.resembles && (
+                    <p>
+                      {p.resemblesSelf ? "Your address" : "The real one"}:{" "}
+                      <code className="token-addr">{p.resembles}</code>
+                    </p>
+                  )}
+                  <p>
+                    {p.kind === "zero-transfer"
+                      ? "Planted with a 0-token transfer"
+                      : "Planted with a tiny transfer"}
+                    {p.tokenSymbol ? ` of ${p.tokenSymbol}` : ""}
+                    {p.at ? ` on ${new Date(p.at).toLocaleDateString()}` : ""}.
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="token-section">
         <h3>Token approvals</h3>
         {report.status.approvals === "unavailable" ? (

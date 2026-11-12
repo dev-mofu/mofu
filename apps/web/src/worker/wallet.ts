@@ -4,6 +4,7 @@
  * live allowances, token names and spender facts from batched RPC calls.
  */
 import type { AddressInfo, WalletApproval, WalletHolding, WalletReport } from "../shared/api.js";
+import { findPoisoning, type HistoryTx } from "./poisoning.js";
 import { callOf, rpcBatch, rpcCall } from "./chain.js";
 import type { ChainDataOptions } from "./chain-data.js";
 import { decodeString } from "./token-scan.js";
@@ -135,11 +136,18 @@ export async function walletReport(
     "Token approvals only. Approvals for whole NFT collections (setApprovalForAll) aren't checked yet.",
     "Approvals come from GoldRush's index and are re-checked on the chain; a very recent one can be missing for a few minutes.",
   ];
-  const [code, balances, approvals] = await Promise.all([
+  const [code, balances, approvals, history] = await Promise.all([
     rpcCall<string>(o.rpcUrls, "eth_getCode", [wallet, "latest"], o.fetch).catch(() => "0x"),
     gr<{ items?: BalanceItem[] }>(o, `address/${wallet}/balances_v2/?no-spam=true`),
     gr<{ items?: ApprovalItem[] }>(o, `approvals/${wallet}/`),
+    gr<{ items?: HistoryTx[] }>(o, `address/${wallet}/transactions_v3/page/0/`),
   ]);
+  const poisoning = history?.items ? findPoisoning(wallet, history.items) : [];
+  limits.push(
+    history?.items
+      ? "Lookalike addresses are checked in the wallet's last 100 transactions."
+      : "The wallet's recent transactions couldn't be read, so lookalike addresses weren't checked.",
+  );
 
   // Holdings: non-zero, not spam, priced ones first.
   const meta = new Map<
@@ -276,6 +284,7 @@ export async function walletReport(
     holdings,
     holdingsTotal: tokensHeld.length,
     approvals: out,
+    poisoning,
     status: {
       holdings: balances ? "ok" : "unavailable",
       approvals: approvals ? "ok" : "unavailable",

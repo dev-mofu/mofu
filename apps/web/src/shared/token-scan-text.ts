@@ -97,6 +97,15 @@ export function formatWalletForModel(r: WalletReport): string {
       (a) =>
         `- [${a.risk}] ${a.tokenSymbol ?? a.token} → spender ${a.spender.address} (${a.spender.label ?? a.spender.kind}); allowance ${a.allowance}; wallet holds ${a.balance ?? "?"}. ${a.reasons.join(" ")}`,
     ),
+    ...((r.poisoning ?? []).length
+      ? [
+          "Address poisoning: lookalike addresses planted in the wallet's recent history (never send to these):",
+          ...r.poisoning.map(
+            (p) =>
+              `- [${p.risk}] ${p.address}${p.resembles ? ` imitates ${p.resemblesSelf ? "the wallet itself" : p.resembles}` : ""}; ${p.kind === "zero-transfer" ? "a 0-token transfer the wallet didn't send" : "a tiny transfer"}${p.tokenSymbol ? ` of ${p.tokenSymbol}` : ""}, tx ${p.txHash}`,
+          ),
+        ]
+      : ["No lookalike addresses found in the wallet's recent history."]),
     "Not covered:",
     ...r.limits.map((l) => `- ${l}`),
   ].join("\n");

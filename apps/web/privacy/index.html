@@ -249,11 +249,19 @@
           </p>
           <p>
             Wallet Health sends the wallet address you paste (or the one your wallet connects) to
-            Mofu's server, which reads its token approvals and balances from GoldRush and the chain.
-            Mofu doesn't store the address or the results beyond a few seconds of caching; each
-            check counts as a scan for the day's limit. The names and tickers of tokens it sees are
-            remembered, without the wallet, to spot lookalike tokens later. A revoke is sent by your
-            wallet straight to Robinhood Chain; it doesn't pass through Mofu.
+            Mofu's server, which reads its token approvals, balances and last 100 transactions (to
+            spot lookalike addresses) from GoldRush and the chain. Mofu doesn't store the address or
+            the results beyond a few seconds of caching; each check counts as a scan for the day's
+            limit. The names and tickers of tokens it sees are remembered, without the wallet, to
+            spot lookalike tokens later. A revoke is sent by your wallet straight to Robinhood
+            Chain; it doesn't pass through Mofu.
+          </p>
+          <p>
+            Mofu Guard, the browser extension, sends Mofu only contract or spender addresses to
+            check: from wallet requests on Robinhood Chain, from hover scans, and from contract
+            addresses shown in X posts when its labels on X are on. It doesn't send the posts, your
+            account or your browsing. The addresses you send to are remembered inside the extension
+            to catch lookalike addresses, and never leave your browser.
           </p>
           <p>
             The public API (/api/v1) and <code>mofu scan</code> / <code>mofu wallet</code> in the

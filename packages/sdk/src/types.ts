@@ -113,9 +113,25 @@ export interface WalletReport {
   holdings: Array<{ token: string; name: string | null; symbol: string | null; balance: string }>;
   holdingsTotal: number;
   approvals: WalletApproval[];
+  /** Lookalike addresses planted in the wallet's recent history (address poisoning). */
+  poisoning: PoisonAlert[];
   status: { holdings: "ok" | "unavailable"; approvals: "ok" | "unavailable" };
   checkedAt: string;
   limits: string[];
+}
+
+/** A transfer someone else made to plant a lookalike address in a wallet's history. */
+export interface PoisonAlert {
+  address: string;
+  /** The real address it imitates (one the wallet sent to, or the wallet itself). */
+  resembles: string | null;
+  resemblesSelf: boolean;
+  kind: "dust" | "zero-transfer";
+  token: string | null;
+  tokenSymbol: string | null;
+  txHash: string;
+  at: string | null;
+  risk: "risk" | "warn";
 }
 
 /** A report plus where to see it and how many calls are left today. */

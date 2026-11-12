@@ -3,14 +3,20 @@
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const protection = $<HTMLInputElement>("protection");
 const hover = $<HTMLInputElement>("hover");
+const xLabels = $<HTMLInputElement>("xlabels");
 const form = $<HTMLFormElement>("scan");
 const input = $<HTMLInputElement>("query");
 const err = $<HTMLParagraphElement>("err");
 
-chrome.storage.sync.get(["protection", "hover"]).then((s) => {
+chrome.storage.sync.get(["protection", "hover", "xLabels"]).then((s) => {
   protection.checked = s.protection !== false;
   hover.checked = s.hover !== false;
+  xLabels.checked = s.xLabels !== false;
 });
+xLabels.addEventListener(
+  "change",
+  () => void chrome.storage.sync.set({ xLabels: xLabels.checked }),
+);
 protection.addEventListener(
   "change",
   () => void chrome.storage.sync.set({ protection: protection.checked }),

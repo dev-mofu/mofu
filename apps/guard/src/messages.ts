@@ -5,6 +5,8 @@ export interface GuardSettings {
   protection: boolean;
   /** Scan tooltip when hovering a contract address. */
   hover: boolean;
+  /** Verdict labels next to contract addresses in posts on X. */
+  xLabels: boolean;
 }
 
 /** What Mofu's /api/guard/check returns for one address (Robinhood Chain). */

@@ -41,6 +41,15 @@ interface WalletReport {
     risk: "ok" | "warn" | "risk";
     reasons: string[];
   }>;
+  /** Lookalike addresses planted in the wallet's history; missing from older servers. */
+  poisoning?: Array<{
+    address: string;
+    resembles: string | null;
+    resemblesSelf: boolean;
+    kind: "dust" | "zero-transfer";
+    tokenSymbol: string | null;
+    risk: "risk" | "warn";
+  }>;
   limits: string[];
 }
 
@@ -170,6 +179,21 @@ export function formatWalletReport(r: WalletReport, url: string): string[] {
   }
   if (r.approvals.length > 25)
     out.push(pc.dim(`  …and ${r.approvals.length - 25} more (see --json)`));
+  const poison = r.poisoning ?? [];
+  if (poison.length) {
+    out.push("", pc.red(pc.bold(`Lookalike addresses in your history (${poison.length}):`)));
+    for (const p of poison) {
+      const what = p.resembles
+        ? p.resemblesSelf
+          ? "looks like your own address"
+          : `looks like ${p.resembles}, which you've sent to`
+        : "made a 0-token transfer you didn't send";
+      out.push(
+        `  ${p.risk === "risk" ? pc.red("RISK") : pc.yellow("WARN")}  ${p.address}  ${what}`,
+      );
+    }
+    out.push(pc.dim("  Never copy an address from your history: these are planted by scammers."));
+  }
   if (r.holdings.length) {
     out.push(
       "",

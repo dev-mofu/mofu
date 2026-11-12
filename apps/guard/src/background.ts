@@ -4,6 +4,7 @@
  * Nothing about the user's wallet is stored; only addresses being checked are sent to Mofu.
  */
 import { analyzeRequest, enrich, ROBINHOOD_CHAIN_ID, type Analysis } from "./decode.js";
+import { rememberRecipients, withPoisonCheck } from "./lookalike.js";
 import { API, type ScanSummary } from "./messages.js";
 
 const cache = new Map<string, { at: number; value: ScanSummary | null }>();
@@ -32,12 +33,23 @@ async function check(address: string, timeoutMs = 4000): Promise<ScanSummary | n
   }
 }
 
+/** Addresses this browser has sent to through Mofu Guard (kept locally, never sent anywhere). */
+async function recipients(): Promise<string[]> {
+  const s = await chrome.storage.local.get("recipients");
+  return Array.isArray(s.recipients) ? (s.recipients as string[]) : [];
+}
+
 async function analyze(
   method: string,
   params: unknown[],
   chainId: string | null,
 ): Promise<Analysis[]> {
-  const analyses = analyzeRequest(method, params);
+  const from = (params[0] as { from?: unknown } | undefined)?.from;
+  const known = {
+    recipients: await recipients(),
+    self: typeof from === "string" ? from : null,
+  };
+  const analyses = analyzeRequest(method, params).map((a) => withPoisonCheck(a, known));
   const chain = chainId ? Number.parseInt(chainId, 16) : NaN;
   if (chain !== ROBINHOOD_CHAIN_ID) return analyses;
   return Promise.all(
@@ -63,6 +75,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ analyses: analyzeRequest(String(msg.method), msg.params ?? []) }),
       );
     return true;
+  }
+  if (msg?.type === "sent" && Array.isArray(msg.targets)) {
+    const add = (msg.targets as unknown[]).filter((t): t is string => typeof t === "string");
+    void recipients().then((list) =>
+      chrome.storage.local.set({ recipients: rememberRecipients(list, add) }),
+    );
+    return false;
   }
   if (msg?.type === "stopped") {
     void apiBase()

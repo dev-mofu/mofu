@@ -310,6 +310,22 @@ export interface WalletHolding {
   balance: string;
 }
 
+/** A transfer someone else made to plant a lookalike address in a wallet's history. */
+export interface PoisonAlert {
+  /** The lookalike (the scammer's address). */
+  address: string;
+  /** The real address it imitates: one the wallet sent to, or the wallet itself. Null when there's no twin. */
+  resembles: string | null;
+  resemblesSelf: boolean;
+  /** "dust": a tiny transfer from the lookalike. "zero-transfer": a 0-token transfer the wallet never sent. */
+  kind: "dust" | "zero-transfer";
+  token: string | null;
+  tokenSymbol: string | null;
+  txHash: string;
+  at: string | null;
+  risk: "risk" | "warn";
+}
+
 /** Wallet Health: what a wallet holds and which approvals it has given. */
 export interface WalletReport {
   address: string;
@@ -319,6 +335,8 @@ export interface WalletReport {
   holdings: WalletHolding[];
   holdingsTotal: number;
   approvals: WalletApproval[];
+  /** Lookalike addresses planted in the wallet's recent history (address poisoning). */
+  poisoning: PoisonAlert[];
   status: { holdings: "ok" | "unavailable"; approvals: "ok" | "unavailable" };
   checkedAt: string;
   limits: string[];

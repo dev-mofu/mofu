@@ -36,13 +36,15 @@ they act on them.
 
 - Content scripts on http/https pages: needed to see wallet signing requests made by websites (the
   extension wraps the page's wallet provider) and to show the warning panel and hover scans.
-- storage: saves the two switches (protection, hover scan).
+- storage: saves the switches (protection, hover scan, labels on X) and, locally only, the
+  addresses the user has sent to, to catch lookalike (poisoned) addresses.
 - contextMenus: adds "Scan with Mofu" for selected addresses and transaction hashes.
 - Host permission https://mofu.works/*: asks Mofu's API to check a contract or spender address on
   Robinhood Chain.
 
 **Data use:** Does not collect personal data, browsing history, wallet keys or balances. The only
-data sent off the device is the contract or spender address being checked, to mofu.works. Privacy
+data sent off the device is the contract or spender address being checked (including contract
+addresses shown in X posts, for the labels), to mofu.works. Privacy
 policy: https://mofu.works/guard/ (section "What it sends, and to whom") and
 https://mofu.works/privacy/
 

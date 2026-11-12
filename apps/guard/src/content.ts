@@ -4,18 +4,25 @@
  * contract address on any page (without changing the page's text).
  */
 import type { Analysis, Finding } from "./decode.js";
+import { sentTo } from "./lookalike.js";
+import { isX, startXLabels } from "./xlabels.js";
 import type { GuardSettings, ScanSummary } from "./messages.js";
 
 const IN = "mofu-guard:inpage";
 const OUT = "mofu-guard:content";
 
-let settings: GuardSettings = { protection: true, hover: true };
-chrome.storage.sync.get(["protection", "hover"]).then((s) => {
-  settings = { protection: s.protection !== false, hover: s.hover !== false };
+let settings: GuardSettings = { protection: true, hover: true, xLabels: true };
+chrome.storage.sync.get(["protection", "hover", "xLabels"]).then((s) => {
+  settings = {
+    protection: s.protection !== false,
+    hover: s.hover !== false,
+    xLabels: s.xLabels !== false,
+  };
 });
 chrome.storage.onChanged.addListener((c) => {
   if (c.protection) settings.protection = c.protection.newValue !== false;
   if (c.hover) settings.hover = c.hover.newValue !== false;
+  if (c.xLabels) settings.xLabels = c.xLabels.newValue !== false;
 });
 
 // ---------------------------------------------------------------- shadow root for our UI
@@ -196,10 +203,20 @@ window.addEventListener("message", async (e) => {
       analyses: Analysis[];
     };
     const analyses = result?.analyses ?? [];
-    if (!analyses.some((a) => a.prompt)) return reply(true);
+    // Remember recipients locally, so a later lookalike of them can be caught.
+    const remember = () => {
+      const targets = sentTo(analyses);
+      if (targets.length)
+        void chrome.runtime.sendMessage({ type: "sent", targets }).catch(() => undefined);
+    };
+    if (!analyses.some((a) => a.prompt)) {
+      remember();
+      return reply(true);
+    }
     const allow = await panel(analyses, origin, false);
     // An anonymous count for mofu.works/stats: nothing about the request or the wallet.
     if (!allow) void chrome.runtime.sendMessage({ type: "stopped" }).catch(() => undefined);
+    else remember();
     reply(allow);
   } catch {
     // The extension was updated or reloaded mid-request: don't block the user.
@@ -308,3 +325,12 @@ document.addEventListener(
   { passive: true },
 );
 document.addEventListener("scroll", hideTip, { passive: true, capture: true });
+
+// ---------------------------------------------------------------- verdict labels on X
+if (isX(location.hostname)) {
+  startXLabels(
+    () => settings.xLabels,
+    (address) =>
+      chrome.runtime.sendMessage({ type: "scan", address }) as Promise<ScanSummary | null>,
+  );
+}
