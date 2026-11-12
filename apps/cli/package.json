@@ -1,7 +1,7 @@
 {
   "name": "mofu-cli",
-  "version": "0.2.0",
-  "description": "An AI agent in your terminal that does real work on your files, plus Robinhood Chain token and wallet checks for scripts and trading agents.",
+  "version": "0.3.0",
+  "description": "An AI agent in your terminal: coding tasks, code review, secret scanning, Solidity checks, and Robinhood Chain token and wallet checks.",
   "license": "MIT",
   "homepage": "https://mofu.works",
   "repository": {
@@ -24,7 +24,11 @@
     "security",
     "robinhood-chain",
     "token-scanner",
-    "webhooks"
+    "webhooks",
+    "secret-scanning",
+    "solidity",
+    "code-review",
+    "github-action"
   ],
   "bin": {
     "mofu": "./dist/index.js"

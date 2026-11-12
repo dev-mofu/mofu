@@ -93,6 +93,7 @@
             <li><a href="#cli">The CLI</a></li>
             <li><a href="#cli-coding">Coding tasks</a></li>
             <li><a href="#cli-more">Study, data, deps, APIs</a></li>
+            <li><a href="#builders">Secrets, audits, reviews, CI</a></li>
             <li><a href="#keys">Your key and models</a></li>
             <li><a href="#limits">Limits</a></li>
             <li><a href="#privacy">Privacy and data</a></li>
@@ -736,6 +737,93 @@ const event = await parseWebhook(signatureHeader, rawBody, secret);</code></pre>
               <code>--yes</code> for CI. Reports go to <code>./mofu-output/</code>.
             </li>
           </ul>
+        </section>
+
+        <section id="builders" data-reveal>
+          <h2>For builders: secrets, contract checks, reviews and CI</h2>
+          <p>
+            Three of these are plain code that runs on your machine: no AI, no API key, nothing sent
+            anywhere. <code>mofu review</code> is the one that uses a model (your OpenRouter key).
+          </p>
+
+          <h3>Find leaked secrets</h3>
+          <pre><code>npx mofu-cli secrets               # files and the whole git history
+npx mofu-cli secrets --no-history  # just the files
+npx mofu-cli secrets --json</code></pre>
+          <p>
+            It looks for wallet private keys, seed phrases (12 to 24 recovery words, checked against
+            the BIP39 checksum), PEM private keys and API tokens with a known format (OpenRouter,
+            OpenAI, Anthropic, GitHub, npm, Stripe, AWS, Google, Slack, Telegram, GoldRush), plus
+            committed <code>.env</code> and key files. It reads every commit, so it also finds a key
+            that was deleted later but is still in the history. Values are shown with only their
+            first and last characters. Hardhat's and Anvil's public test keys are listed as such and
+            don't fail the run.
+          </p>
+          <p>
+            Exit code 2 means something was found. A false alarm? Put
+            <code>mofu-secrets: ignore</code> in a comment on that line. A real leak: revoke the key
+            at the provider, and move funds out of a leaked wallet. Deleting the line doesn't remove
+            it from git history.
+          </p>
+
+          <h3>Check a contract before you deploy</h3>
+          <pre><code>npx mofu-cli audit contracts/Token.sol
+npx mofu-cli audit contracts --fail-on risky</code></pre>
+          <p>
+            <code>mofu audit</code> reads Solidity source and tells you what Mofu's Token Scanner is
+            likely to say once the token is live: can the owner mint, pause, block wallets, change
+            fees without a cap, set trading limits, upgrade the code, edit balances or treat sells
+            differently. It also flags common bugs: <code>tx.origin</code> checks, unchecked
+            low-level calls, ETH sent before storage is updated (reentrancy), block-based randomness
+            and old compilers. Every finding has a line number.
+          </p>
+          <p>
+            It's pattern matching on the source, not a compiler and not an audit: it can miss things
+            and flag things that are fine. Contracts that will hold real money deserve a review by
+            people.
+          </p>
+
+          <h3>AI code review</h3>
+          <pre><code>npx mofu-cli review                       # this branch's changes vs the default branch
+npx mofu-cli review --base develop
+npx mofu-cli review --pr 12 --comment     # review a GitHub PR and post it there</code></pre>
+          <p>
+            One model call on the diff. Findings come back as bugs, security issues, performance,
+            simpler code or nits, each with a file and line and often a suggested fix. Mofu checks
+            every finding against the diff, so a comment can only land on a line that changed.
+            <code>--comment</code> posts a review on the pull request through the GitHub CLI
+            (<code>gh</code>) after asking you first; <code>--yes</code> skips the question.
+          </p>
+
+          <h3 id="ci">GitHub Action</h3>
+          <p>
+            Run the secret scan, the contract check and the dependency check on every pull request,
+            with one comment on the PR that updates itself. Add
+            <code>.github/workflows/mofu.yml</code>:
+          </p>
+          <pre><code>name: Mofu
+on: pull_request
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  mofu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dev-mofu/mofu@main
+        with:
+          fail-on: secrets,risky   # also: deps, or none
+          audit-path: contracts</code></pre>
+          <p>
+            On a pull request the secret scan reads only the commits the PR adds. The job fails on
+            what you list in <code>fail-on</code>: <code>secrets</code>, <code>risky</code> (a
+            contract the scanner would call risky, or a high-severity bug), <code>deps</code>
+            (critical or high vulnerabilities). The same report runs locally with
+            <code>npx mofu-cli ci</code>.
+          </p>
         </section>
 
         <section id="keys" data-reveal>

@@ -10,6 +10,7 @@ import {
 import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
 import { startAnalysis } from "./analyze.js";
 import { runChain, runWebhook } from "./chain.js";
+import { runAudit, runCi, runReview, runSecrets } from "./builder.js";
 import { startStudy, STUDY_SLASH_HELP, type StudySession } from "./study.js";
 import { prepareApi } from "./api.js";
 import { ArgsError, HELP, isChainArgs, parseArgs } from "./args.js";
@@ -121,6 +122,10 @@ async function main(): Promise<number> {
   // Robinhood Chain checks go through mofu.works: no key, no model.
   if (isChainArgs(args)) return runChain(args, new Printer(), version());
   if (args.command === "webhook") return runWebhook(args, new Printer(), version());
+  // Builder checks are plain code: no key, no model.
+  if (args.command === "secrets") return runSecrets(args, new Printer());
+  if (args.command === "audit") return runAudit(args, new Printer());
+  if (args.command === "ci") return runCi(args, new Printer());
 
   const config = await loadConfig();
   const printer = new Printer();
@@ -144,6 +149,7 @@ async function main(): Promise<number> {
     return 1;
   }
   const model = resolveModel(args.model, process.env, config);
+  if (args.command === "review") return runReview(args, printer, apiKey, model);
 
   if (args.command === "deps" && depsReport && !args.fix) {
     return (await summarizeScan(depsReport, { apiKey, model, printer })) ? 0 : 1;

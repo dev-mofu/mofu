@@ -1,0 +1,95 @@
+name: Mofu checks
+description: Secrets, Solidity contracts and dependencies on every pull request, with one comment that stays up to date. No AI, no API keys.
+author: dev-mofu
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  checks:
+    description: Which checks to run, comma-separated (deps, secrets, audit).
+    default: deps,secrets,audit
+  fail-on:
+    description: Fail the job on these (secrets, risky, deps), comma-separated, or "none".
+    default: secrets
+  audit-path:
+    description: Where the Solidity contracts are (a file or folder).
+    default: "."
+  comment:
+    description: Post (and keep updating) a comment on the pull request.
+    default: "true"
+  cli-version:
+    description: mofu-cli version from npm.
+    default: latest
+  github-token:
+    description: Token for the PR comment. Needs pull-requests write.
+    default: ${{ github.token }}
+
+outputs:
+  report:
+    description: Path to the Markdown report.
+    value: ${{ steps.run.outputs.report }}
+  failed:
+    description: "true when a fail-on check failed."
+    value: ${{ steps.run.outputs.failed }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - id: run
+      shell: bash
+      env:
+        CHECKS: ${{ inputs.checks }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        AUDIT_PATH: ${{ inputs.audit-path }}
+        CLI_VERSION: ${{ inputs.cli-version }}
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        set +e
+        args=(ci --checks "$CHECKS" --fail-on "$FAIL_ON" --audit-path "$AUDIT_PATH")
+        # On a pull request, scan only the commits it adds (fetch the base branch if it's missing).
+        if [ -n "$BASE_REF" ]; then
+          git fetch --no-tags --quiet origin "$BASE_REF" 2>/dev/null
+          if git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
+            args+=(--range "origin/$BASE_REF..HEAD")
+          fi
+        fi
+        report="$RUNNER_TEMP/mofu-report.md"
+        npx --yes "mofu-cli@$CLI_VERSION" "${args[@]}" > "$report"
+        code=$?
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        echo "code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" = "2" ]; then echo "failed=true" >> "$GITHUB_OUTPUT"; else echo "failed=false" >> "$GITHUB_OUTPUT"; fi
+        if [ "$code" != "0" ] && [ "$code" != "2" ]; then
+          echo "::error::mofu-cli exited with code $code"
+          cat "$report"
+        fi
+
+    - if: inputs.comment == 'true' && github.event.pull_request.number
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR: ${{ github.event.pull_request.number }}
+        REPORT: ${{ steps.run.outputs.report }}
+      run: |
+        # One comment per PR, found by its marker and edited in place.
+        id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+          --jq '.[] | select(.body | startswith("<!-- mofu-ci -->")) | .id' | head -n 1)
+        if [ -n "$id" ]; then
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@"$REPORT" >/dev/null
+        else
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@"$REPORT" >/dev/null
+        fi
+
+    - if: steps.run.outputs.code != '0'
+      shell: bash
+      env:
+        CODE: ${{ steps.run.outputs.code }}
+      run: |
+        if [ "$CODE" = "2" ]; then echo "::error::Mofu found something that fails this check. See the report above."; fi
+        exit 1

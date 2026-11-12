@@ -15,7 +15,8 @@ Use it free at **[mofu.works](https://mofu.works)** (no account), or in your ter
 - **Data Analyst:** CSV, Excel and JSON files analyzed with Python (pandas) in a sandbox, with charts and reports, plus exchange rates, holidays, weather and World Bank data.
 - **Study Buddy:** summaries at three levels, flashcards with spaced repetition and Anki export, and quizzes, all citing the page.
 - **Dev Tools:** explain a GitHub repository, find vulnerable or deprecated dependencies, generate tests, docs and breaking-change reports from an OpenAPI spec.
-- **In the terminal:** coding tasks on a branch with your tests, dependency upgrades, API test runs. It asks before every change.
+- **In the terminal:** coding tasks on a branch with your tests, AI code review of a branch or PR, dependency upgrades, API test runs. It asks before every change.
+- **For builders:** `mofu secrets` (keys and seed phrases in files and git history), `mofu audit` (Solidity before you deploy) and a [GitHub Action](action.yml) that runs them with the dependency check on every PR.
 - **Robinhood Chain safety:** the Token Scanner (what a contract allows, a simulated sell, copycats), Wallet Health with one-click revoke, and a transaction explainer, in the web app, in the CLI (`mofu scan`, `mofu wallet`), over MCP and as a JSON API with webhooks.
 - **For trading agents:** [mofu-sdk](packages/sdk) on npm, and [examples/safe-trading-agent](examples/safe-trading-agent), which asks Mofu before every buy and refuses what it flags.
 

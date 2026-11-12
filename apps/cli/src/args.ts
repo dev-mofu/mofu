@@ -52,10 +52,48 @@ export type WebhookArgs = {
   secret?: string;
 };
 
+export type SecretsArgs = {
+  command: "secrets";
+  path?: string;
+  json: boolean;
+  history: boolean;
+  range?: string;
+};
+
+export type AuditArgs = {
+  command: "audit";
+  path?: string;
+  json: boolean;
+  failOn?: "caution" | "risky";
+};
+
+export type ReviewArgs = {
+  command: "review";
+  model?: string;
+  pr?: number;
+  base?: string;
+  comment: boolean;
+  yes: boolean;
+  json: boolean;
+};
+
+export type CiArgs = {
+  command: "ci";
+  checks: Array<"deps" | "secrets" | "audit">;
+  auditPath?: string;
+  range?: string;
+  format: "markdown" | "json";
+  failOn: Array<"secrets" | "risky" | "deps">;
+};
+
 export type ParsedArgs =
   | { command: "help" }
   | ChainArgs
   | WebhookArgs
+  | SecretsArgs
+  | AuditArgs
+  | ReviewArgs
+  | CiArgs
   | { command: "version" }
   | { command: "auth" }
   | DepsArgs
@@ -204,6 +242,141 @@ function parseWebhookArgs(words: string[]): WebhookArgs {
   return { command: "webhook", sub, json, id: positional[0]!, ...(secret && { secret }) };
 }
 
+/** Splits words into positionals and --flag[=value] pairs, checking names against `known`. */
+function splitFlags(words: string[], known: Record<string, "bool" | "value">, usage: string) {
+  const positional: string[] = [];
+  const flags: Record<string, string | true> = {};
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!;
+    if (!w.startsWith("-") || w === "-") {
+      positional.push(w);
+      continue;
+    }
+    const [rawName, inline] = w.replace(/^--?/, "").split(/=(.*)/s, 2) as [
+      string,
+      string | undefined,
+    ];
+    const name = rawName === "y" ? "yes" : rawName;
+    const kind = known[name];
+    if (!kind) throw new ArgsError(`Unknown option ${w}.\n${usage}`);
+    if (kind === "bool") flags[name] = true;
+    else {
+      const v = inline ?? words[++i];
+      if (!v) throw new ArgsError(`--${name} needs a value.\n${usage}`);
+      flags[name] = v;
+    }
+  }
+  return { positional, flags };
+}
+
+const SECRETS_USAGE = "Usage: mofu secrets [path] [--json] [--no-history] [--range main..HEAD]";
+const AUDIT_USAGE = "Usage: mofu audit [file.sol or folder] [--json] [--fail-on caution|risky]";
+const REVIEW_USAGE =
+  "Usage: mofu review [--base <branch>] [--pr <number> [--comment] [--yes]] [--json]";
+const CI_USAGE =
+  "Usage: mofu ci [--checks deps,secrets,audit] [--audit-path contracts] [--range origin/main..HEAD] [--format markdown|json] [--fail-on secrets,risky,deps]";
+
+function parseSecretsArgs(words: string[]): SecretsArgs {
+  const { positional, flags } = splitFlags(
+    words,
+    { json: "bool", "no-history": "bool", range: "value" },
+    SECRETS_USAGE,
+  );
+  if (positional.length > 1) throw new ArgsError(SECRETS_USAGE);
+  return {
+    command: "secrets",
+    ...(positional[0] && { path: positional[0] }),
+    json: !!flags.json,
+    history: !flags["no-history"],
+    ...(typeof flags.range === "string" && { range: flags.range }),
+  };
+}
+
+function parseAuditArgs(words: string[]): AuditArgs {
+  const { positional, flags } = splitFlags(
+    words,
+    { json: "bool", "fail-on": "value" },
+    AUDIT_USAGE,
+  );
+  if (positional.length > 1) throw new ArgsError(AUDIT_USAGE);
+  const failOn = flags["fail-on"];
+  if (failOn !== undefined && failOn !== "caution" && failOn !== "risky")
+    throw new ArgsError("--fail-on takes caution or risky.");
+  return {
+    command: "audit",
+    ...(positional[0] && { path: positional[0] }),
+    json: !!flags.json,
+    ...(failOn && { failOn }),
+  };
+}
+
+function parseReviewArgs(words: string[], withModel: { model?: string }): ReviewArgs {
+  const { positional, flags } = splitFlags(
+    words,
+    { json: "bool", comment: "bool", yes: "bool", pr: "value", base: "value" },
+    REVIEW_USAGE,
+  );
+  if (positional.length) throw new ArgsError(REVIEW_USAGE);
+  const pr = flags.pr === undefined ? undefined : Number(String(flags.pr).replace(/^#/, ""));
+  if (pr !== undefined && (!Number.isInteger(pr) || pr <= 0))
+    throw new ArgsError("--pr takes a pull request number.");
+  if (flags.comment && pr === undefined) throw new ArgsError("--comment needs --pr <number>.");
+  if (pr !== undefined && flags.base) throw new ArgsError("Use either --pr or --base, not both.");
+  return {
+    command: "review",
+    ...withModel,
+    ...(pr !== undefined && { pr }),
+    ...(typeof flags.base === "string" && { base: flags.base }),
+    comment: !!flags.comment,
+    yes: !!flags.yes,
+    json: !!flags.json,
+  };
+}
+
+function parseCiArgs(words: string[]): CiArgs {
+  const { positional, flags } = splitFlags(
+    words,
+    { checks: "value", "audit-path": "value", range: "value", format: "value", "fail-on": "value" },
+    CI_USAGE,
+  );
+  if (positional.length) throw new ArgsError(CI_USAGE);
+  const list = <T extends string>(
+    v: string | true | undefined,
+    allowed: readonly T[],
+    fallback: T[],
+    name: string,
+  ): T[] => {
+    if (v === undefined) return fallback;
+    const items = String(v)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const bad = items.filter((i) => !allowed.includes(i as T));
+    if (bad.length)
+      throw new ArgsError(`--${name} takes ${allowed.join(", ")}; not ${bad.join(", ")}.`);
+    return items as T[];
+  };
+  const format = flags.format ?? "markdown";
+  if (format !== "markdown" && format !== "json")
+    throw new ArgsError("--format takes markdown or json.");
+  return {
+    command: "ci",
+    checks: list(
+      flags.checks,
+      ["deps", "secrets", "audit"] as const,
+      ["deps", "secrets", "audit"],
+      "checks",
+    ),
+    ...(typeof flags["audit-path"] === "string" && { auditPath: flags["audit-path"] }),
+    ...(typeof flags.range === "string" && { range: flags.range }),
+    format,
+    failOn:
+      flags["fail-on"] === "none"
+        ? []
+        : list(flags["fail-on"], ["secrets", "risky", "deps"] as const, ["secrets"], "fail-on"),
+  };
+}
+
 export class ArgsError extends Error {
   override name = "ArgsError";
 }
@@ -249,6 +422,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (first === "auth" && others.length === 0) return { command: "auth" };
   if (first === "scan" || first === "wallet") return parseChainArgs(first, others);
   if (first === "webhook") return parseWebhookArgs(others);
+  if (first === "secrets") return parseSecretsArgs(others);
+  if (first === "audit") return parseAuditArgs(others);
+  if (first === "review") return parseReviewArgs(others, withModel);
+  if (first === "ci") return parseCiArgs(others);
   if (first === "api") return parseApiArgs(others, withModel);
   if (first === "deps") {
     const unknown = others.filter((o) => o !== "--json" && o !== "--fix");
@@ -323,7 +500,18 @@ Usage:
   mofu deps                   Scan dependencies for vulnerabilities and outdated packages
   mofu deps --json            Print the raw scan report as JSON (no AI involved)
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit
+  mofu review                 AI code review of this branch's changes (one model call)
+    [--base main] [--pr 12 [--comment] [--yes]] [--json]
+                              --comment posts it to the GitHub PR (asks first; needs gh)
   mofu auth                   Save your OpenRouter API key to ~/.mofu/config.json
+
+For builders (no API key needed):
+  mofu secrets [path]         Find API keys, wallet private keys and seed phrases in your
+    [--no-history] [--range a..b] [--json]   files and git history (exit code 2 if found)
+  mofu audit [file|folder]    Check Solidity before you deploy: what Mofu's Token Scanner will
+    [--fail-on caution|risky] [--json]       say, plus common bug patterns
+  mofu ci                     Dependencies + secrets + contracts in one Markdown report, for CI
+    [--checks deps,secrets,audit] [--fail-on secrets,risky,deps|none] [--format json]
 
 Robinhood Chain (no API key needed; uses mofu.works):
   mofu scan <token>           Token Scanner: what the contract allows, sell test, copycats

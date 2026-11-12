@@ -34,7 +34,13 @@ export {
 } from "./repo/overview.js";
 export type { RepoOverview, RepoSnapshot, TestCommand } from "./repo/overview.js";
 export { localSnapshot, summarizeTestOutput } from "./tools/repo-tools.js";
-export { branchNameFor, defaultBranch, currentBranch, isProtectedBranch } from "./tools/git.js";
+export {
+  branchNameFor,
+  defaultBranch,
+  currentBranch,
+  isProtectedBranch,
+  execProgram,
+} from "./tools/git.js";
 export {
   REPOPILOT_TASK_SECTION,
   DEPS_SUMMARY_SECTION,
@@ -56,3 +62,6 @@ export { NodePythonSandbox, SandboxTimeoutError } from "./data/node-sandbox.js";
 export { createDataTools } from "./data/cli-tools.js";
 export * from "./study/index.js";
 export * from "./api/index.js";
+export * from "./secrets/index.js";
+export * from "./audit/index.js";
+export * from "./review/index.js";

@@ -1,0 +1,25 @@
+# Copy to .github/workflows/mofu.yml in your repository.
+# Runs Mofu's secret scan, Solidity check and dependency check on every pull request and keeps
+# one comment on the PR up to date. No AI and no API keys.
+name: Mofu
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  mofu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # so the secret scan can read the PR's commits
+
+      - uses: dev-mofu/mofu@main
+        with:
+          checks: deps,secrets,audit
+          fail-on: secrets,risky # also: deps (critical or high vulnerabilities), or none
+          audit-path: contracts

@@ -173,6 +173,30 @@ Mofu reads `package.json` + `package-lock.json` (lockfile v2/v3) and `requiremen
 
 All of that is plain code; the model only explains and prioritizes. Any vulnerability ID or version in its answer that isn't in the scan is flagged in yellow. Without a lockfile, versions are the lowest each range allows and are marked as guesses. Only package names and versions leave your machine.
 
+## For builders: secrets, contracts, reviews, CI
+
+```sh
+mofu secrets                      # API keys, wallet private keys and seed phrases in files + git history
+mofu audit contracts/Token.sol    # what Mofu's Token Scanner will say after deploy, plus common bugs
+mofu review                       # AI review of this branch's changes (one model call)
+mofu review --pr 12 --comment     # review a GitHub PR and post it there (asks first; needs gh)
+mofu ci                           # deps + secrets + contracts as one Markdown report
+```
+
+`secrets`, `audit` and `ci` are plain code: no key, no model, nothing leaves your machine. They exit with code 2 when they find something, so they work in scripts and CI. Secret values are printed with only their ends visible; a false alarm goes away with `mofu-secrets: ignore` in a comment on that line. `audit` reads source patterns: it's a quick check, not an audit.
+
+The GitHub Action runs `mofu ci` on every pull request and keeps one comment updated:
+
+```yaml
+- uses: actions/checkout@v4
+  with: { fetch-depth: 0 }
+- uses: dev-mofu/mofu@main
+  with:
+    fail-on: secrets,risky
+```
+
+Full workflow: [examples/github-action/mofu.yml](https://github.com/dev-mofu/mofu/blob/main/examples/github-action/mofu.yml). Details: <https://mofu.works/docs/#builders>.
+
 ## Robinhood Chain checks
 
 These don't need an OpenRouter key: they call Mofu's public API at mofu.works (50 calls a day per IP, shared with Mofu's MCP server).

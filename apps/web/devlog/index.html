@@ -85,6 +85,20 @@
 
         <section class="devlog-entry">
           <p class="devlog-date">Nov 12, 2026</p>
+          <h2>For builders: secret scanning, contract checks, AI review, GitHub Action</h2>
+          <p>
+            <code>mofu secrets</code> finds wallet keys, seed phrases and API tokens in your files
+            and your whole git history. <code>mofu audit</code> reads a Solidity contract before you
+            deploy and says what Mofu's Token Scanner will flag, plus common bugs.
+            <code>mofu review</code> reviews a branch or pull request with AI and can post the
+            comments. And a GitHub Action runs the secret, contract and dependency checks on every
+            PR.
+          </p>
+          <p><a href="/docs/#builders">Read the docs →</a></p>
+        </section>
+
+        <section class="devlog-entry">
+          <p class="devlog-date">Nov 12, 2026</p>
           <h2>Smarter token checks: code fingerprints, sell depth, mofu-sdk</h2>
           <p>
             Token scans now fingerprint the contract's code and flag tokens built from the same code
