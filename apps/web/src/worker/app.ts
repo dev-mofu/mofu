@@ -55,6 +55,8 @@ import { scanToken, summaryOnly } from "./token-scan.js";
 import { ChainDataError, explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import { townHolders } from "./town-holders.js";
 import { ROUND, votesFromEnv, type Votes } from "./vote.js";
+import { statsFromEnv, type StatKey, type Stats } from "./stats.js";
+import { topHolders } from "./chain-data.js";
 import {
   challengeMessage,
   CHALLENGE_TTL_MS,
@@ -91,6 +93,8 @@ export interface AppDeps {
   now: () => number;
   /** Holder roadmap votes; defaults to the VOTES Durable Object. */
   getVotes?: (env: Env) => Votes;
+  /** Public usage counters; defaults to the STATS Durable Object. */
+  getStats?: (env: Env) => Stats;
 }
 
 export const defaultDeps: AppDeps = {
@@ -324,6 +328,100 @@ export function createApp(deps: AppDeps = defaultDeps) {
     return apiError(c, "server_error", "Something went wrong on our side. Please try again.");
   });
 
+  /** Counts an event for /stats without slowing the request or failing it. */
+  const record = (c: AppContext, key: StatKey) => {
+    try {
+      const done = (deps.getStats ?? statsFromEnv)(c.env)
+        .add(key)
+        .catch(() => undefined);
+      try {
+        c.executionCtx.waitUntil(done);
+      } catch {
+        // no execution context in tests
+      }
+    } catch {
+      // no STATS binding
+    }
+  };
+
+  // Public stats: usage counters plus a few on-chain facts about $MOFU. Cached for five minutes.
+  let statsCache: { at: number; body: unknown } | null = null;
+  app.get("/stats", async (c) => {
+    const now = deps.now();
+    if (statsCache && now - statsCache.at < 5 * 60 * 1000) return c.json(statsCache.body);
+    const usage = await (deps.getStats ?? statsFromEnv)(c.env)
+      .all()
+      .catch(() => ({ since: null, counters: {} as Record<string, number> }));
+    const cfg = holderConfig(c.env);
+    let chain: {
+      holders: number | null;
+      burnedPercent: number | null;
+      top10Percent: number | null;
+    } = {
+      holders: null,
+      burnedPercent: null,
+      top10Percent: null,
+    };
+    if (cfg) {
+      const apiKey = (c.env as Env & { GOLDRUSH_API_KEY?: string }).GOLDRUSH_API_KEY;
+      const [scan, holders, count] = await Promise.all([
+        scanToken(cfg.rpcUrls, cfg.token, deps.fetch).catch(() => null),
+        apiKey
+          ? topHolders(
+              {
+                apiKey,
+                chain: String(c.env.GOLDRUSH_CHAIN ?? "robinhood-mainnet"),
+                rpcUrls: cfg.rpcUrls,
+                fetch: deps.fetch,
+              },
+              cfg.token,
+            ).catch(() => null)
+          : Promise.resolve(null),
+        apiKey
+          ? deps
+              .fetch(
+                `https://api.covalenthq.com/v1/${String(c.env.GOLDRUSH_CHAIN ?? "robinhood-mainnet")}/tokens/${cfg.token}/token_holders_v2/`,
+                {
+                  headers: { Authorization: `Bearer ${apiKey}` },
+                  signal: AbortSignal.timeout(10_000),
+                },
+              )
+              .then(
+                (r) => r.json() as Promise<{ data?: { pagination?: { total_count?: number } } }>,
+              )
+              .then((j) => j.data?.pagination?.total_count ?? null)
+              .catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      chain = {
+        holders: count,
+        burnedPercent: scan?.burnedPercent ?? null,
+        top10Percent: holders
+          ? Math.round(
+              holders.filter((h) => h.kind !== "burn").reduce((n, h) => n + h.percent, 0) * 100,
+            ) / 100
+          : null,
+      };
+    }
+    const body = {
+      updatedAt: new Date(now).toISOString(),
+      since: usage.since,
+      counters: usage.counters,
+      chain,
+    };
+    statsCache = { at: now, body };
+    return c.json(body);
+  });
+
+  // Mofu Guard reports "the user chose Don't sign on a warning": a count, nothing else.
+  app.get("/guard/event", async (c) => {
+    if (c.req.query("type") !== "stopped") return apiError(c, "bad_request", "Unknown event.");
+    const limit = Math.max(0, Number.parseInt(String(c.env.GUARD_DAILY_LIMIT), 10) || 0);
+    const usage = await deps.getLimiter(c.env).check(clientIp(c), limit, true, "guard");
+    if (usage.allowed) record(c, "guard_stopped");
+    return c.json({ ok: true });
+  });
+
   app.get("/config", (c) =>
     c.json({
       turnstileSiteKey: c.env.TURNSTILE_SITE_KEY,
@@ -463,6 +561,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
       if (!KEY_PATTERN.test(byokKey))
         return apiError(c, "invalid_key", "That OpenRouter key doesn't look right.");
       apiKey = byokKey;
+      if (validated.data.at(-1)?.role === "user") record(c, "chat_byok");
       const requested = c.req.header(MODEL_HEADER);
       modelId = requested && MODEL_PATTERN.test(requested) ? requested : c.env.DEFAULT_MODEL;
     } else {
@@ -501,6 +600,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
       }
       apiKey = c.env.OPENROUTER_API_KEY;
       modelId = c.env.DEFAULT_MODEL;
+      if (!followUp) record(c, tier.holder?.eligible ? "chat_holder" : "chat_free");
     }
 
     const memoryText = parsed.data.memory
@@ -670,6 +770,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
         );
       }
       scanCache.set(address, { report, at: now });
+      record(c, "token_scan");
       if (scanCache.size > 500) scanCache.clear();
     }
     // The full report (top holders, who created it) is a $MOFU holder perk.
@@ -711,6 +812,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
           .map((k) => k.detail),
       };
       guardCache.set(address, { at: now, body });
+      record(c, "guard_check");
       if (guardCache.size > 2000) guardCache.clear();
       return c.json(body);
     } catch {
@@ -768,6 +870,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
         );
       }
       txCache.set(hash, { report, at: now });
+      record(c, "tx_explain");
       if (txCache.size > 500) txCache.clear();
     }
     return c.json({ report, remaining: usage.remaining, limit } satisfies TxResponse);
@@ -841,6 +944,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
       );
     }
     await votes(c.env).cast(ROUND.id, tier.holder.address, option);
+    record(c, "vote_cast");
     tally = null;
     const counted = await countVotes(c.env);
     return c.json({ ...counted, mine: option, canVote: true } satisfies VoteResponse);
@@ -900,6 +1004,7 @@ export function createApp(deps: AppDeps = defaultDeps) {
       deps.now(),
       HOLDER_TTL_MS,
     );
+    record(c, "holder_connect");
     setCookie(c, HOLDER_COOKIE, token, {
       httpOnly: true,
       secure: true,

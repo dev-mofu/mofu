@@ -22,11 +22,13 @@
     "bindings": [
       { "name": "USAGE_LIMITER", "class_name": "UsageLimiter" },
       { "name": "VOTES", "class_name": "VoteStore" },
+      { "name": "STATS", "class_name": "StatsStore" },
     ],
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["UsageLimiter"] },
     { "tag": "v2", "new_sqlite_classes": ["VoteStore"] },
+    { "tag": "v3", "new_sqlite_classes": ["StatsStore"] },
   ],
   "vars": {
     "DEFAULT_MODEL": "anthropic/claude-haiku-5.5",

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify Mofu</title>
+    <meta
+      name="description"
+      content="Everything official about Mofu in one place: the $MOFU contract, links, what Mofu asks you to sign, and what it never does."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0f0d0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://mofu.works/verify/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Verify Mofu" />
+    <meta
+      property="og:description"
+      content="Everything official about Mofu in one place: the $MOFU contract, links, what Mofu asks you to sign, and what it never does."
+    />
+    <meta property="og:image" content="https://mofu.works/og-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta
+      property="og:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:site_name" content="Mofu" />
+    <meta name="twitter:image" content="https://mofu.works/og-card.png" />
+    <meta
+      name="twitter:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:url" content="https://mofu.works/verify/" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mofu_works" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+  </head>
+  <body class="docs-page">
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">Mofu</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/docs/#cli">CLI</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs docs--single">
+      <main id="content" class="docs-content">
+        <header class="docs-hero">
+          <div>
+            <h1>Verify Mofu</h1>
+            <p>Everything official, in one place. If it isn't listed here, it isn't us.</p>
+          </div>
+        </header>
+
+        <section id="contract">
+          <h2>The $MOFU contract</h2>
+          <p>The only official $MOFU token, on Robinhood Chain (chain ID 4663):</p>
+          <div class="copy-wrap">
+            <button
+              class="code-chip"
+              type="button"
+              data-copy="0xf76593c1c321c2a2f77775025e9677999ce7ea8c"
+              aria-label="Copy the $MOFU contract address"
+            >
+              <span>0xf76593c1c321c2a2f77775025e9677999ce7ea8c</span>
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                aria-hidden="true"
+                shape-rendering="crispEdges"
+              >
+                <path d="M5 1h9v9h-2V3H5zM2 5h8v10H2zm2 2v6h4V7z" />
+              </svg>
+            </button>
+            <span class="copy-status" role="status" aria-live="polite"></span>
+          </div>
+          <div
+            class="verify-live"
+            id="verify-live"
+            data-address="0xf76593c1c321c2a2f77775025e9677999ce7ea8c"
+          >
+            <p class="muted">Checking the contract on Robinhood Chain…</p>
+          </div>
+          <ul>
+            <li>
+              Launched on
+              <a
+                href="https://ponsfamily.com/launchpad/0xf76593c1c321c2a2f77775025e9677999ce7ea8c"
+                rel="noopener"
+                >Pons</a
+              >.
+            </li>
+            <li>
+              On the explorer:
+              <a
+                href="https://robinhoodchain.blockscout.com/token/0xf76593c1c321c2a2f77775025e9677999ce7ea8c"
+                rel="noopener"
+                >Blockscout</a
+              >.
+            </li>
+            <li>
+              Full scan with holders:
+              <a href="/app/?scan=0xf76593c1c321c2a2f77775025e9677999ce7ea8c">Mofu Token Scanner</a
+              >.
+            </li>
+          </ul>
+          <p>
+            Any other token using the Mofu name or mascot isn't ours. Before you buy anything,
+            compare the address character by character: copycats often match only the first and last
+            few.
+          </p>
+        </section>
+
+        <section id="links">
+          <h2>Official links</h2>
+          <ul>
+            <li>Website: <a href="https://mofu.works">mofu.works</a> (and www.mofu.works)</li>
+            <li>X: <a href="https://x.com/mofu_works">@mofu_works</a></li>
+            <li>
+              Source code:
+              <a href="https://github.com/dev-mofu/mofu">github.com/dev-mofu/mofu</a> (MIT)
+            </li>
+            <li>
+              CLI on npm: <a href="https://www.npmjs.com/package/mofu-cli">mofu-cli</a>, run with
+              <code>npx mofu-cli</code>
+            </li>
+            <li>
+              MCP server: <code>https://mofu.works/mcp</code> (<a href="/docs/#mcp">setup</a>)
+            </li>
+            <li>
+              Mofu Guard extension: only from <a href="/guard/">mofu.works/guard</a> or the Chrome
+              Web Store listing linked there
+            </li>
+          </ul>
+          <p>
+            Mofu has no Telegram group, no Discord server and no support accounts that message you
+            first.
+          </p>
+        </section>
+
+        <section id="sign">
+          <h2>The only thing Mofu asks you to sign</h2>
+          <p>
+            Connecting a wallet for holder perks shows exactly this message (your address and a
+            random nonce at the end). It isn't a transaction and costs no gas:
+          </p>
+          <pre><code>mofu.works wants you to confirm you own this wallet.
+
+Signing only proves ownership to unlock $MOFU holder perks. It is not a transaction, costs no gas and gives no one access to your funds.
+
+Wallet: 0x…
+Nonce: …</code></pre>
+          <p>
+            If a site asks you to approve tokens, send a transaction or sign anything else "to
+            verify" or "to claim", it isn't Mofu.
+          </p>
+        </section>
+
+        <section id="never">
+          <h2>What Mofu never does</h2>
+          <ul>
+            <li>Never asks for your seed phrase or private key, anywhere, for any reason.</li>
+            <li>
+              Never DMs you first, and never offers support or "early access" in private messages.
+            </li>
+            <li>Never runs airdrops or claims that need you to connect and approve.</li>
+            <li>Never asks you to send tokens or ETH to receive something back.</li>
+            <li>
+              Never tells you to buy or sell. Mofu's tools show what the chain says; you decide.
+            </li>
+          </ul>
+        </section>
+
+        <section id="numbers">
+          <h2>Check our numbers</h2>
+          <p>
+            Usage counters and on-chain facts about $MOFU are public on
+            <a href="/stats/">mofu.works/stats</a>, and every update is in the
+            <a href="/devlog/">dev log</a>. The code that does all of it is open on GitHub.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">Mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+          <li><a href="/privacy/">Privacy policy</a></li>
+          <li><a href="/terms/">Terms</a></li>
+          <li><a href="https://github.com/dev-mofu/mofu">GitHub</a></li>
+          <li><a href="https://x.com/mofu_works">X (@mofu_works)</a></li>
+          <li><a href="/verify/">Verify Mofu</a></li>
+          <li><a href="/stats/">Stats</a></li>
+          <li><a href="/devlog/">Dev log</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License. Data
+        sources are credited at the bottom of the <a href="/">home page</a>. Thank you to arXiv for
+        use of its open access interoperability.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/live.ts"></script>
+  </body>
+</html>

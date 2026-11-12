@@ -64,6 +64,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       );
     return true;
   }
+  if (msg?.type === "stopped") {
+    void apiBase()
+      .then((base) => fetch(`${base}/api/guard/event?type=stopped`))
+      .catch(() => undefined);
+    return false;
+  }
   if (
     msg?.type === "scan" &&
     typeof msg.address === "string" &&

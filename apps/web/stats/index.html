@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mofu stats</title>
+    <meta
+      name="description"
+      content="Public usage counters and on-chain facts about $MOFU, updated every few minutes."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0f0d0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://mofu.works/stats/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mofu stats" />
+    <meta
+      property="og:description"
+      content="Public usage counters and on-chain facts about $MOFU, updated every few minutes."
+    />
+    <meta property="og:image" content="https://mofu.works/og-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta
+      property="og:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:site_name" content="Mofu" />
+    <meta name="twitter:image" content="https://mofu.works/og-card.png" />
+    <meta
+      name="twitter:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:url" content="https://mofu.works/stats/" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mofu_works" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+  </head>
+  <body class="docs-page">
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">Mofu</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/docs/#cli">CLI</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs docs--single">
+      <main id="content" class="docs-content">
+        <header class="docs-hero">
+          <div>
+            <h1>Stats</h1>
+            <p>Real numbers, counted by the server as things happen. No estimates.</p>
+          </div>
+        </header>
+        <section id="stats" class="stats" aria-live="polite">
+          <p class="muted">Loading…</p>
+        </section>
+        <section>
+          <h2>How these are counted</h2>
+          <ul>
+            <li>
+              Each counter goes up by one when the thing happens on mofu.works or through the MCP
+              server. Counts only: no addresses, no content.
+            </li>
+            <li>
+              "Risky signatures stopped" counts the times someone chose Don't sign on a Mofu Guard
+              warning.
+            </li>
+            <li>
+              On-chain facts come from Robinhood Chain (holders through GoldRush). The page
+              refreshes them every few minutes.
+            </li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">Mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+          <li><a href="/privacy/">Privacy policy</a></li>
+          <li><a href="/terms/">Terms</a></li>
+          <li><a href="https://github.com/dev-mofu/mofu">GitHub</a></li>
+          <li><a href="https://x.com/mofu_works">X (@mofu_works)</a></li>
+          <li><a href="/verify/">Verify Mofu</a></li>
+          <li><a href="/stats/">Stats</a></li>
+          <li><a href="/devlog/">Dev log</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License. Data
+        sources are credited at the bottom of the <a href="/">home page</a>. Thank you to arXiv for
+        use of its open access interoperability.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/live.ts"></script>
+  </body>
+</html>

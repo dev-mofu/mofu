@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Mofu Guard",
   "short_name": "Mofu Guard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Checks what your wallet is about to sign. Warns about unlimited approvals, permits and likely drainers.",
   "homepage_url": "https://mofu.works/guard/",
   "icons": {

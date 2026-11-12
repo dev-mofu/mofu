@@ -11,6 +11,7 @@ import { formatScanForModel, scanDependencies } from "@mofu/core/web";
 import { formatTokenScanForModel, formatTxForModel } from "../shared/token-scan-text.js";
 import { explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import type { AppDeps } from "./app.js";
+import { statsFromEnv, type StatKey } from "./stats.js";
 import { parseRpcUrls } from "./chain.js";
 import { isAddress } from "./holder.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
@@ -210,7 +211,7 @@ export function createMcpApp(deps: AppDeps) {
   });
 
   async function callTool(
-    c: { env: Env; ip: string },
+    c: { env: Env; ip: string; record: (key: StatKey) => void },
     name: string,
     args: unknown,
   ): Promise<ToolResult> {
@@ -246,6 +247,7 @@ export function createMcpApp(deps: AppDeps) {
             data && { ...data, now: deps.now() },
           ),
         );
+        c.record("mcp_scan_token");
         return {
           content: [
             {
@@ -271,6 +273,7 @@ export function createMcpApp(deps: AppDeps) {
       if (!data) return toolText("The transaction explainer isn't available right now.", true);
       try {
         const report = await explainTransaction(data, hash);
+        c.record("mcp_explain_transaction");
         return {
           content: [{ type: "text", text: formatTxForModel(report) }],
           structuredContent: report as unknown as Record<string, unknown>,
@@ -303,13 +306,17 @@ export function createMcpApp(deps: AppDeps) {
         files.map((f) => ({ path: f.path, text: f.content })),
         { fetch: deps.fetch, signal: AbortSignal.timeout(60_000) },
       );
+      c.record("mcp_check_dependencies");
       return toolText(formatScanForModel(report));
     } catch {
       return toolText("The dependency check couldn't finish. Try again in a minute.", true);
     }
   }
 
-  async function handle(msg: Message, ctx: { env: Env; ip: string }) {
+  async function handle(
+    msg: Message,
+    ctx: { env: Env; ip: string; record: (key: StatKey) => void },
+  ) {
     const { id, method, params } = msg;
     switch (method) {
       case "initialize": {
@@ -369,7 +376,24 @@ export function createMcpApp(deps: AppDeps) {
     if (items.length === 0 || items.length > 20) {
       return c.json(rpcError(null, -32600, "Invalid request."), 400);
     }
-    const ctx = { env: c.env, ip: c.req.header("CF-Connecting-IP") ?? "local" };
+    const ctx = {
+      env: c.env,
+      ip: c.req.header("CF-Connecting-IP") ?? "local",
+      record: (key: StatKey) => {
+        try {
+          const done = (deps.getStats ?? statsFromEnv)(c.env)
+            .add(key)
+            .catch(() => undefined);
+          try {
+            c.executionCtx.waitUntil(done);
+          } catch {
+            // no execution context in tests
+          }
+        } catch {
+          // no STATS binding
+        }
+      },
+    };
     const responses = [];
     for (const item of items) {
       const parsed = Message.safeParse(item);

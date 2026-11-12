@@ -3,6 +3,7 @@ import { createMcpApp } from "./mcp.js";
 
 export { UsageLimiter } from "./usage-limiter.js";
 export { VoteStore } from "./vote-store.js";
+export { StatsStore } from "./stats-store.js";
 
 const app = createApp();
 const mcp = createMcpApp(defaultDeps);

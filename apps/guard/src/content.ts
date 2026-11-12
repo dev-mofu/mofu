@@ -197,7 +197,10 @@ window.addEventListener("message", async (e) => {
     };
     const analyses = result?.analyses ?? [];
     if (!analyses.some((a) => a.prompt)) return reply(true);
-    reply(await panel(analyses, origin, false));
+    const allow = await panel(analyses, origin, false);
+    // An anonymous count for mofu.works/stats: nothing about the request or the wallet.
+    if (!allow) void chrome.runtime.sendMessage({ type: "stopped" }).catch(() => undefined);
+    reply(allow);
   } catch {
     // The extension was updated or reloaded mid-request: don't block the user.
     reply(true);
