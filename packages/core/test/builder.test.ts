@@ -249,3 +249,35 @@ describe("review", () => {
     expect(() => validateReview({ summary: 1 }, [])).toThrow();
   });
 });
+
+describe("commit and pull request writer", () => {
+  it("parses a commit message and keeps the subject to one clean line", async () => {
+    const { parseCommitMessage, commitText, parsePullRequest } = await import("../src/index.js");
+    const c = parseCommitMessage(
+      '```json\n{"subject": "Fix the split loop bound.\nextra", "body": "It read one past the end."}\n```',
+    );
+    expect(c).toEqual({ subject: "Fix the split loop bound", body: "It read one past the end." });
+    expect(commitText(c)).toBe("Fix the split loop bound\n\nIt read one past the end.");
+    expect(commitText({ subject: "Bump version", body: "" })).toBe("Bump version");
+    const long = parseCommitMessage(JSON.stringify({ subject: "x".repeat(100) }));
+    expect(long.subject).toHaveLength(72);
+    const pr = parsePullRequest('{"title": "Add split()", "body": "## Summary\nAdds it."}');
+    expect(pr).toEqual({ title: "Add split()", body: "## Summary\nAdds it." });
+    expect(() => parseCommitMessage("no json here")).toThrow();
+  });
+});
+
+describe("scanFiles (browser and MCP)", () => {
+  it("scans given text and flags secret file names", async () => {
+    const { scanFiles } = await import("../src/index.js");
+    const found = scanFiles([
+      { path: String.raw`src\config.js`, content: `const t = "${GH}";` },
+      { path: ".env.production", content: "" },
+      { path: ".env.example", content: "" },
+    ]);
+    expect(found.map((f) => `${f.rule}:${f.file}`).sort()).toEqual([
+      "github-token:src/config.js",
+      "secret-file:.env.production",
+    ]);
+  });
+});

@@ -386,9 +386,18 @@ npx mofu-cli          # chat in the current folder</code></pre>
               requirements.txt or pyproject.toml and it returns known vulnerabilities, the version
               that fixes them and how far behind each package is.
             </li>
+            <li>
+              <strong>scan_secrets</strong>: give it files and it finds wallet private keys, seed
+              phrases, PEM keys and API tokens, values redacted. It sees only the text you pass, not
+              git history.
+            </li>
+            <li>
+              <strong>audit_solidity</strong>: give it Solidity files and it says what Mofu's Token
+              Scanner will likely flag once deployed, plus common bugs, with line numbers.
+            </li>
           </ul>
           <p>
-            All four are Mofu's own code reading real data, not a model. Your AI app explains the
+            All of them are Mofu's own code reading real data, not a model. Your AI app explains the
             results. Up to 50 tool calls a day per IP address (shared with the
             <a href="#api">API</a>), no account needed.
           </p>
@@ -793,6 +802,34 @@ npx mofu-cli review --pr 12 --comment     # review a GitHub PR and post it there
             every finding against the diff, so a comment can only land on a line that changed.
             <code>--comment</code> posts a review on the pull request through the GitHub CLI
             (<code>gh</code>) after asking you first; <code>--yes</code> skips the question.
+          </p>
+
+          <h3 id="fix">Fix a failing build</h3>
+          <pre><code>npx mofu-cli fix --run "npm test"     # reproduce, diagnose, fix on a branch
+npx mofu-cli fix --log build.log
+npx mofu-cli fix "TypeError: cannot read properties of undefined (reading 'address')"</code></pre>
+          <p>
+            Mofu runs the command (asking first), reads the failure and the files it points at, and
+            tells you the root cause and the fix it proposes. Nothing changes until you say yes.
+            Then it works on a <code>mofu/…</code> branch, makes the fix, runs the command again (up
+            to three attempts) and commits. It won't weaken a test to make it pass.
+          </p>
+
+          <h3>Commit messages and pull requests</h3>
+          <pre><code>npx mofu-cli commit            # message for what's staged (--all stages everything)
+npx mofu-cli pr                # title and description, then push and open it with gh
+npx mofu-cli pr --draft --base develop</code></pre>
+          <p>
+            One model call each. The commit message follows the style of your recent commits. You
+            see the text first; git and <code>gh</code> run only after you say yes.
+          </p>
+
+          <h3>In the browser</h3>
+          <p>
+            Dev Tools in the app has <strong>Audit contract</strong> (paste Solidity or open a .sol
+            file) and <strong>Find secrets</strong> (paste text, or a public GitHub repository).
+            Both run in your browser: the code isn't sent to Mofu. The repository check reads the
+            files as they are now; for every commit, run <code>npx mofu-cli secrets</code>.
           </p>
 
           <h3 id="ci">GitHub Action</h3>

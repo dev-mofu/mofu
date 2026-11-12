@@ -96,8 +96,71 @@ describe("MCP server", () => {
       "scan_token",
       "check_dependencies",
       "explain_transaction",
+      "scan_secrets",
+      "audit_solidity",
     ]);
     expect(list.result.tools.every((t) => t.annotations.readOnlyHint)).toBe(true);
+  });
+
+  it("scans passed files for secrets and audits Solidity", async () => {
+    const { post } = setup("10");
+    const token = "gh" + "p_" + "A1b2C3d4".repeat(4) + "Zz9Y";
+    const secrets = (await (
+      await post(
+        req(20, "tools/call", {
+          name: "scan_secrets",
+          arguments: {
+            files: [
+              { path: "src/config.js", content: `const t = "${token}";` },
+              { path: ".env", content: "" },
+            ],
+          },
+        }),
+      )
+    ).json()) as {
+      result: {
+        content: Array<{ text: string }>;
+        structuredContent: { findings: Array<{ rule: string; preview: string }> };
+      };
+    };
+    expect(secrets.result.structuredContent.findings.map((f) => f.rule).sort()).toEqual([
+      "github-token",
+      "secret-file",
+    ]);
+    expect(secrets.result.content[0]!.text).toContain("src/config.js:1");
+    expect(secrets.result.content[0]!.text).not.toContain(token);
+    const audit = (await (
+      await post(
+        req(21, "tools/call", {
+          name: "audit_solidity",
+          arguments: {
+            files: [
+              {
+                path: "Token.sol",
+                content:
+                  "pragma solidity 0.8.24;\ncontract T is Ownable {\n function mint(address a, uint256 v) external onlyOwner { _mint(a, v); }\n}",
+              },
+            ],
+          },
+        }),
+      )
+    ).json()) as {
+      result: {
+        content: Array<{ text: string }>;
+        structuredContent: { files: Array<{ verdict: string }> };
+      };
+    };
+    expect(audit.result.structuredContent.files[0]!.verdict).toBe("risky");
+    expect(audit.result.content[0]!.text).toContain("Can new tokens be created?");
+    const notSol = (await (
+      await post(
+        req(22, "tools/call", {
+          name: "audit_solidity",
+          arguments: { files: [{ path: "a.js", content: "x" }] },
+        }),
+      )
+    ).json()) as { result: { isError: boolean } };
+    expect(notSol.result.isError).toBe(true);
   });
 
   it("accepts notifications with 202 and answers unknown methods with -32601", async () => {

@@ -148,3 +148,41 @@ describe("builder output", () => {
     expect(auditFails(audit, undefined)).toBe(false);
   });
 });
+
+describe("parseArgs: fix, commit and pr", () => {
+  it("parses mofu fix into a fix session", () => {
+    const run = parseArgs(["fix", "--run", "npm test"]);
+    expect(run).toMatchObject({ command: "chat", fix: true });
+    expect((run as { initialPrompt: string }).initialPrompt).toContain(
+      "Reproduce it by running: npm test",
+    );
+    expect(parseArgs(["fix", "--log", "build.log"])).toMatchObject({
+      fix: true,
+      fixLog: "build.log",
+    });
+    expect(
+      (parseArgs(["fix", "TypeError:", "x", "is", "undefined"]) as { initialPrompt: string })
+        .initialPrompt,
+    ).toContain("TypeError: x is undefined");
+    expect(() => parseArgs(["fix"])).toThrow(/mofu fix --run/);
+  });
+
+  it("parses commit and pr", () => {
+    expect(parseArgs(["commit"])).toEqual({ command: "commit", all: false, yes: false });
+    expect(parseArgs(["commit", "--all", "-y"])).toEqual({
+      command: "commit",
+      all: true,
+      yes: true,
+    });
+    expect(parseArgs(["pr", "--base", "develop", "--draft"])).toEqual({
+      command: "pr",
+      base: "develop",
+      draft: true,
+      yes: false,
+    });
+    expect(() => parseArgs(["commit", "msg"])).toThrow(ArgsError);
+    expect(HELP).toContain("mofu fix --run");
+    expect(HELP).toContain("mofu commit");
+    expect(HELP).toContain("mofu pr");
+  });
+});

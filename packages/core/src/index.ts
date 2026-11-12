@@ -43,6 +43,7 @@ export {
 } from "./tools/git.js";
 export {
   REPOPILOT_TASK_SECTION,
+  FIX_SECTION,
   DEPS_SUMMARY_SECTION,
   DEPS_FIX_SECTION,
   DATA_SECTION,

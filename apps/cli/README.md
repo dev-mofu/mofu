@@ -181,7 +181,12 @@ mofu audit contracts/Token.sol    # what Mofu's Token Scanner will say after dep
 mofu review                       # AI review of this branch's changes (one model call)
 mofu review --pr 12 --comment     # review a GitHub PR and post it there (asks first; needs gh)
 mofu ci                           # deps + secrets + contracts as one Markdown report
+mofu fix --run "npm test"         # reproduce, diagnose, then fix it on a branch (asks first)
+mofu commit                       # write the commit message for what's staged, then commit
+mofu pr                           # write the PR title and description, push, open it with gh
 ```
+
+`fix`, `commit`, `pr` and `review` use your OpenRouter key. `fix` explains the root cause and waits for your OK before changing anything; `commit` and `pr` show the text and run git or gh only after you say yes.
 
 `secrets`, `audit` and `ci` are plain code: no key, no model, nothing leaves your machine. They exit with code 2 when they find something, so they work in scripts and CI. Secret values are printed with only their ends visible; a false alarm goes away with `mofu-secrets: ignore` in a comment on that line. `audit` reads source patterns: it's a quick check, not an audit.
 

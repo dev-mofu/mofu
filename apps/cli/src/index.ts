@@ -1,16 +1,18 @@
 #!/usr/bin/env node
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import pc from "picocolors";
 import {
   DEPS_FIX_SECTION,
   FileMemoryStore,
   REPOPILOT_TASK_SECTION,
+  FIX_SECTION,
   type ScanReport,
 } from "@mofu/core";
 import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
 import { startAnalysis } from "./analyze.js";
 import { runChain, runWebhook } from "./chain.js";
-import { runAudit, runCi, runReview, runSecrets } from "./builder.js";
+import { runAudit, runCi, runCommit, runPr, runReview, runSecrets } from "./builder.js";
 import { startStudy, STUDY_SLASH_HELP, type StudySession } from "./study.js";
 import { prepareApi } from "./api.js";
 import { ArgsError, HELP, isChainArgs, parseArgs } from "./args.js";
@@ -150,6 +152,8 @@ async function main(): Promise<number> {
   }
   const model = resolveModel(args.model, process.env, config);
   if (args.command === "review") return runReview(args, printer, apiKey, model);
+  if (args.command === "commit") return runCommit(args, printer, apiKey, model);
+  if (args.command === "pr") return runPr(args, printer, apiKey, model);
 
   if (args.command === "deps" && depsReport && !args.fix) {
     return (await summarizeScan(depsReport, { apiKey, model, printer })) ? 0 : 1;
@@ -171,7 +175,19 @@ async function main(): Promise<number> {
   const api = args.command === "api" ? await prepareApi(args, printer) : null;
   if (args.command === "api" && !api) return 1;
 
-  // Chat, task, analyze, study, api and deps --fix all run through a session.
+  // mofu fix --log: the failure output goes into the first message (its end, where errors are).
+  let initialPrompt = args.command === "chat" ? args.initialPrompt : undefined;
+  if (args.command === "chat" && args.fixLog) {
+    const log = await readFile(args.fixLog, "utf8").catch(() => null);
+    if (log === null) {
+      printer.error(`Couldn't read ${args.fixLog}.`);
+      return 1;
+    }
+    const tail = log.length > 20_000 ? `…\n${log.slice(-20_000)}` : log;
+    initialPrompt = `${initialPrompt ?? ""}\n\nFailure output (${args.fixLog}):\n\`\`\`\n${tail}\n\`\`\``;
+  }
+
+  // Chat, task, fix, analyze, study, api and deps --fix all run through a session.
   const chat =
     args.command === "api"
       ? { modeSection: api!.modeSection, maxSteps: api!.maxSteps }
@@ -183,10 +199,14 @@ async function main(): Promise<number> {
             ? { modeSection: study.modeSection, maxSteps: 20 }
             : {
                 prompt: args.prompt,
-                initialPrompt: args.initialPrompt,
+                initialPrompt,
                 // Coding tasks need room for edits, test runs and fixes in one turn.
-                modeSection: args.task ? REPOPILOT_TASK_SECTION : undefined,
-                maxSteps: args.task ? 40 : 20,
+                modeSection: args.fix
+                  ? FIX_SECTION
+                  : args.task
+                    ? REPOPILOT_TASK_SECTION
+                    : undefined,
+                maxSteps: args.task || args.fix ? 40 : 20,
               };
 
   const terminal = new Terminal();

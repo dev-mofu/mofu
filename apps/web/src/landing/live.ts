@@ -69,7 +69,9 @@ if (stats) {
                 c("mcp_scan_token") +
                   c("mcp_explain_transaction") +
                   c("mcp_check_dependencies") +
-                  c("mcp_check_wallet"),
+                  c("mcp_check_wallet") +
+                  c("mcp_scan_secrets") +
+                  c("mcp_audit_solidity"),
               ),
               "MCP tool calls",
               "from AI apps like Claude and Cursor",

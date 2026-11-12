@@ -60,6 +60,7 @@ import {
   type LoadedDocument,
 } from "./lib/study.js";
 import { GitHubError, loadGitHubRepo, type LoadedRepo } from "./lib/github.js";
+import { BuilderPanel } from "./components/BuilderPanel.js";
 import { RepoPanel } from "./components/RepoPanel.js";
 import { DepsPanel } from "./components/DepsPanel.js";
 import { ScanResults } from "./components/ScanResults.js";
@@ -148,7 +149,9 @@ export function App() {
   const [repoError, setRepoError] = useState<GitHubError | null>(null);
 
   // The transport reads the latest settings through a ref, so it's created once.
-  const [devTool, setDevTool] = useState<"repo" | "deps" | "api" | "token">("repo");
+  const [devTool, setDevTool] = useState<"repo" | "deps" | "api" | "token" | "audit" | "secrets">(
+    "repo",
+  );
   const [tokenScan, setTokenScan] = useState<{
     report: TokenScanReport;
     remaining: number | null;
@@ -787,7 +790,15 @@ export function App() {
     const m = params.get("mode");
     if (m && (MODES as readonly string[]).includes(m)) setMode(m as Mode);
     const tool = params.get("tool");
-    if (tool === "repo" || tool === "deps" || tool === "api" || tool === "token") setDevTool(tool);
+    if (
+      tool === "repo" ||
+      tool === "deps" ||
+      tool === "api" ||
+      tool === "token" ||
+      tool === "audit" ||
+      tool === "secrets"
+    )
+      setDevTool(tool);
     if (params.get("open") === "holder") setDialog("settings");
     if (params.get("open") === "vote") setDialog("vote");
   }, [config]);
@@ -1049,7 +1060,7 @@ export function App() {
         {mode === "dev" && (
           <>
             <div className="segmented dev-tabs" role="tablist" aria-label="Dev Tools">
-              {(["repo", "deps", "api", "token"] as const).map((t) => (
+              {(["repo", "deps", "api", "token", "audit", "secrets"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -1064,11 +1075,17 @@ export function App() {
                       ? "Scan dependencies"
                       : t === "api"
                         ? "API spec"
-                        : "Scan a token"}
+                        : t === "token"
+                          ? "Scan a token"
+                          : t === "audit"
+                            ? "Audit contract"
+                            : "Find secrets"}
                 </button>
               ))}
             </div>
-            {devTool === "token" ? (
+            {devTool === "audit" || devTool === "secrets" ? (
+              <BuilderPanel key={devTool} tool={devTool} />
+            ) : devTool === "token" ? (
               !tokenScan &&
               !txScan &&
               !walletScan && (

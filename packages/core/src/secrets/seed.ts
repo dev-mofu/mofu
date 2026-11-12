@@ -1,6 +1,6 @@
 /** Finds BIP39 seed phrases (wallet recovery words) in text. */
-import { createHash } from "node:crypto";
 import { BIP39_ENGLISH } from "./bip39-english.js";
+import { sha256 } from "./sha256.js";
 
 const INDEX = new Map(BIP39_ENGLISH.map((w, i) => [w, i]));
 const VALID_LENGTHS = [24, 21, 18, 15, 12];
@@ -22,10 +22,10 @@ export function bip39Checksum(words: string[]): boolean {
   }
   const csLen = words.length / 3;
   const entBits = bits.slice(0, bits.length - csLen);
-  const entropy = Buffer.alloc(entBits.length / 8);
+  const entropy = new Uint8Array(entBits.length / 8);
   for (let i = 0; i < entropy.length; i++)
     entropy[i] = Number.parseInt(entBits.slice(i * 8, i * 8 + 8), 2);
-  const hash = createHash("sha256").update(entropy).digest();
+  const hash = sha256(entropy);
   const hashBits = [...hash].map((b) => b.toString(2).padStart(8, "0")).join("");
   return hashBits.slice(0, csLen) === bits.slice(bits.length - csLen);
 }

@@ -7,7 +7,13 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { formatScanForModel, scanDependencies } from "@mofu/core/web";
+import {
+  AUDIT_LIMITS,
+  auditSolidity,
+  formatScanForModel,
+  scanDependencies,
+  scanFiles,
+} from "@mofu/core/web";
 import {
   formatTokenScanForModel,
   formatTxForModel,
@@ -35,7 +41,9 @@ const INSTRUCTIONS =
   "Mofu's tools read real data and return facts: scan_token reads a token contract on Robinhood Chain, " +
   "explain_transaction decodes a Robinhood Chain transaction, " +
   "check_wallet lists a wallet's token approvals (re-checked on chain, risky ones flagged) and holdings, " +
-  "check_dependencies looks up known vulnerabilities for a project's packages. Report what the results " +
+  "check_dependencies looks up known vulnerabilities for a project's packages, " +
+  "scan_secrets finds leaked keys, tokens and seed phrases in files you pass, " +
+  "audit_solidity reads Solidity source and predicts what Mofu's Token Scanner will flag. Report what the results " +
   "say and what they can't see. For tokens, never give buy, sell or price advice and never call a token " +
   "safe: describe what the contract's code allows.";
 
@@ -163,6 +171,82 @@ const TOOLS = [
       openWorldHint: true,
     },
   },
+  {
+    name: "scan_secrets",
+    title: "Find leaked secrets in files",
+    description:
+      "Scan files for secrets that shouldn't be in code: wallet private keys, BIP39 seed phrases (checksum " +
+      "checked), PEM private keys, API tokens with a known format (OpenRouter, OpenAI, Anthropic, GitHub, npm, " +
+      "Stripe, AWS, Google, Slack, Telegram, GoldRush) and .env or key files by name. Values come back redacted. " +
+      "Only the text passed in is scanned: no git history (for that, run npx mofu-cli secrets in the repo). " +
+      "Deterministic, not AI; nothing is stored.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        files: {
+          type: "array",
+          minItems: 1,
+          maxItems: 20,
+          description: "Files to scan (up to 20, 600,000 characters in total).",
+          items: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "File path, relative to the project." },
+              content: { type: "string", description: "Full text of the file." },
+            },
+            required: ["path", "content"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["files"],
+      additionalProperties: false,
+    },
+    annotations: {
+      title: "Find leaked secrets in files",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "audit_solidity",
+    title: "Check a Solidity contract before deploying",
+    description:
+      "Read Solidity source and report what Mofu's Token Scanner is likely to flag once the token is live (minting, " +
+      "pausing, blacklists, fees without a cap, trading limits, upgradeable code, self-destruct, direct balance " +
+      "edits, sell conditions, owner powers), plus common bugs (tx.origin auth, unchecked low-level calls, " +
+      "reentrancy-shaped code, block-based randomness, old compilers), each with a line number. Pattern matching " +
+      "on the source, not a compiler and not a formal audit. Deterministic, not AI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        files: {
+          type: "array",
+          minItems: 1,
+          maxItems: 20,
+          description: "Solidity files (.sol), up to 20.",
+          items: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "File path, relative to the project." },
+              content: { type: "string", description: "Full text of the file." },
+            },
+            required: ["path", "content"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["files"],
+      additionalProperties: false,
+    },
+    annotations: {
+      title: "Check a Solidity contract before deploying",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
 ] as const;
 
 const Message = z.object({
@@ -174,6 +258,12 @@ const Message = z.object({
 type Message = z.infer<typeof Message>;
 
 const ScanArgs = z.object({ address: z.string() });
+const CodeFiles = z.object({
+  files: z
+    .array(z.object({ path: z.string().max(300), content: z.string() }))
+    .min(1)
+    .max(20),
+});
 const DepsArgs = z.object({
   files: z
     .array(z.object({ path: z.string().max(300), content: z.string() }))
@@ -355,6 +445,67 @@ export function createMcpApp(deps: AppDeps) {
           true,
         );
       }
+    }
+
+    if (name === "scan_secrets" || name === "audit_solidity") {
+      const parsed = CodeFiles.safeParse(args);
+      if (!parsed.success)
+        return toolText("files must be 1–20 objects with a path and content.", true);
+      const files = parsed.data.files;
+      if (files.reduce((n, f) => n + f.content.length, 0) > MAX_TOTAL_CHARS) {
+        return toolText("Those files are too large together (600,000 characters at most).", true);
+      }
+      if (name === "scan_secrets") {
+        const findings = scanFiles(files);
+        c.record("mcp_scan_secrets");
+        const lines = findings.length
+          ? findings.map(
+              (f) =>
+                `- ${f.severity.toUpperCase()} ${f.title} at ${f.file}:${f.line} (${f.preview}, ${f.confidence} confidence)${f.note ? `: ${f.note}` : ""}`,
+            )
+          : ["No secrets found in these files."];
+        return {
+          content: [
+            {
+              type: "text",
+              text: [
+                `Scanned ${files.length} file(s). Values are redacted.`,
+                ...lines,
+                findings.some((f) => f.severity !== "low")
+                  ? "A leaked key stays valid until it's revoked at the provider; a leaked wallet key or seed phrase means moving the funds. Deleting the line doesn't remove it from git history: run npx mofu-cli secrets in the repo to check every commit."
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n"),
+            },
+          ],
+          structuredContent: { findings } as unknown as Record<string, unknown>,
+        };
+      }
+      const sol = files.filter((f) => f.path.endsWith(".sol"));
+      if (sol.length === 0) return toolText("Pass Solidity files (paths ending in .sol).", true);
+      const audits = sol.map((f) => auditSolidity(f.path, f.content));
+      c.record("mcp_audit_solidity");
+      const text = audits
+        .map((a) =>
+          [
+            `${a.file} (${a.contracts.join(", ") || "no contract found"}): Mofu's Token Scanner would likely say ${a.verdict}.`,
+            ...a.checks
+              .filter((k) => k.status !== "ok")
+              .map(
+                (k) =>
+                  `- ${k.status}: ${k.label} ${k.detail}${k.lines.length ? ` (line ${k.lines.join(", ")})` : ""}`,
+              ),
+            ...a.issues.map(
+              (i) => `- ${i.severity} issue: ${i.title} at line ${i.line}. ${i.detail}`,
+            ),
+          ].join("\n"),
+        )
+        .join("\n\n");
+      return {
+        content: [{ type: "text", text: `${text}\n\nLimits: ${AUDIT_LIMITS.join(" ")}` }],
+        structuredContent: { files: audits } as unknown as Record<string, unknown>,
+      };
     }
 
     const parsed = DepsArgs.safeParse(args);

@@ -9,6 +9,9 @@ import { createInterface } from "node:readline/promises";
 import pc from "picocolors";
 import {
   auditPath,
+  commitText,
+  writeCommitMessage,
+  writePullRequest,
   createModel,
   defaultBranch,
   execProgram,
@@ -22,7 +25,7 @@ import {
   type SecretFinding,
   type SecretsReport,
 } from "@mofu/core";
-import type { AuditArgs, CiArgs, ReviewArgs, SecretsArgs } from "./args.js";
+import type { AuditArgs, CiArgs, CommitArgs, PrArgs, ReviewArgs, SecretsArgs } from "./args.js";
 import type { Printer } from "./ui.js";
 
 export const EXIT_FOUND = 2;
@@ -448,4 +451,138 @@ export async function runCi(args: CiArgs, printer: Printer): Promise<number> {
   if (args.format === "json") printer.line(JSON.stringify({ ...result, failed }, null, 2));
   else printer.line(ciMarkdown(result, failed));
   return failed.length ? EXIT_FOUND : 0;
+}
+
+// ---------------------------------------------------------------- commit and pr
+
+async function gitOut(args: string[], cwd: string): Promise<string> {
+  const r = await execProgram("git", args, cwd);
+  if (r.code !== 0) throw new Error(r.stderr.trim() || `git ${args[0]} failed`);
+  return r.stdout;
+}
+
+async function withTempFile<T>(text: string, fn: (file: string) => Promise<T>): Promise<T> {
+  const dir = await mkdtemp(path.join(tmpdir(), "mofu-msg-"));
+  const file = path.join(dir, "message.txt");
+  try {
+    await writeFile(file, text);
+    return await fn(file);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+export async function runCommit(
+  args: CommitArgs,
+  printer: Printer,
+  apiKey: string,
+  modelId: string,
+): Promise<number> {
+  const cwd = process.cwd();
+  try {
+    if (args.all) await gitOut(["add", "-A"], cwd);
+    const diff = await gitOut(["diff", "--cached", "--no-color", "--no-ext-diff"], cwd);
+    if (!diff.trim()) {
+      printer.line(
+        pc.yellow("Nothing is staged. Stage files with git add, or run mofu commit --all."),
+      );
+      return 1;
+    }
+    const recent = (await gitOut(["log", "-15", "--format=%s"], cwd).catch(() => ""))
+      .split("\n")
+      .filter(Boolean);
+    printer.line(pc.dim(`Writing a commit message with ${modelId}…`));
+    const msg = await writeCommitMessage(createModel({ apiKey, modelId }), diff, recent);
+    const text = commitText(msg);
+    printer.line("");
+    for (const l of text.split("\n")) printer.line(`  ${l === msg.subject ? pc.bold(l) : l}`);
+    printer.line("");
+    const branch = (await gitOut(["rev-parse", "--abbrev-ref", "HEAD"], cwd)).trim();
+    const onDefault = branch === (await defaultBranch(cwd));
+    const ok =
+      args.yes ||
+      (await confirm(
+        `Commit with this message${onDefault ? ` (on ${branch}, your default branch)` : ""}?`,
+      ));
+    if (!ok) {
+      printer.line(pc.dim("Not committed. Your changes are still staged."));
+      return 0;
+    }
+    await withTempFile(text, (file) => gitOut(["commit", "-F", file], cwd));
+    printer.line(pc.green(`Committed: ${msg.subject}`));
+    return 0;
+  } catch (err) {
+    printer.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+}
+
+export async function runPr(
+  args: PrArgs,
+  printer: Printer,
+  apiKey: string,
+  modelId: string,
+): Promise<number> {
+  const cwd = process.cwd();
+  try {
+    const base = args.base ?? (await defaultBranch(cwd));
+    const branch = (await gitOut(["rev-parse", "--abbrev-ref", "HEAD"], cwd)).trim();
+    if (branch === base) {
+      printer.error(`You're on ${base}. Switch to the branch you want to open a pull request for.`);
+      return 1;
+    }
+    const commits = (await gitOut(["log", "--format=%s", `${base}..HEAD`], cwd))
+      .split("\n")
+      .filter(Boolean);
+    if (commits.length === 0) {
+      printer.line(pc.yellow(`No commits on ${branch} that aren't on ${base} yet.`));
+      return 1;
+    }
+    const diff = await gitOut(["diff", "--no-color", "--no-ext-diff", `${base}...HEAD`], cwd);
+    printer.line(pc.dim(`Writing the pull request with ${modelId}…`));
+    const pr = await writePullRequest(createModel({ apiKey, modelId }), diff, commits);
+    printer.line("");
+    printer.line(pc.bold(pr.title));
+    printer.line("");
+    for (const l of pr.body.split("\n")) printer.line(`  ${l}`);
+    printer.line("");
+    const ok =
+      args.yes ||
+      (await confirm(
+        `Push ${branch} to origin and open a ${args.draft ? "draft " : ""}pull request into ${base}?`,
+      ));
+    if (!ok) {
+      printer.line(pc.dim("Nothing pushed or opened."));
+      return 0;
+    }
+    const push = await execProgram("git", ["push", "-u", "origin", "HEAD"], cwd, 120_000);
+    if (push.code !== 0) throw new Error(`git push failed: ${push.stderr.trim().slice(0, 300)}`);
+    const created = await withTempFile(pr.body, (file) =>
+      execProgram(
+        "gh",
+        [
+          "pr",
+          "create",
+          "--base",
+          base,
+          "--title",
+          pr.title,
+          "--body-file",
+          file,
+          ...(args.draft ? ["--draft"] : []),
+        ],
+        cwd,
+        120_000,
+      ),
+    );
+    if (created.code !== 0)
+      throw new Error(
+        `gh pr create failed: ${created.stderr.trim().slice(0, 300) || "is the GitHub CLI installed and logged in?"}`,
+      );
+    printer.line(pc.green(`Opened: ${created.stdout.trim()}`));
+    return 0;
+  } catch (err) {
+    printer.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
 }

@@ -116,6 +116,18 @@ Follow these steps in order:
 8. Ask whether the user wants a pull request; only call create_pull_request if they say yes.
 9. Finish with a summary: files changed, tests run and their result, the commit hash, and the PR link if there is one.`;
 
+export const FIX_SECTION = `You are running mofu fix: find why a build or test fails and fix the cause, on a separate branch.
+
+Follow these steps in order:
+1. Reproduce: if the user gave a command, run it (run_command, or run_tests for the test command). If they pasted output instead, read it carefully.
+2. Read only the files the failure points at (stack trace, file and line, failing test). Call repo_overview if you need the layout.
+3. Reply with a short diagnosis: the root cause (not just the symptom), the evidence, and the smallest fix you propose. Then stop and wait. Don't change anything until the user accepts.
+4. After the user accepts: check git_status, then git_create_branch.
+5. Make the fix. Don't weaken or delete a test to make it pass; if the test itself is wrong, say so and why before changing it.
+6. Run the same command again. If it still fails, fix the next cause and rerun, at most 3 attempts in total. If it still fails, stop and explain what you found and what's left.
+7. Commit with git_commit, listing only the files you changed.
+8. Finish with a summary: the root cause, files changed, the command's final result and the commit hash.`;
+
 /** Builds the system instructions for a turn. */
 export function buildSystemPrompt(opts: SystemPromptOptions): string {
   const parts = [CORE];

@@ -85,6 +85,19 @@
 
         <section class="devlog-entry">
           <p class="devlog-date">Nov 12, 2026</p>
+          <h2>mofu fix, mofu commit, mofu pr, and builder checks in the browser and MCP</h2>
+          <p>
+            <code>mofu fix --run "npm test"</code> reproduces a failure, explains the root cause,
+            and after you agree fixes it on a branch and reruns the command.
+            <code>mofu commit</code> and <code>mofu pr</code> write the commit message and the pull
+            request for you to approve. The app's Dev Tools can now audit a contract and find
+            secrets right in your browser, and the MCP server has scan_secrets and audit_solidity.
+          </p>
+          <p><a href="/docs/#fix">Read the docs →</a></p>
+        </section>
+
+        <section class="devlog-entry">
+          <p class="devlog-date">Nov 12, 2026</p>
           <h2>For builders: secret scanning, contract checks, AI review, GitHub Action</h2>
           <p>
             <code>mofu secrets</code> finds wallet keys, seed phrases and API tokens in your files

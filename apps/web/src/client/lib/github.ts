@@ -200,16 +200,22 @@ export async function fetchGitHubFiles(
     .map((e) => e.path)
     .slice(0, maxFiles);
   const files: Array<{ path: string; text: string }> = [];
-  for (const path of paths) {
-    const encoded = path.split("/").map(encodeURIComponent).join("/");
-    try {
-      const res = await fetchFn(
-        `https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${encodeURIComponent(branch)}/${encoded}`,
-      );
-      if (res.ok) files.push({ path, text: await res.text() });
-    } catch {
-      // Skip unreadable files; the scan reports what it got.
-    }
+  // A few at a time: raw.githubusercontent.com is quick, but hundreds in a row add up.
+  for (let i = 0; i < paths.length; i += 8) {
+    const batch = await Promise.all(
+      paths.slice(i, i + 8).map(async (path) => {
+        const encoded = path.split("/").map(encodeURIComponent).join("/");
+        try {
+          const res = await fetchFn(
+            `https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${encodeURIComponent(branch)}/${encoded}`,
+          );
+          return res.ok ? { path, text: await res.text() } : null;
+        } catch {
+          return null; // skip unreadable files; the scan reports what it got
+        }
+      }),
+    );
+    for (const f of batch) if (f) files.push(f);
   }
   return { fullName: repo.full_name, branch, files };
 }

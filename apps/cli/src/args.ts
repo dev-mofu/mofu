@@ -7,6 +7,10 @@ export type ChatArgs = {
   initialPrompt?: string;
   /** RepoPilot task mode (plan first, branch, tests, commit). */
   task?: boolean;
+  /** mofu fix: diagnose a failing command, then fix it on a branch. */
+  fix?: boolean;
+  /** mofu fix --log: the file whose contents go into the first message. */
+  fixLog?: string;
   /** Data Analyst: the file to load into the Python sandbox. */
   analyze?: string;
   /** Study Buddy: a PDF, text file or URL, with an optional page range. */
@@ -77,6 +81,9 @@ export type ReviewArgs = {
   json: boolean;
 };
 
+export type CommitArgs = { command: "commit"; model?: string; all: boolean; yes: boolean };
+export type PrArgs = { command: "pr"; model?: string; base?: string; draft: boolean; yes: boolean };
+
 export type CiArgs = {
   command: "ci";
   checks: Array<"deps" | "secrets" | "audit">;
@@ -93,6 +100,8 @@ export type ParsedArgs =
   | SecretsArgs
   | AuditArgs
   | ReviewArgs
+  | CommitArgs
+  | PrArgs
   | CiArgs
   | { command: "version" }
   | { command: "auth" }
@@ -333,6 +342,42 @@ function parseReviewArgs(words: string[], withModel: { model?: string }): Review
   };
 }
 
+const FIX_USAGE =
+  'Usage: mofu fix --run "npm test" | mofu fix --log build.log | mofu fix "<paste the error>"';
+const COMMIT_USAGE = "Usage: mofu commit [--all] [--yes]";
+const PR_USAGE = "Usage: mofu pr [--base main] [--draft] [--yes]";
+
+/** The first message of a mofu fix session. A --log file's contents are added by the caller. */
+export function fixPrompt(o: { run?: string; log?: string; text?: string }): string {
+  const fence = "```";
+  return [
+    "Fix this failing build or test.",
+    o.run ? `Reproduce it by running: ${o.run}` : null,
+    o.log ? `Failure output:\n${fence}\n${o.log}\n${fence}` : null,
+    o.text ? `What the user says:\n${o.text}` : null,
+    o.run
+      ? `When it's fixed, run ${o.run} again to confirm.`
+      : "When it's fixed, run the project's tests to confirm.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function parseFixArgs(words: string[], withModel: { model?: string }): ChatArgs {
+  const { positional, flags } = splitFlags(words, { run: "value", log: "value" }, FIX_USAGE);
+  const text = positional.join(" ").trim();
+  const run = typeof flags.run === "string" ? flags.run : undefined;
+  const log = typeof flags.log === "string" ? flags.log : undefined;
+  if (!run && !log && !text) throw new ArgsError(FIX_USAGE);
+  return {
+    command: "chat",
+    ...withModel,
+    fix: true,
+    initialPrompt: fixPrompt({ ...(run && { run }), ...(text && { text }) }),
+    ...(log && { fixLog: log }),
+  };
+}
+
 function parseCiArgs(words: string[]): CiArgs {
   const { positional, flags } = splitFlags(
     words,
@@ -426,6 +471,27 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (first === "audit") return parseAuditArgs(others);
   if (first === "review") return parseReviewArgs(others, withModel);
   if (first === "ci") return parseCiArgs(others);
+  if (first === "fix") return parseFixArgs(others, withModel);
+  if (first === "commit") {
+    const { positional, flags } = splitFlags(others, { all: "bool", yes: "bool" }, COMMIT_USAGE);
+    if (positional.length) throw new ArgsError(COMMIT_USAGE);
+    return { command: "commit", ...withModel, all: !!flags.all, yes: !!flags.yes };
+  }
+  if (first === "pr") {
+    const { positional, flags } = splitFlags(
+      others,
+      { base: "value", draft: "bool", yes: "bool" },
+      PR_USAGE,
+    );
+    if (positional.length) throw new ArgsError(PR_USAGE);
+    return {
+      command: "pr",
+      ...withModel,
+      ...(typeof flags.base === "string" && { base: flags.base }),
+      draft: !!flags.draft,
+      yes: !!flags.yes,
+    };
+  }
   if (first === "api") return parseApiArgs(others, withModel);
   if (first === "deps") {
     const unknown = others.filter((o) => o !== "--json" && o !== "--fix");
@@ -500,6 +566,11 @@ Usage:
   mofu deps                   Scan dependencies for vulnerabilities and outdated packages
   mofu deps --json            Print the raw scan report as JSON (no AI involved)
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit
+  mofu fix --run "npm test"   Find why a command fails, propose the fix, then fix it on a branch
+    [--log file] ["<error>"]  (or pass a log file, or paste the error)
+  mofu commit [--all] [--yes] Write the commit message for your staged changes, then commit
+  mofu pr [--base main] [--draft] [--yes]
+                              Write the pull request title and description, push, open it (gh)
   mofu review                 AI code review of this branch's changes (one model call)
     [--base main] [--pr 12 [--comment] [--yes]] [--json]
                               --comment posts it to the GitHub PR (asks first; needs gh)

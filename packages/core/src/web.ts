@@ -40,3 +40,9 @@ export * from "./study/index.js";
 // Light APIForge pieces only; the parser, validator and runner are in @mofu/core/apiforge.
 export * from "./api/specs.js";
 export * from "./api/diff.js";
+
+// Builder checks that need no file system: secrets in given text, and the Solidity check.
+export { scanText, scanFiles, redact, IGNORE_MARKER } from "./secrets/text.js";
+export type { FileFinding } from "./secrets/text.js";
+export { auditSolidity, blankCommentsAndStrings, AUDIT_LIMITS } from "./audit/solidity.js";
+export type { AuditCheck, AuditIssue, AuditStatus, FileAudit } from "./audit/solidity.js";

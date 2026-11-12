@@ -23,7 +23,9 @@ export type StatKey =
   | "api_check_wallet"
   | "cli_scan_token"
   | "cli_check_wallet"
-  | "webhook_created";
+  | "webhook_created"
+  | "mcp_scan_secrets"
+  | "mcp_audit_solidity";
 
 export interface Stats {
   add(key: StatKey, n?: number): Promise<void>;

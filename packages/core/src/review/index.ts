@@ -105,14 +105,44 @@ export function reviewPrompt(diff: string, context: { title?: string; descriptio
   return { text: `${head ? `${head}\n\n` : ""}Diff:\n\`\`\`diff\n${body}\n\`\`\``, truncated };
 }
 
+/** Escapes raw control characters inside JSON strings (models sometimes put real newlines there). */
+function escapeControlInStrings(json: string): string {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i]!;
+    if (inString && ch === "\\") {
+      out += ch + (json[i + 1] ?? "");
+      i++;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
+    if (inString && ch < " ")
+      out += ch === "\n" ? "\\n" : ch === "\t" ? "\\t" : ch === "\r" ? "" : " ";
+    else out += ch;
+  }
+  return out;
+}
+
 /** Pulls the JSON object out of a model answer (bare, or in a code fence). */
 export function extractJson(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  const raw = fenced ? fenced[1]! : text;
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("no JSON object in the answer");
-  return JSON.parse(raw.slice(start, end + 1));
+  const candidates: string[] = [];
+  // Whole answer first: a fenced block inside a JSON string (```suggestion) would cut a fence match short.
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) candidates.push(text.slice(start, end + 1));
+  const fenced = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/.exec(text);
+  if (fenced) candidates.push(fenced[1]!);
+  for (const c of candidates) {
+    for (const attempt of [c, escapeControlInStrings(c)]) {
+      try {
+        return JSON.parse(attempt);
+      } catch {
+        // try the next form
+      }
+    }
+  }
+  throw new Error("no JSON object in the answer");
 }
 
 /** Checks a model answer against the diff. Throws when the answer isn't usable at all. */
@@ -186,3 +216,4 @@ export function githubReviewPayload(review: Review, commitId: string) {
     comments: inline.map((f) => ({ path: f.file, line: f.line!, side: "RIGHT", body: text(f) })),
   };
 }
+export * from "./writer.js";
