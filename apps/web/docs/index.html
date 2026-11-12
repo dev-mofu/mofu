@@ -301,6 +301,20 @@ npx mofu-cli          # chat in the current folder</code></pre>
             the sell went through, the buy and sell tax, and on a curve how much ETH came back.
           </p>
           <p>
+            <strong>How deep can you sell?</strong> When the sell works, Mofu also measures how big
+            one sale can be before the price drops 10%. On a launch curve it simulates sells of
+            growing size (from a sliver of the supply up to a fifth of it); on a pool paired with
+            WETH it works it out from the pool's reserves.
+          </p>
+          <p>
+            <strong>Seen this code before?</strong> Scammers redeploy the same honeypot contract
+            under new names. Mofu fingerprints each contract's code (leaving out the compiler's
+            metadata and addresses baked in at deploy time) and remembers which fingerprints
+            belonged to tokens whose simulated sell failed. A new token built from that code is
+            flagged, under any name. A widely used template isn't flagged just because one copy
+            misbehaved: honeypots have to outnumber the copies that sold fine.
+          </p>
+          <p>
             <strong>Is it the real one?</strong> If other tokens Mofu has seen use the same name or
             ticker, the scan lists them and says which came first. Anything that calls itself MOFU
             but isn't the official contract is called out.
@@ -540,6 +554,29 @@ function fromMofu(header, rawBody, secret) {
             seconds and aren't retried. After 20 failed deliveries in a row a webhook is switched
             off (a successful test switches it back on), and it's deleted a week later. Limits: 5
             new webhooks a day per IP, 3 per URL.
+          </p>
+
+          <h3 id="sdk">SDK</h3>
+          <p>
+            <code>mofu-sdk</code> wraps the API for TypeScript and JavaScript, with no dependencies
+            (Node.js 18+, browsers, Workers, Deno, Bun):
+          </p>
+          <pre><code>npm install mofu-sdk
+
+import { Mofu, parseWebhook } from "mofu-sdk";
+
+const mofu = new Mofu();
+const { report } = await mofu.scanToken("0x…");
+const d = await mofu.checkBeforeBuy("0x…", { minSellDepthEth: 0.5 });
+if (!d.allowed) console.log(d.reasons);
+
+// in your webhook handler
+const event = await parseWebhook(signatureHeader, rawBody, secret);</code></pre>
+          <p>
+            <code>checkBeforeBuy</code> applies a buy rule you can tune (verdicts, taxes, a failed
+            or missing sell test, lookalikes, sell depth) and says no when Mofu can't be reached.
+            See the
+            <a href="https://github.com/dev-mofu/mofu/tree/main/packages/sdk">SDK README</a>.
           </p>
 
           <h3>Trading agent template</h3>

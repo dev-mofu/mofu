@@ -174,7 +174,8 @@ export interface TokenCheck {
     | "destroy"
     | "concentration"
     | "sell"
-    | "lookalike";
+    | "lookalike"
+    | "fingerprint";
   label: string;
   status: "ok" | "warn" | "risk" | "info";
   detail: string;
@@ -212,6 +213,13 @@ export interface TokenScanReport {
   sellTest: SellTest | null;
   /** Other tokens Mofu has seen with the same name or ticker. */
   lookalikes: TokenLookalike[];
+  /**
+   * A fingerprint of the contract's code (metadata and embedded addresses left out), so the same
+   * contract deployed again under another name gives the same value. Null for non-contracts.
+   */
+  fingerprint: string | null;
+  /** Other tokens with the same code fingerprint whose simulated sell failed. */
+  codeMatch: CodeMatch | null;
   /** What this scan can't see. */
   limits: string[];
 }
@@ -229,7 +237,32 @@ export interface SellTest {
   sellTaxPercent: number | null;
   /** ETH you'd get back from a small buy sold straight away, 0–100 (curve only; fees and price impact included). */
   roundTripPercent: number | null;
+  /** How big one sale can be before the price drops 10%; null when it couldn't be measured. */
+  depth: SellDepth | null;
   detail: string;
+}
+
+/** Sell depth: the biggest single sale before the price drops 10%. */
+export interface SellDepth {
+  /** "simulated": sells of growing size on the launch curve. "reserves": from a V2 pool's reserves. */
+  method: "simulated" | "reserves";
+  /** ETH that sale returns; null when even the smallest step moved the price more than 10%. */
+  ethAt10Percent: number | null;
+  /** True when every size tried stayed under 10%: the real depth is bigger. */
+  moreThan: boolean;
+  /** Each size tried: share of the supply sold, the ETH it returned and the price drop, 0–100. */
+  steps: Array<{ supplyPercent: number | null; ethOut: number; impactPercent: number }>;
+  detail: string;
+}
+
+/** Same code as tokens that turned out to be honeypots. */
+export interface CodeMatch {
+  /** Tokens with this code whose simulated sell failed. */
+  flagged: number;
+  /** Tokens with this code whose simulated sell passed. */
+  passed: number;
+  /** A few of the flagged ones. */
+  examples: Array<{ address: string; symbol: string | null }>;
 }
 
 export interface TokenLookalike {

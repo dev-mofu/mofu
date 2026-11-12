@@ -2,6 +2,8 @@
  * Public usage counters for mofu.works/stats. Counts only (no addresses, no content), kept in one
  * Durable Object. Recording never blocks or fails a request.
  */
+import type { CodeMatch } from "../shared/api.js";
+
 export type StatKey =
   | "chat_free"
   | "chat_holder"
@@ -51,6 +53,16 @@ export interface TokenIndex {
   rememberTokens(tokens: IndexedToken[]): Promise<void>;
   /** Tokens with the same normalized name or ticker, other than `exclude`. */
   similar(name: string | null, symbol: string | null, exclude: string): Promise<IndexedToken[]>;
+  /** Remembers whether a token with this code fingerprint sold fine in the simulated sell. */
+  noteCode?(fingerprint: string, entry: CodeEntry): Promise<void>;
+  /** Other tokens with this fingerprint: how many failed the sell test, how many passed. */
+  codeMatches?(fingerprint: string, exclude: string): Promise<CodeMatch>;
+}
+
+export interface CodeEntry {
+  address: string;
+  symbol: string | null;
+  outcome: "failed" | "passed";
 }
 
 /** Names compared without case, spaces or symbols: "Mofu Coin" and "MOFUCOIN" match. */

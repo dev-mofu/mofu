@@ -10,6 +10,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import type { TokenCheck, TokenScanReport } from "../shared/api.js";
 import { ethCall, RevertError, rpcCall } from "./chain.js";
 import { tokenOrigin, topHolders, type ChainDataOptions } from "./chain-data.js";
+import { codeFingerprint } from "./fingerprint.js";
 import { sellTest } from "./sell-test.js";
 
 export const CHAIN_NAME = "Robinhood Chain";
@@ -212,9 +213,11 @@ export async function scanToken(
     burnedPercent: null,
     sellTest: null,
     lookalikes: [],
+    fingerprint: codeSize > 0 ? await codeFingerprint(code) : null,
+    codeMatch: null,
     limits: [
       "Checks look for common function names in the contract's code. A contract that hides or renames them can't be fully judged this way.",
-      "Liquidity depth, price and trading activity aren't part of this scan.",
+      "Price and trading activity aren't part of this scan. Liquidity depth is measured only where a sell can be simulated.",
     ],
   };
   const noDistribution = {
@@ -550,6 +553,8 @@ export async function scanToken(
     distribution,
     origin,
     sellTest: sold,
+    // A proxy's own code is the shared proxy template, not the token: no fingerprint for it.
+    fingerprint: proxyKind === "none" ? base.fingerprint : null,
   };
 }
 

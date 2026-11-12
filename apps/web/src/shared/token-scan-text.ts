@@ -37,6 +37,12 @@ export function formatTokenScanForModel(r: TokenScanReport): string {
     ...(r.sellTest
       ? [
           `Sell test (${r.sellTest.method}, simulated, at ${r.sellTest.venue}): ${r.sellTest.status}; buy tax ${r.sellTest.buyTaxPercent ?? "?"}%, sell tax ${r.sellTest.sellTaxPercent ?? "?"}%${r.sellTest.roundTripPercent !== null ? `, round trip returned ${r.sellTest.roundTripPercent}% of the ETH` : ""}.`,
+          ...(r.sellTest.depth ? [r.sellTest.depth.detail] : []),
+        ]
+      : []),
+    ...(r.codeMatch
+      ? [
+          `Code fingerprint ${r.fingerprint}: the same code is used by ${r.codeMatch.flagged} token(s) whose simulated sell failed and ${r.codeMatch.passed} that sold fine. Examples of the failed ones: ${r.codeMatch.examples.map((e) => `${e.address}${e.symbol ? ` (${e.symbol})` : ""}`).join(", ")}.`,
         ]
       : []),
     ...((r.lookalikes ?? []).length

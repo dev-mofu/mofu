@@ -5,6 +5,7 @@
  */
 import type { TokenCheck, TokenLookalike, TokenScanReport } from "../shared/api.js";
 import type { ChainDataOptions } from "./chain-data.js";
+import { withCodeMatch } from "./fingerprint.js";
 import { MOFU_TOKEN } from "./known.js";
 import { normalizeName, type TokenIndex } from "./stats.js";
 
@@ -37,8 +38,19 @@ const verdictOf = (checks: TokenCheck[]): TokenScanReport["verdict"] =>
       ? "caution"
       : "clean";
 
-/** Adds lookalikes and the "Is it the real one?" check to a report. Never throws. */
+/**
+ * Adds what Mofu knows from other scans: lookalikes with the "Is it the real one?" check, and
+ * "Seen this code before?" for code shared with known honeypots. Never throws.
+ */
 export async function withLookalikes(
+  r: TokenScanReport,
+  index: TokenIndex | null,
+  data: ChainDataOptions | undefined,
+): Promise<TokenScanReport> {
+  return withCodeMatch(await lookalikesOnly(r, index, data), index);
+}
+
+async function lookalikesOnly(
   r: TokenScanReport,
   index: TokenIndex | null,
   data: ChainDataOptions | undefined,

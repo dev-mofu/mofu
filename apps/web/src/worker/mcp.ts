@@ -16,7 +16,8 @@ import {
 import { walletReport } from "./wallet.js";
 import { explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import type { AppDeps } from "./app.js";
-import { statsFromEnv, type StatKey } from "./stats.js";
+import { statsFromEnv, tokenIndexFromEnv, type StatKey } from "./stats.js";
+import { withLookalikes } from "./lookalike.js";
 import { parseRpcUrls } from "./chain.js";
 import { isAddress } from "./holder.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
@@ -273,12 +274,22 @@ export function createMcpApp(deps: AppDeps) {
       try {
         const data = chainData(c.env, urls);
         // MCP has no wallet login, so it gets the holder summary, not the full holder report.
+        let index = null;
+        try {
+          index = (deps.getTokenIndex ?? tokenIndexFromEnv)(c.env);
+        } catch {
+          // no index binding
+        }
         const report = summaryOnly(
-          await scanToken(
-            urls,
-            parsed.data.address,
-            deps.fetch,
-            data && { ...data, now: deps.now() },
+          await withLookalikes(
+            await scanToken(
+              urls,
+              parsed.data.address,
+              deps.fetch,
+              data && { ...data, now: deps.now() },
+            ),
+            index,
+            data,
           ),
         );
         c.record("mcp_scan_token");

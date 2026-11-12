@@ -1,0 +1,46 @@
+{
+  "name": "mofu-sdk",
+  "version": "0.1.0",
+  "description": "Robinhood Chain token and wallet checks for agents, bots and scripts: Mofu's Token Scanner, Wallet Health, webhooks and a buy rule.",
+  "license": "MIT",
+  "homepage": "https://mofu.works/docs/#sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-mofu/mofu.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/dev-mofu/mofu/issues"
+  },
+  "keywords": [
+    "robinhood-chain",
+    "token-scanner",
+    "honeypot",
+    "web3",
+    "trading-agent",
+    "webhooks",
+    "security"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "tsc -p tsconfig.build.json"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import type { CodeMatch } from "../shared/api.js";
 import {
+  type CodeEntry,
   nameKeys,
   normalizeName,
   TOKEN_INDEX_MAX,
@@ -73,6 +75,29 @@ export class StatsStore extends DurableObject<Env> implements Stats, TokenIndex 
         if (t.address !== exclude.toLowerCase() && !found.has(t.address)) found.set(t.address, t);
     }
     return [...found.values()].sort((a, b) => a.at - b.at).slice(0, 10);
+  }
+
+  async noteCode(fingerprint: string, entry: CodeEntry): Promise<void> {
+    if (!/^[0-9a-f]{32}$/.test(fingerprint)) return;
+    await this.ctx.storage.put(`code:${fingerprint}:${entry.address.toLowerCase()}`, {
+      ...entry,
+      address: entry.address.toLowerCase(),
+      at: Date.now(),
+    });
+  }
+
+  async codeMatches(fingerprint: string, exclude: string): Promise<CodeMatch> {
+    const rows = await this.ctx.storage.list<CodeEntry>({
+      prefix: `code:${fingerprint}:`,
+      limit: 500,
+    });
+    const others = [...rows.values()].filter((e) => e.address !== exclude.toLowerCase());
+    const failed = others.filter((e) => e.outcome === "failed");
+    return {
+      flagged: failed.length,
+      passed: others.length - failed.length,
+      examples: failed.slice(0, 3).map((e) => ({ address: e.address, symbol: e.symbol })),
+    };
   }
 
   async tokens(limit = TOKEN_INDEX_MAX): Promise<IndexedToken[]> {
