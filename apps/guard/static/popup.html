@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mofu Guard</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon-48.png" alt="" width="32" height="32" />
+      <div>
+        <h1>Mofu Guard</h1>
+        <p>Checks what you sign. Never signs for you.</p>
+      </div>
+    </header>
+    <label class="row">
+      <span>
+        <strong>Protection</strong>
+        <small>Stop risky approvals and permits before your wallet shows them</small>
+      </span>
+      <input type="checkbox" id="protection" />
+    </label>
+    <label class="row">
+      <span>
+        <strong>Hover scan</strong>
+        <small>Hover a contract address on any page to see its scan</small>
+      </span>
+      <input type="checkbox" id="hover" />
+    </label>
+    <form id="scan">
+      <input
+        id="query"
+        placeholder="Token address or tx hash (0x…)"
+        spellcheck="false"
+        autocomplete="off"
+      />
+      <button type="submit">Scan</button>
+    </form>
+    <p id="err" class="err" hidden>
+      Paste a token address (0x + 40) or a transaction hash (0x + 64).
+    </p>
+    <footer>
+      <a href="https://mofu.works/guard/" target="_blank" rel="noopener">mofu.works/guard</a>
+      <span id="version"></span>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

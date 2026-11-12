@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mofu Guard</title>
+    <meta
+      name="description"
+      content="Mofu Guard is a browser extension that checks what your wallet is about to sign and warns about unlimited approvals, permits and likely drainers."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0f0d0e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://mofu.works/guard/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mofu Guard" />
+    <meta property="og:description" content="Check what you sign, before you sign it." />
+    <meta property="og:image" content="https://mofu.works/og-card.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta
+      property="og:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:site_name" content="Mofu" />
+    <meta name="twitter:image" content="https://mofu.works/og-card.png" />
+    <meta
+      name="twitter:image:alt"
+      content="The pixel mascot Mofu next to the words: the AI agent that does the work."
+    />
+    <meta property="og:url" content="https://mofu.works/guard/" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mofu_works" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Pixelify+Sans:wght@400;500;600&display=optional"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+  </head>
+  <body class="docs-page">
+    <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="nav-wrap">
+      <nav class="nav" aria-label="Main">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">Mofu</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/#features">Features</a></li>
+          <li><a href="/docs/#cli">CLI</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-actions">
+          <a class="pill pill--small" href="/app/">Open app</a>
+        </div>
+      </nav>
+    </header>
+
+    <div class="docs docs--single">
+      <main id="content" class="docs-content">
+        <header class="docs-hero">
+          <div>
+            <h1>Mofu Guard</h1>
+            <p>Check what you sign, before you sign it. A free browser extension from Mofu.</p>
+          </div>
+        </header>
+
+        <section>
+          <h2>What it does</h2>
+          <ul>
+            <li>
+              <strong>Stops risky signatures.</strong> When a site asks your wallet to approve
+              tokens, approve a whole NFT collection, sign a permit or a blind signature, Mofu Guard
+              shows what it really does first, in plain English. You choose: don't sign, or continue
+              to your wallet.
+            </li>
+            <li>
+              <strong>Flags the usual drainer moves.</strong> Unlimited approvals, approvals and
+              permits to a plain wallet instead of an app, marketplace orders that ask nothing in
+              return, and blind <code>eth_sign</code> requests.
+            </li>
+            <li>
+              <strong>Checks the contract on Robinhood Chain.</strong> For requests on Robinhood
+              Chain it adds Mofu's Token Scanner verdict: can the token mint, pause, block wallets
+              or change its code? Elsewhere it still decodes the request.
+            </li>
+            <li>
+              <strong>Hover to scan.</strong> Hover a contract address on any page (X, a DEX, a
+              chat) to see its scan, or select one and right-click → Scan with Mofu.
+            </li>
+          </ul>
+          <p>
+            It never holds your keys, never signs anything and never sends a transaction. It only
+            reads and warns.
+          </p>
+        </section>
+
+        <section>
+          <h2>Install</h2>
+          <p>
+            Mofu Guard is on its way to the Chrome Web Store. Until it's listed, you can install the
+            early version by hand in Chrome, Brave or Edge:
+          </p>
+          <ol>
+            <li><a href="/mofu-guard.zip" download>Download mofu-guard.zip</a> and unzip it.</li>
+            <li>
+              Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong> (top
+              right).
+            </li>
+            <li>Choose <strong>Load unpacked</strong> and pick the unzipped folder.</li>
+            <li>Pin Mofu Guard from the puzzle icon so you can reach its switches.</li>
+          </ol>
+          <p>
+            The source is open in the
+            <a href="https://github.com/dev-mofu/mofu/tree/main/apps/guard">Mofu repository</a>, so
+            you can read exactly what it does before you install it.
+          </p>
+        </section>
+
+        <section>
+          <h2>What it sends, and to whom</h2>
+          <ul>
+            <li>
+              Signing requests are decoded inside your browser. Nothing about your wallet, your
+              balance or your history is sent anywhere.
+            </li>
+            <li>
+              For Robinhood Chain requests and hover scans, the contract or spender address being
+              checked is sent to <code>mofu.works</code>, which reads that contract from public
+              Robinhood Chain nodes. Mofu keeps a count of checks per IP address for the day, and
+              caches a result for five minutes.
+            </li>
+            <li>
+              Your two switches (protection and hover scan) are saved in your browser's extension
+              storage.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Limits</h2>
+          <p>
+            Mofu Guard works with wallets that use the standard browser provider (MetaMask, Rabby,
+            Coinbase Wallet and most others). A site that talks to a wallet in an unusual way, or a
+            signature type Mofu doesn't know, may not be caught. It's a second pair of eyes, not a
+            guarantee: always read what your wallet shows before you confirm.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-top">
+        <a class="brand" href="/" aria-label="Mofu home">
+          <canvas
+            data-mascot="ready"
+            data-px="1"
+            width="26"
+            height="24"
+            aria-hidden="true"
+          ></canvas>
+          <span class="wordmark">Mofu</span>
+        </a>
+        <ul class="footer-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/app/">Open app</a></li>
+          <li><a href="/#faq">FAQ</a></li>
+          <li><a href="/privacy/">Privacy policy</a></li>
+          <li><a href="/terms/">Terms</a></li>
+          <li><a href="https://github.com/dev-mofu/mofu">GitHub</a></li>
+          <li><a href="https://x.com/mofu_works">X (@mofu_works)</a></li>
+        </ul>
+      </div>
+      <p class="credits">
+        © <span id="year">2026</span> Mofu contributors. Open source under the MIT License. Data
+        sources are credited at the bottom of the <a href="/">home page</a>. Thank you to arXiv for
+        use of its open access interoperability.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/docs.ts"></script>
+  </body>
+</html>

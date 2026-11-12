@@ -27,6 +27,7 @@ export default defineConfig({
             privacy: path.resolve(import.meta.dirname, "privacy/index.html"),
             terms: path.resolve(import.meta.dirname, "terms/index.html"),
             town: path.resolve(import.meta.dirname, "town/index.html"),
+            guard: path.resolve(import.meta.dirname, "guard/index.html"),
           },
         },
       },

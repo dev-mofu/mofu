@@ -49,6 +49,8 @@
     "SCAN_HOLDER_DAILY": "50",
     // MCP server at /mcp: tool calls a day per IP (scan_token, check_dependencies).
     "MCP_DAILY_LIMIT": "50",
+    // Mofu Guard extension: contract checks a day per IP (each signing prompt and hover scan).
+    "GUARD_DAILY_LIMIT": "500",
     // Mofu Town tower: top holders come from GoldRush; the key is the GOLDRUSH_API_KEY secret.
     "GOLDRUSH_CHAIN": "robinhood-mainnet",
   },

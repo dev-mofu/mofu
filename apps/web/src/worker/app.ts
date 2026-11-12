@@ -677,6 +677,47 @@ export function createApp(deps: AppDeps = defaultDeps) {
     return c.json({ report: view, remaining: usage.remaining, limit } satisfies TokenScanResponse);
   });
 
+  // Mofu Guard (browser extension): a quick, public contract check for one address. No session
+  // (an extension can't solve Turnstile), so it's limited per IP and only runs the light scan.
+  const guardCache = new Map<string, { at: number; body: unknown }>();
+  app.get("/guard/check", async (c) => {
+    const address = (c.req.query("address") ?? "").toLowerCase();
+    if (!isAddress(address))
+      return apiError(c, "bad_request", "Pass ?address=0x… (40 hex characters).");
+    const limit = Math.max(0, Number.parseInt(String(c.env.GUARD_DAILY_LIMIT), 10) || 0);
+    const usage = await deps.getLimiter(c.env).check(clientIp(c), limit, true, "guard");
+    if (!usage.allowed) {
+      return apiError(
+        c,
+        "daily_limit",
+        "Mofu Guard's daily checks from this network are used up.",
+        { resetAt: usage.resetAt, limit },
+      );
+    }
+    const now = deps.now();
+    const hit = guardCache.get(address);
+    if (hit && now - hit.at < 5 * 60 * 1000) return c.json(hit.body);
+    const urls = parseRpcUrls(c.env.HOLDER_RPC_URL);
+    try {
+      const r = await scanToken(urls, address, deps.fetch);
+      const body = {
+        address,
+        isContract: r.isContract,
+        name: r.token.name,
+        symbol: r.token.symbol,
+        verdict: r.verdict,
+        risks: r.checks
+          .filter((k) => k.status !== "ok" && k.status !== "info")
+          .map((k) => k.detail),
+      };
+      guardCache.set(address, { at: now, body });
+      if (guardCache.size > 2000) guardCache.clear();
+      return c.json(body);
+    } catch {
+      return apiError(c, "server_error", "Couldn't reach Robinhood Chain right now.");
+    }
+  });
+
   // Transaction explainer: decodes one Robinhood Chain transaction. No model call.
   const txCache = new Map<string, { report: TxReport; at: number }>();
   app.post("/tx", async (c) => {

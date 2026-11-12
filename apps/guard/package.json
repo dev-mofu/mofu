@@ -1,0 +1,16 @@
+{
+  "name": "@mofu/guard",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Mofu Guard: a browser extension that checks what your wallet is about to sign.",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.7",
+    "esbuild": "^0.28.2"
+  }
+}
