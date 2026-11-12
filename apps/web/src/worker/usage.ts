@@ -7,7 +7,8 @@ export interface UsageState {
 }
 
 /** Separate daily counters: user messages, and automatic tool follow-ups. */
-export type UsageBucket = "messages" | "followups" | "scans" | "mcp" | "guard" | "pages";
+export type UsageBucket =
+  "messages" | "followups" | "scans" | "mcp" | "guard" | "pages" | "webhooks" | "webhook_tests";
 
 export interface UsageResult {
   allowed: boolean;

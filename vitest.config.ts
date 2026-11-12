@@ -11,10 +11,19 @@ export default defineConfig({
       { find: /^@mofu\/core$/, replacement: core("index.ts") },
       { find: /^@mofu\/core\/web$/, replacement: core("web.ts") },
       { find: /^@mofu\/core\/apiforge$/, replacement: core("apiforge.ts") },
+      // Durable Object classes import this runtime module; tests get a small stand-in.
+      {
+        find: /^cloudflare:workers$/,
+        replacement: path.resolve(import.meta.dirname, "apps/web/test/stubs/cloudflare-workers.ts"),
+      },
     ],
   },
   test: {
-    include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],
+    include: [
+      "packages/*/test/**/*.test.ts",
+      "apps/*/test/**/*.test.ts",
+      "examples/*/test/**/*.test.ts",
+    ],
     testTimeout: 15_000,
   },
 });

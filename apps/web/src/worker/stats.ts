@@ -16,7 +16,12 @@ export type StatKey =
   | "holder_connect"
   | "vote_cast"
   | "wallet_check"
-  | "mcp_check_wallet";
+  | "mcp_check_wallet"
+  | "api_scan_token"
+  | "api_check_wallet"
+  | "cli_scan_token"
+  | "cli_check_wallet"
+  | "webhook_created";
 
 export interface Stats {
   add(key: StatKey, n?: number): Promise<void>;

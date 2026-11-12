@@ -32,8 +32,30 @@ export type ApiArgs = {
   yes?: boolean;
 };
 
+/** mofu scan <token> / mofu wallet <address>: Robinhood Chain checks through mofu.works. */
+export type ChainArgs = {
+  command: "scan" | "wallet";
+  address: string;
+  json: boolean;
+  /** Exit with code 2 when the result is at least this bad. */
+  failOn?: "caution" | "risky";
+};
+
+export type WebhookArgs = {
+  command: "webhook";
+  sub: "add" | "status" | "test" | "remove";
+  json: boolean;
+  url?: string;
+  tokens?: string[];
+  events?: string[];
+  id?: string;
+  secret?: string;
+};
+
 export type ParsedArgs =
   | { command: "help" }
+  | ChainArgs
+  | WebhookArgs
   | { command: "version" }
   | { command: "auth" }
   | DepsArgs
@@ -100,6 +122,88 @@ function parseApiArgs(words: string[], withModel: { model?: string }): ApiArgs {
   };
 }
 
+export const isChainArgs = (a: ParsedArgs): a is ChainArgs =>
+  a.command === "scan" || a.command === "wallet";
+
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+
+function parseChainArgs(command: "scan" | "wallet", words: string[]): ChainArgs {
+  const usage = `Usage: mofu ${command} <${command === "scan" ? "token" : "wallet"} address> [--json] [--fail-on caution|risky]`;
+  let json = false;
+  let failOn: ChainArgs["failOn"];
+  const positional: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!;
+    if (w === "--json") json = true;
+    else if (w === "--fail-on" || w.startsWith("--fail-on=")) {
+      const v = w.includes("=") ? w.slice("--fail-on=".length) : words[++i];
+      if (v !== "caution" && v !== "risky")
+        throw new ArgsError("--fail-on takes caution or risky.");
+      failOn = v;
+    } else if (w.startsWith("-")) throw new ArgsError(`Unknown option ${w}. ${usage}`);
+    else positional.push(w);
+  }
+  if (positional.length !== 1) throw new ArgsError(usage);
+  if (!ADDRESS.test(positional[0]!))
+    throw new ArgsError("The address must be 0x followed by 40 hex characters.");
+  return { command, address: positional[0]!.toLowerCase(), json, ...(failOn && { failOn }) };
+}
+
+const WEBHOOK_USAGE = `Usage:
+  mofu webhook add <https-url> <token> [token…] [--events owner_changed,verdict_changed]
+  mofu webhook status <id> [--secret <secret>]
+  mofu webhook test <id> [--secret <secret>]
+  mofu webhook remove <id> [--secret <secret>]`;
+
+function parseWebhookArgs(words: string[]): WebhookArgs {
+  const [sub, ...rest] = words;
+  if (sub !== "add" && sub !== "status" && sub !== "test" && sub !== "remove")
+    throw new ArgsError(WEBHOOK_USAGE);
+  let json = false;
+  let events: string[] | undefined;
+  let secret: string | undefined;
+  const positional: string[] = [];
+  for (let i = 0; i < rest.length; i++) {
+    const w = rest[i]!;
+    const value = (name: string) => {
+      const v = w.includes("=") ? w.slice(name.length + 1) : rest[++i];
+      if (!v) throw new ArgsError(`${name} needs a value.`);
+      return v;
+    };
+    if (w === "--json") json = true;
+    else if (w === "--events" || w.startsWith("--events="))
+      events = value("--events")
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean);
+    else if (w === "--secret" || w.startsWith("--secret=")) secret = value("--secret");
+    else if (w.startsWith("-")) throw new ArgsError(`Unknown option ${w}.\n${WEBHOOK_USAGE}`);
+    else positional.push(w);
+  }
+  if (sub === "add") {
+    const [url, ...tokens] = positional;
+    if (!url || !url.toLowerCase().startsWith("https://") || tokens.length === 0)
+      throw new ArgsError(WEBHOOK_USAGE);
+    if (secret)
+      throw new ArgsError("--secret is for status, test and remove; add creates a new one.");
+    const bad = tokens.filter((t) => !ADDRESS.test(t));
+    if (bad.length) throw new ArgsError(`Not a token address: ${bad.join(", ")}`);
+    if (tokens.length > 10) throw new ArgsError("A webhook can watch up to 10 tokens.");
+    return {
+      command: "webhook",
+      sub,
+      json,
+      url,
+      tokens: tokens.map((t) => t.toLowerCase()),
+      ...(events && { events }),
+    };
+  }
+  if (positional.length !== 1 || !/^wh_[0-9a-f]{24}$/.test(positional[0]!))
+    throw new ArgsError(`mofu webhook ${sub} needs a webhook id (wh_…).\n${WEBHOOK_USAGE}`);
+  if (events) throw new ArgsError("--events only applies to mofu webhook add.");
+  return { command: "webhook", sub, json, id: positional[0]!, ...(secret && { secret }) };
+}
+
 export class ArgsError extends Error {
   override name = "ArgsError";
 }
@@ -143,6 +247,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const tail = others.join(" ").trim();
 
   if (first === "auth" && others.length === 0) return { command: "auth" };
+  if (first === "scan" || first === "wallet") return parseChainArgs(first, others);
+  if (first === "webhook") return parseWebhookArgs(others);
   if (first === "api") return parseApiArgs(others, withModel);
   if (first === "deps") {
     const unknown = others.filter((o) => o !== "--json" && o !== "--fix");
@@ -218,6 +324,16 @@ Usage:
   mofu deps --json            Print the raw scan report as JSON (no AI involved)
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit
   mofu auth                   Save your OpenRouter API key to ~/.mofu/config.json
+
+Robinhood Chain (no API key needed; uses mofu.works):
+  mofu scan <token>           Token Scanner: what the contract allows, sell test, copycats
+  mofu wallet <address>       Wallet Health: every approval (risky ones flagged) and holdings
+    [--json]                  Print the raw report as JSON
+    [--fail-on caution|risky] Exit with code 2 when the result is at least that bad
+  mofu webhook add <url> <token…> [--events a,b]
+                              Get a signed POST when a token's owner, supply, code, pause,
+                              liquidity or verdict changes
+  mofu webhook status|test|remove <id> [--secret s]
 
 Options:
   -m, --model <id>            OpenRouter model ID (default from MOFU_MODEL or config)

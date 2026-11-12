@@ -89,6 +89,7 @@
             <li><a href="#study">Study Buddy</a></li>
             <li><a href="#dev">Dev Tools</a></li>
             <li><a href="#mcp">MCP (AI apps)</a></li>
+            <li><a href="#api">API and webhooks</a></li>
             <li><a href="#cli">The CLI</a></li>
             <li><a href="#cli-coding">Coding tasks</a></li>
             <li><a href="#cli-more">Study, data, deps, APIs</a></li>
@@ -373,7 +374,8 @@ npx mofu-cli          # chat in the current folder</code></pre>
           </ul>
           <p>
             All four are Mofu's own code reading real data, not a model. Your AI app explains the
-            results. Up to 50 tool calls a day per IP address, no account needed.
+            results. Up to 50 tool calls a day per IP address (shared with the
+            <a href="#api">API</a>), no account needed.
           </p>
           <h3>Claude Code</h3>
           <pre><code>claude mcp add --transport http mofu https://mofu.works/mcp</code></pre>
@@ -390,6 +392,166 @@ npx mofu-cli          # chat in the current folder</code></pre>
           <p>
             Then ask, for example: "Scan the token 0x… on Robinhood Chain" or "Check this
             package.json for vulnerabilities".
+          </p>
+        </section>
+
+        <section id="api" data-reveal>
+          <h2>For agents and bots: API, CLI checks and webhooks</h2>
+          <p>
+            The Token Scanner and Wallet Health are also a plain JSON API, so scripts, bots and
+            trading agents can check a token or a wallet before they act. No account and no key.
+            Calls share one allowance with the MCP server: 50 a day per IP address.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Endpoint</th>
+                  <th scope="col">What you get</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>GET /api/v1/token/{address}</code></td>
+                  <td>
+                    The Token Scanner report: verdict (<code>clean</code>, <code>caution</code> or
+                    <code>risky</code>), every check, the sell test, lookalikes
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>GET /api/v1/wallet/{address}</code></td>
+                  <td>Wallet Health: approvals with risk and reasons, holdings</td>
+                </tr>
+                <tr>
+                  <td><code>POST /api/v1/webhooks</code></td>
+                  <td>Watch tokens and get a signed POST when one changes (below)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>curl https://mofu.works/api/v1/token/0xf76593c1c321c2a2f77775025e9677999ce7ea8c</code></pre>
+          <p>
+            Responses carry <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code>.
+            Errors are <code>{ "error": { "code", "message" } }</code> with a matching HTTP status
+            (429 when the day's allowance is used up).
+          </p>
+
+          <h3>In your terminal</h3>
+          <p>The CLI has the same checks. They don't need an OpenRouter key.</p>
+          <pre><code>npx mofu-cli scan 0xTOKEN       # what the contract allows, sell test, copycats
+npx mofu-cli wallet 0xWALLET    # every approval, risky ones flagged, holdings
+npx mofu-cli scan 0xTOKEN --json                 # the raw report, for scripts
+npx mofu-cli scan 0xTOKEN --fail-on risky        # exit code 2 if the verdict is risky</code></pre>
+          <p>
+            <code>--fail-on caution</code> fails on anything that isn't clean. For a wallet,
+            <code>--fail-on risky</code> fails when any approval is risky and
+            <code>caution</code> also when one is unlimited. Exit code 1 means the check couldn't
+            run.
+          </p>
+
+          <h3 id="webhooks">Webhooks</h3>
+          <p>
+            Mofu watches up to 10 tokens per webhook and POSTs JSON to your https URL when one of
+            these happens:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Event</th>
+                  <th scope="col">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>owner_changed</code></td>
+                  <td>The owner address changed, including a renounce</td>
+                </tr>
+                <tr>
+                  <td><code>supply_changed</code></td>
+                  <td>Total supply went up (minted) or down (burned)</td>
+                </tr>
+                <tr>
+                  <td><code>upgraded</code></td>
+                  <td>A proxy's implementation (the code that runs) was swapped</td>
+                </tr>
+                <tr>
+                  <td><code>pause_changed</code></td>
+                  <td>Transfers were paused or unpaused</td>
+                </tr>
+                <tr>
+                  <td><code>liquidity_dropped</code></td>
+                  <td>
+                    ETH on the launch curve, or WETH in the pool, fell 30% or more between two
+                    checks (on a curve this also happens when the token graduates)
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>verdict_changed</code></td>
+                  <td>Mofu's verdict changed, seen on two scans in a row</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Create one with the CLI or the API. Leave out <code>events</code> to get all six.</p>
+          <pre><code>npx mofu-cli webhook add https://your.domain/mofu 0xTOKEN --events owner_changed,liquidity_dropped
+
+curl -X POST https://mofu.works/api/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://your.domain/mofu","tokens":["0xTOKEN"]}'</code></pre>
+          <p>
+            Mofu first sends a <code>ping</code> event and saves the webhook only if your URL
+            answers with a 2xx status. The answer includes the webhook's <code>id</code> and a
+            <code>secret</code> that's shown once. Keep it: it signs every event and it's the only
+            way to manage the webhook (<code>Authorization: Bearer &lt;secret&gt;</code> on
+            <code>GET</code>, <code>DELETE</code> and <code>POST …/test</code>, or
+            <code>mofu webhook status|test|remove</code>).
+          </p>
+          <p>An event looks like this:</p>
+          <pre><code>{
+  "id": "evt_…",
+  "type": "owner_changed",
+  "createdAt": "…",
+  "token": { "address": "0x…", "name": "…", "symbol": "…" },
+  "summary": "$TKN: the owner changed from 0xaaaa…aaaa to 0xbbbb…bbbb.",
+  "before": "0xaaaa…",
+  "after": "0xbbbb…",
+  "report": "https://mofu.works/token/0x…",
+  "webhook": "wh_…"
+}</code></pre>
+          <p>
+            Each request has <code>Mofu-Event</code>, <code>Mofu-Delivery</code> and
+            <code>Mofu-Signature: t=&lt;unix seconds&gt;,v1=&lt;hex&gt;</code>, where
+            <code>v1</code> is HMAC-SHA256 of <code>t + "." + body</code> with your secret. Check
+            it, and reject events whose <code>t</code> is more than a few minutes old:
+          </p>
+          <pre><code>import { createHmac, timingSafeEqual } from "node:crypto";
+
+function fromMofu(header, rawBody, secret) {
+  const { t, v1 } = Object.fromEntries(header.split(",").map((p) => p.split("=")));
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest();
+  const given = Buffer.from(v1 ?? "", "hex");
+  return given.length === expected.length &amp;&amp; timingSafeEqual(given, expected);
+}</code></pre>
+          <p>
+            How often: owner, supply, code, pause and liquidity are read every few minutes. The full
+            scan behind the verdict reruns every few hours per token. Deliveries time out after 5
+            seconds and aren't retried. After 20 failed deliveries in a row a webhook is switched
+            off (a successful test switches it back on), and it's deleted a week later. Limits: 5
+            new webhooks a day per IP, 3 per URL.
+          </p>
+
+          <h3>Trading agent template</h3>
+          <p>
+            <a href="https://github.com/dev-mofu/mofu/tree/main/examples/safe-trading-agent"
+              >examples/safe-trading-agent</a
+            >
+            is a starting point for an agent that asks Mofu before every buy. The check sits inside
+            the buy function, so no strategy (and no AI model calling it as a tool) can skip it. If
+            Mofu can't be reached, the answer is no. It includes a webhook receiver that pauses a
+            token when it changes. Bring your own strategy and wallet code; out of the box it's a
+            dry run.
           </p>
         </section>
 
@@ -578,13 +740,19 @@ npx mofu-cli          # chat in the current folder</code></pre>
                   <td>Token scans</td>
                   <td>10 a day per IP; 50 for $MOFU holders</td>
                   <td>Same as free</td>
-                  <td>Not in the CLI</td>
+                  <td><code>mofu scan</code> uses the API allowance</td>
                 </tr>
                 <tr>
-                  <td>MCP tool calls</td>
-                  <td>50 a day per IP</td>
+                  <td>MCP and API calls</td>
+                  <td>50 a day per IP, shared</td>
                   <td>Same</td>
-                  <td>Not needed</td>
+                  <td>Same (<code>scan</code>, <code>wallet</code>)</td>
+                </tr>
+                <tr>
+                  <td>Webhooks</td>
+                  <td>5 new a day per IP, 10 tokens each</td>
+                  <td>Same</td>
+                  <td>Same</td>
                 </tr>
                 <tr>
                   <td>PDF pages at a time</td>
@@ -629,8 +797,12 @@ npx mofu-cli          # chat in the current folder</code></pre>
               policies apply. Mofu's server doesn't store chats, files or keys.
             </li>
             <li>
-              The server keeps one thing: a daily message count per IP address, deleted after the
-              day resets.
+              The server keeps a daily message count per IP address, deleted after the day resets.
+            </li>
+            <li>
+              If you create a webhook, Mofu stores its URL, the tokens it watches, its secret and
+              delivery counts until you delete it (or a week after it's switched off). Not your IP
+              address.
             </li>
             <li>
               Your browser keeps your settings, your key (if you add one), memory and flashcard

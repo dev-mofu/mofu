@@ -256,6 +256,14 @@
             wallet straight to Robinhood Chain; it doesn't pass through Mofu.
           </p>
           <p>
+            The public API (/api/v1) and <code>mofu scan</code> / <code>mofu wallet</code> in the
+            CLI work the same way, and count toward a daily allowance per IP address that's deleted
+            after the day resets. If you create a webhook, Mofu stores its URL, the token addresses
+            it watches, its signing secret and delivery counts, so it can check those tokens and
+            send events. It's kept until you delete the webhook, or deleted a week after it's
+            switched off for failing. Your IP address isn't stored with it.
+          </p>
+          <p>
             When a scanned contract is a token, its address, name, symbol and result are added to
             the public list at <a href="/token/">mofu.works/token</a> and get their own page. The
             list never shows who scanned a token or when you did. Token pages are cached for about

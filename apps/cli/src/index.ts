@@ -9,9 +9,10 @@ import {
 } from "@mofu/core";
 import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
 import { startAnalysis } from "./analyze.js";
+import { runChain, runWebhook } from "./chain.js";
 import { startStudy, STUDY_SLASH_HELP, type StudySession } from "./study.js";
 import { prepareApi } from "./api.js";
-import { ArgsError, HELP, parseArgs } from "./args.js";
+import { ArgsError, HELP, isChainArgs, parseArgs } from "./args.js";
 import {
   loadConfig,
   memoryPath,
@@ -117,6 +118,9 @@ async function main(): Promise<number> {
     await runAuth();
     return 0;
   }
+  // Robinhood Chain checks go through mofu.works: no key, no model.
+  if (isChainArgs(args)) return runChain(args, new Printer(), version());
+  if (args.command === "webhook") return runWebhook(args, new Printer(), version());
 
   const config = await loadConfig();
   const printer = new Printer();

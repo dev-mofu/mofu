@@ -16,6 +16,8 @@ Use it free at **[mofu.works](https://mofu.works)** (no account), or in your ter
 - **Study Buddy:** summaries at three levels, flashcards with spaced repetition and Anki export, and quizzes, all citing the page.
 - **Dev Tools:** explain a GitHub repository, find vulnerable or deprecated dependencies, generate tests, docs and breaking-change reports from an OpenAPI spec.
 - **In the terminal:** coding tasks on a branch with your tests, dependency upgrades, API test runs. It asks before every change.
+- **Robinhood Chain safety:** the Token Scanner (what a contract allows, a simulated sell, copycats), Wallet Health with one-click revoke, and a transaction explainer, in the web app, in the CLI (`mofu scan`, `mofu wallet`), over MCP and as a JSON API with webhooks.
+- **For trading agents:** [examples/safe-trading-agent](examples/safe-trading-agent) asks Mofu before every buy and refuses what it flags.
 
 ## Quick start
 
@@ -29,6 +31,7 @@ npx mofu-cli                      # chat in the current folder
 npx mofu-cli task "add a --verbose flag"
 npx mofu-cli study notes.pdf
 npx mofu-cli deps
+npx mofu-cli scan 0xTOKEN         # no key needed for chain checks
 ```
 
 Full documentation: the `/docs/` page of the web app ([source](apps/web/docs/index.html)) and the [CLI README](apps/cli/README.md).
@@ -39,6 +42,8 @@ Full documentation: the `/docs/` page of the web app ([source](apps/web/docs/ind
 packages/core   Agent loop, tools, prompts, and the data, study, dependency and API modules
 apps/cli        The `mofu` command (published to npm, bundled with esbuild)
 apps/web        Cloudflare Worker (Hono API) + landing page, docs and React app
+apps/guard      Mofu Guard browser extension
+examples/       The safe trading agent template
 assets/         Screenshots
 apps/web/privacy, apps/web/terms   Privacy policy and terms pages (mofu.works/privacy/, /terms/)
 mascot/         The approved mascot concept

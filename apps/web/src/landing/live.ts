@@ -74,6 +74,17 @@ if (stats) {
               "MCP tool calls",
               "from AI apps like Claude and Cursor",
             ],
+            [
+              nf.format(
+                c("api_scan_token") +
+                  c("api_check_wallet") +
+                  c("cli_scan_token") +
+                  c("cli_check_wallet"),
+              ),
+              "API and CLI checks",
+              "from bots, agents and terminals",
+            ],
+            [nf.format(c("webhook_created")), "Webhooks created"],
           ],
         ],
         [

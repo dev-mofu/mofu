@@ -1,0 +1,14 @@
+{
+  "name": "mofu-safe-trading-agent",
+  "private": true,
+  "description": "A trading agent template that asks Mofu before every buy on Robinhood Chain.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "agent": "node agent.ts",
+    "receiver": "node webhook-receiver.ts"
+  }
+}

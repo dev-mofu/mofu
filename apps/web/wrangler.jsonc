@@ -25,12 +25,14 @@
       { "name": "USAGE_LIMITER", "class_name": "UsageLimiter" },
       { "name": "VOTES", "class_name": "VoteStore" },
       { "name": "STATS", "class_name": "StatsStore" },
+      { "name": "WEBHOOKS", "class_name": "WebhookStore" },
     ],
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["UsageLimiter"] },
     { "tag": "v2", "new_sqlite_classes": ["VoteStore"] },
     { "tag": "v3", "new_sqlite_classes": ["StatsStore"] },
+    { "tag": "v4", "new_sqlite_classes": ["WebhookStore"] },
   ],
   "vars": {
     "DEFAULT_MODEL": "anthropic/claude-haiku-5.5",
@@ -51,12 +53,15 @@
     // Token Scanner: scans a day per IP, and per wallet for $MOFU holders.
     "SCAN_FREE_DAILY": "10",
     "SCAN_HOLDER_DAILY": "50",
-    // MCP server at /mcp: tool calls a day per IP (scan_token, check_dependencies).
+    // MCP server at /mcp and the public API at /api/v1 (and mofu-cli scan/wallet): one shared
+    // allowance of calls a day per IP.
     "MCP_DAILY_LIMIT": "50",
     // Mofu Guard extension: contract checks a day per IP (each signing prompt and hover scan).
     "GUARD_DAILY_LIMIT": "500",
     // Token pages: uncached scans a day per IP (pages are cached for 30 minutes after a scan).
     "PAGE_DAILY_LIMIT": "300",
+    // Webhooks: new webhooks a day per IP (test events get four times this).
+    "WEBHOOK_DAILY_LIMIT": "5",
     // Mofu Town tower: top holders come from GoldRush; the key is the GOLDRUSH_API_KEY secret.
     "GOLDRUSH_CHAIN": "robinhood-mainnet",
   },

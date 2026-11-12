@@ -173,6 +173,32 @@ Mofu reads `package.json` + `package-lock.json` (lockfile v2/v3) and `requiremen
 
 All of that is plain code; the model only explains and prioritizes. Any vulnerability ID or version in its answer that isn't in the scan is flagged in yellow. Without a lockfile, versions are the lowest each range allows and are marked as guesses. Only package names and versions leave your machine.
 
+## Robinhood Chain checks
+
+These don't need an OpenRouter key: they call Mofu's public API at mofu.works (50 calls a day per IP, shared with Mofu's MCP server).
+
+```sh
+mofu scan 0xTOKEN                     # what the contract allows, sell test, copycats
+mofu wallet 0xWALLET                  # every token approval (risky ones flagged) and holdings
+mofu scan 0xTOKEN --json              # the raw report, for scripts and agents
+mofu scan 0xTOKEN --fail-on risky     # exit code 2 when the verdict is risky
+```
+
+`--fail-on caution` fails on anything that isn't clean. For `mofu wallet`, `risky` fails when any approval is risky and `caution` also when one is unlimited. Exit code 1 means the check couldn't run. Revoking an approval happens in your own wallet; the report links to mofu.works where you can do it in one click.
+
+### Webhooks
+
+Get a signed POST when a token you care about changes: the owner moves, the supply changes, the code is upgraded, transfers are paused, liquidity drops 30% or more, or Mofu's verdict flips.
+
+```sh
+mofu webhook add https://your.domain/mofu 0xTOKEN [0xTOKEN…] [--events owner_changed,verdict_changed]
+mofu webhook status wh_…   # with MOFU_WEBHOOK_SECRET set, or --secret
+mofu webhook test wh_…
+mofu webhook remove wh_…
+```
+
+Mofu pings the URL first and only saves the webhook if it answers 2xx. `add` prints a secret once: it verifies the `Mofu-Signature` header on every event and is the only way to manage the webhook. Details and a signature check example: <https://mofu.works/docs/#webhooks>. A trading agent template that uses all of this lives in [examples/safe-trading-agent](https://github.com/dev-mofu/mofu/tree/main/examples/safe-trading-agent).
+
 ## Choosing a model
 
 The model comes from, in order: `--model`, the `MOFU_MODEL` environment variable, `"model"` in `~/.mofu/config.json`, then the default (`anthropic/claude-haiku-5.5`, chosen because it's cheap and reliable with tools). The model must support tool calling. Browse models and prices at <https://openrouter.ai/models>.

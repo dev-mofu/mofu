@@ -85,6 +85,20 @@
 
         <section class="devlog-entry">
           <p class="devlog-date">Nov 12, 2026</p>
+          <h2>For agents: CLI checks, a public API, webhooks and an agent template</h2>
+          <p>
+            <code>npx mofu-cli scan</code> and <code>npx mofu-cli wallet</code> run the Token
+            Scanner and Wallet Health in the terminal, with <code>--json</code> for scripts and
+            <code>--fail-on</code> to stop a pipeline. The same checks are a JSON API at /api/v1.
+            Webhooks watch tokens and send a signed POST when the owner, supply, code, pause state,
+            liquidity or verdict changes. And a trading agent template on GitHub asks Mofu before
+            every buy and refuses what Mofu flags.
+          </p>
+          <p><a href="/docs/#api">Read the docs →</a></p>
+        </section>
+
+        <section class="devlog-entry">
+          <p class="devlog-date">Nov 12, 2026</p>
           <h2>Safety kit: approvals, sell test, deployer history, copycats</h2>
           <p>
             Paste a wallet to see every active token approval, who the spender is and which are
