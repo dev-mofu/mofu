@@ -1,6 +1,6 @@
 {
   "name": "mofu-cli",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "An AI agent in your terminal: coding tasks, code review, secret scanning, Solidity checks, and Robinhood Chain token and wallet checks.",
   "license": "MIT",
   "homepage": "https://mofu.works",
@@ -28,7 +28,10 @@
     "secret-scanning",
     "solidity",
     "code-review",
-    "github-action"
+    "github-action",
+    "ollama",
+    "local-llm",
+    "foundry"
   ],
   "bin": {
     "mofu": "./dist/index.js"
@@ -47,6 +50,7 @@
     "node": ">=22.13"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.80",
     "@cfworker/json-schema": "4.1.1",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "@scalar/openapi-parser": "0.29.16",

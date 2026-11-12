@@ -1,3 +1,4 @@
+import { modelTarget } from "./target.js";
 import { lookup } from "node:dns/promises";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -225,7 +226,7 @@ export async function prepareApi(args: ApiArgs, printer: Printer): Promise<ApiPl
         printer.line();
         try {
           const result = await runTurn({
-            model: createModel({ apiKey, modelId: model }),
+            model: createModel({ apiKey, modelId: model, ...modelTarget() }),
             instructions: buildSystemPrompt({ surface: "cli", modeSection: APIFORGE_SECTION }),
             messages: [
               {

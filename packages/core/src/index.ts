@@ -1,6 +1,6 @@
 export { runTurn, startAgentStream, DEFAULT_LIMITS } from "./agent.js";
 export type { AgentEvent, AgentLimits, RunTurnOptions, TurnResult, TurnUsage } from "./agent.js";
-export { createModel, DEFAULT_MODEL } from "./provider.js";
+export { createModel, DEFAULT_MODEL, DEFAULT_LOCAL_URL, listLocalModels } from "./provider.js";
 export type { ModelOptions } from "./provider.js";
 export { MofuError, toMofuError, redactSecrets } from "./errors.js";
 export type { MofuErrorKind } from "./errors.js";
@@ -44,6 +44,7 @@ export {
 export {
   REPOPILOT_TASK_SECTION,
   FIX_SECTION,
+  DOCS_SECTION,
   DEPS_SUMMARY_SECTION,
   DEPS_FIX_SECTION,
   DATA_SECTION,

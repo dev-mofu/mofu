@@ -24,7 +24,7 @@ Use it free at **[mofu.works](https://mofu.works)** (no account), or in your ter
 
 **Web:** open the app, pick a mode, drop a file. 10 free messages a day, or add your own [OpenRouter](https://openrouter.ai) key in Settings.
 
-**CLI** (Node.js 22.13+ and an OpenRouter key):
+**CLI** (Node.js 22.13+, and an OpenRouter key or a local model with `--local`):
 
 ```sh
 npx mofu-cli auth                 # save your key once

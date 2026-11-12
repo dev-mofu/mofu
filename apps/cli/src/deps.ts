@@ -1,3 +1,4 @@
+import { modelTarget } from "./target.js";
 import pc from "picocolors";
 import {
   buildSystemPrompt,
@@ -98,7 +99,7 @@ export async function summarizeScan(
   printer.line();
   try {
     const result = await runTurn({
-      model: createModel({ apiKey: opts.apiKey, modelId: opts.model }),
+      model: createModel({ apiKey: opts.apiKey, modelId: opts.model, ...modelTarget() }),
       instructions: buildSystemPrompt({ surface: "cli", modeSection: DEPS_SUMMARY_SECTION }),
       messages: [{ role: "user", content: formatScanForModel(report) }],
       tools: {},

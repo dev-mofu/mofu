@@ -822,6 +822,26 @@ npx mofu-cli fix "TypeError: cannot read properties of undefined (reading 'addre
             to three attempts) and commits. It won't weaken a test to make it pass.
           </p>
 
+          <h3>Documentation</h3>
+          <pre><code>npx mofu-cli docs                       # write or update the README
+npx mofu-cli docs "the API reference"</code></pre>
+          <p>
+            Mofu reads the code, proposes an outline and waits. Then it writes the files, and you
+            see each diff before it's saved. Every command, flag and setting it documents has to
+            exist in the code; what it can't find, it asks about instead of guessing.
+          </p>
+
+          <h3 id="launch-kit">Launch kit</h3>
+          <pre><code>npx mofu-cli launch-kit --name "Kitty Coin" --symbol KITTY --supply 1000000000</code></pre>
+          <p>
+            A fixed-supply ERC-20 for Robinhood Chain as a Foundry project: the contract, tests that
+            run with <code>forge test</code> (no libraries to install), and deploy steps that keep
+            your key in Foundry's encrypted keystore. The token has no owner, no mint, no blacklist,
+            no fees and no upgrades, so there's nothing for Mofu's Token Scanner to flag in the code
+            and no ownership to renounce. The kit runs <code>mofu audit</code> on it before you
+            start. It covers the contract only, not liquidity or trading.
+          </p>
+
           <h3>Commit messages and pull requests</h3>
           <pre><code>npx mofu-cli commit            # message for what's staged (--all stages everything)
 npx mofu-cli pr                # title and description, then push and open it with gh
@@ -883,6 +903,19 @@ jobs:
             model comes from <code>--model</code>, then the <code>MOFU_MODEL</code> variable, then
             <code>"model"</code> in <code>~/.mofu/config.json</code>, then the default. Each CLI
             reply ends with a token count.
+          </p>
+          <h3 id="local">Local models</h3>
+          <pre><code>npx mofu-cli --local                         # Ollama at localhost:11434
+npx mofu-cli --local -m qwen2.5-coder task "add a --verbose flag"
+npx mofu-cli --base-url http://localhost:1234/v1   # LM Studio, llama.cpp, vLLM…</code></pre>
+          <p>
+            With <code>--local</code> or <code>--base-url</code> the CLI talks to an
+            OpenAI-compatible server on your machine instead of OpenRouter: no API key, and your
+            code never leaves your computer. Without <code>-m</code> it uses the first model the
+            server lists. Your saved OpenRouter key is never sent to that server.
+            <code>MOFU_BASE_URL</code> and <code>MOFU_LOCAL_MODEL</code> set the same things. Pick a
+            model that supports tool calling (for example Qwen 2.5 Coder or Llama 3.1); small local
+            models are slower and make more mistakes than hosted ones.
           </p>
         </section>
 

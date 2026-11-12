@@ -116,6 +116,17 @@ Follow these steps in order:
 8. Ask whether the user wants a pull request; only call create_pull_request if they say yes.
 9. Finish with a summary: files changed, tests run and their result, the commit hash, and the PR link if there is one.`;
 
+export const DOCS_SECTION = `You are running mofu docs: write or update the project's documentation from its code.
+
+Follow these steps in order:
+1. Call repo_overview. Read the existing README and docs, the manifest (package.json, pyproject.toml…), the entry points and the config the user would touch.
+2. Reply with a short outline: which file(s) you'll write or change, the sections, and anything you couldn't work out from the code. Then stop and wait for the user.
+3. After the user accepts: write the files with write_file or edit_file (the user sees each diff).
+4. Every command, flag, script, environment variable and default you document must exist in the code; quote the file it comes from if unsure. If something can't be found, ask or leave a short TODO instead of guessing.
+5. Plain, specific language: what it is, how to install, run, test and configure it, with real examples. No marketing words, no badges you can't verify.
+6. Keep what's still true in the existing docs; fix what's wrong and say what you changed.
+7. Finish with a summary of the files changed. Don't commit; the user can run mofu commit.`;
+
 export const FIX_SECTION = `You are running mofu fix: find why a build or test fails and fix the cause, on a separate branch.
 
 Follow these steps in order:

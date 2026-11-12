@@ -228,6 +228,25 @@ mofu webhook remove wh_…
 
 Mofu pings the URL first and only saves the webhook if it answers 2xx. `add` prints a secret once: it verifies the `Mofu-Signature` header on every event and is the only way to manage the webhook. Details and a signature check example: <https://mofu.works/docs/#webhooks>. A trading agent template that uses all of this lives in [examples/safe-trading-agent](https://github.com/dev-mofu/mofu/tree/main/examples/safe-trading-agent).
 
+## Local models
+
+```sh
+mofu --local                                   # Ollama at localhost:11434, first model it lists
+mofu --local -m qwen2.5-coder task "add a --verbose flag"
+mofu --base-url http://localhost:1234/v1       # LM Studio or any OpenAI-compatible server
+```
+
+No API key and nothing leaves your machine. Your saved OpenRouter key is never sent to a local server. `MOFU_BASE_URL` and `MOFU_LOCAL_MODEL` do the same as the flags. Use a model with tool calling; small local models are slower and less reliable than hosted ones.
+
+## Docs and a token launch kit
+
+```sh
+mofu docs                                      # write or update the README (outline first, diffs shown)
+mofu launch-kit --name "Kitty Coin" --symbol KITTY --supply 1000000000
+```
+
+`launch-kit` writes a Foundry project with a fixed-supply ERC-20 for Robinhood Chain (no owner, no mint, no blacklist, no fees, no upgrades), tests that run with `forge test`, and deploy steps that keep your key in Foundry's keystore, then runs `mofu audit` on it. No API key needed.
+
 ## Choosing a model
 
 The model comes from, in order: `--model`, the `MOFU_MODEL` environment variable, `"model"` in `~/.mofu/config.json`, then the default (`anthropic/claude-haiku-5.5`, chosen because it's cheap and reliable with tools). The model must support tool calling. Browse models and prices at <https://openrouter.ai/models>.

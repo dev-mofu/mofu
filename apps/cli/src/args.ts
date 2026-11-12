@@ -11,6 +11,8 @@ export type ChatArgs = {
   fix?: boolean;
   /** mofu fix --log: the file whose contents go into the first message. */
   fixLog?: string;
+  /** mofu docs: write or update documentation from the code. */
+  docs?: boolean;
   /** Data Analyst: the file to load into the Python sandbox. */
   analyze?: string;
   /** Study Buddy: a PDF, text file or URL, with an optional page range. */
@@ -81,6 +83,14 @@ export type ReviewArgs = {
   json: boolean;
 };
 
+export type LaunchKitArgs = {
+  command: "launch-kit";
+  dir?: string;
+  name: string;
+  symbol: string;
+  supply: string;
+};
+
 export type CommitArgs = { command: "commit"; model?: string; all: boolean; yes: boolean };
 export type PrArgs = { command: "pr"; model?: string; base?: string; draft: boolean; yes: boolean };
 
@@ -102,6 +112,7 @@ export type ParsedArgs =
   | ReviewArgs
   | CommitArgs
   | PrArgs
+  | LaunchKitArgs
   | CiArgs
   | { command: "version" }
   | { command: "auth" }
@@ -422,6 +433,38 @@ function parseCiArgs(words: string[]): CiArgs {
   };
 }
 
+/**
+ * Pulls the global model-target flags out of argv: --local (Ollama at localhost:11434, or
+ * MOFU_BASE_URL) and --base-url <url> (any OpenAI-compatible server).
+ */
+export function extractTarget(argv: string[]): {
+  argv: string[];
+  local: boolean;
+  baseUrl?: string;
+} {
+  const rest: string[] = [];
+  let local = false;
+  let baseUrl: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (a === "--local") local = true;
+    else if (a === "--base-url" || a.startsWith("--base-url=")) {
+      // mofu api test has its own --base-url (the server under test): leave that one alone.
+      if (argv[0] === "api") {
+        rest.push(a);
+        continue;
+      }
+      const v = a.includes("=") ? a.slice("--base-url=".length) : argv[++i];
+      if (!v || !/^https?:\/\/[^/]/i.test(v))
+        throw new ArgsError(
+          "--base-url needs an http(s) URL, e.g. --base-url http://localhost:1234/v1",
+        );
+      baseUrl = v;
+    } else rest.push(a);
+  }
+  return { argv: rest, local, ...(baseUrl && { baseUrl }) };
+}
+
 export class ArgsError extends Error {
   override name = "ArgsError";
 }
@@ -472,6 +515,33 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (first === "review") return parseReviewArgs(others, withModel);
   if (first === "ci") return parseCiArgs(others);
   if (first === "fix") return parseFixArgs(others, withModel);
+  if (first === "docs") {
+    const what = tail || "the README";
+    return {
+      command: "chat",
+      ...withModel,
+      docs: true,
+      initialPrompt: `Write or update the documentation: ${what}. Start with the outline and wait for me.`,
+    };
+  }
+  if (first === "launch-kit") {
+    const usage =
+      'Usage: mofu launch-kit [folder] --name "My Token" --symbol MTK --supply 1000000000';
+    const { positional, flags } = splitFlags(
+      others,
+      { name: "value", symbol: "value", supply: "value" },
+      usage,
+    );
+    if (positional.length > 1 || !flags.name || !flags.symbol || !flags.supply)
+      throw new ArgsError(usage);
+    return {
+      command: "launch-kit",
+      ...(positional[0] && { dir: positional[0] }),
+      name: String(flags.name),
+      symbol: String(flags.symbol),
+      supply: String(flags.supply),
+    };
+  }
   if (first === "commit") {
     const { positional, flags } = splitFlags(others, { all: "bool", yes: "bool" }, COMMIT_USAGE);
     if (positional.length) throw new ArgsError(COMMIT_USAGE);
@@ -568,6 +638,10 @@ Usage:
   mofu deps --fix             Pick upgrades to apply on a branch, run tests, commit
   mofu fix --run "npm test"   Find why a command fails, propose the fix, then fix it on a branch
     [--log file] ["<error>"]  (or pass a log file, or paste the error)
+  mofu docs ["what"]          Write or update the README (or other docs) from the code
+  mofu launch-kit [folder] --name "My Token" --symbol MTK --supply 1000000000
+                              A clean fixed-supply token for Robinhood Chain: Foundry project,
+                              tests, deploy steps, checked with mofu audit (no key needed)
   mofu commit [--all] [--yes] Write the commit message for your staged changes, then commit
   mofu pr [--base main] [--draft] [--yes]
                               Write the pull request title and description, push, open it (gh)
@@ -596,6 +670,9 @@ Robinhood Chain (no API key needed; uses mofu.works):
 
 Options:
   -m, --model <id>            OpenRouter model ID (default from MOFU_MODEL or config)
+  --local                     Use a model on your machine (Ollama at localhost:11434, or
+                              MOFU_BASE_URL): no API key, nothing leaves your computer
+  --base-url <url>            Any OpenAI-compatible server, e.g. LM Studio http://localhost:1234/v1
   -h, --help                  Show this help
   -v, --version               Show the version
 

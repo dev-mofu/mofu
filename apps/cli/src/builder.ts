@@ -2,6 +2,7 @@
  * Builder tools: `mofu secrets`, `mofu audit`, `mofu review` and `mofu ci` (what the GitHub
  * Action runs). Secrets, audit and ci are deterministic; review makes one model call.
  */
+import { modelTarget } from "./target.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -251,7 +252,7 @@ export async function runReview(
       return 0;
     }
     if (!args.json) printer.line(pc.dim(`Reviewing ${d.label} with ${modelId}…`));
-    const review = await reviewDiff(createModel({ apiKey, modelId }), d.diff, {
+    const review = await reviewDiff(createModel({ apiKey, modelId, ...modelTarget() }), d.diff, {
       ...(d.title && { title: d.title }),
       ...(d.description && { description: d.description }),
     });
@@ -492,7 +493,11 @@ export async function runCommit(
       .split("\n")
       .filter(Boolean);
     printer.line(pc.dim(`Writing a commit message with ${modelId}…`));
-    const msg = await writeCommitMessage(createModel({ apiKey, modelId }), diff, recent);
+    const msg = await writeCommitMessage(
+      createModel({ apiKey, modelId, ...modelTarget() }),
+      diff,
+      recent,
+    );
     const text = commitText(msg);
     printer.line("");
     for (const l of text.split("\n")) printer.line(`  ${l === msg.subject ? pc.bold(l) : l}`);
@@ -540,7 +545,11 @@ export async function runPr(
     }
     const diff = await gitOut(["diff", "--no-color", "--no-ext-diff", `${base}...HEAD`], cwd);
     printer.line(pc.dim(`Writing the pull request with ${modelId}…`));
-    const pr = await writePullRequest(createModel({ apiKey, modelId }), diff, commits);
+    const pr = await writePullRequest(
+      createModel({ apiKey, modelId, ...modelTarget() }),
+      diff,
+      commits,
+    );
     printer.line("");
     printer.line(pc.bold(pr.title));
     printer.line("");

@@ -7,6 +7,8 @@ import {
   FileMemoryStore,
   REPOPILOT_TASK_SECTION,
   FIX_SECTION,
+  DOCS_SECTION,
+  DEFAULT_LOCAL_URL,
   type ScanReport,
 } from "@mofu/core";
 import { fixPrompt, printScanReport, scanCurrentDirectory, summarizeScan } from "./deps.js";
@@ -15,7 +17,9 @@ import { runChain, runWebhook } from "./chain.js";
 import { runAudit, runCi, runCommit, runPr, runReview, runSecrets } from "./builder.js";
 import { startStudy, STUDY_SLASH_HELP, type StudySession } from "./study.js";
 import { prepareApi } from "./api.js";
-import { ArgsError, HELP, isChainArgs, parseArgs } from "./args.js";
+import { ArgsError, extractTarget, HELP, isChainArgs, parseArgs } from "./args.js";
+import { pickLocalModel, setModelTarget } from "./target.js";
+import { runLaunchKit } from "./launchkit.js";
 import {
   loadConfig,
   memoryPath,
@@ -108,7 +112,8 @@ async function handleSlash(
 }
 
 async function main(): Promise<number> {
-  const args = parseArgs(process.argv.slice(2));
+  const target = extractTarget(process.argv.slice(2));
+  const args = parseArgs(target.argv);
   if (args.command === "help") {
     console.log(HELP);
     return 0;
@@ -128,6 +133,7 @@ async function main(): Promise<number> {
   if (args.command === "secrets") return runSecrets(args, new Printer());
   if (args.command === "audit") return runAudit(args, new Printer());
   if (args.command === "ci") return runCi(args, new Printer());
+  if (args.command === "launch-kit") return runLaunchKit(args, new Printer());
 
   const config = await loadConfig();
   const printer = new Printer();
@@ -145,12 +151,34 @@ async function main(): Promise<number> {
     if (depsReport.findings.length === 0) return 0;
   }
 
-  const apiKey = resolveApiKey(process.env, config);
-  if (!apiKey) {
-    console.error("No OpenRouter API key. Run `mofu auth` or set OPENROUTER_API_KEY.");
-    return 1;
+  // A local or other OpenAI-compatible server instead of OpenRouter: --local, --base-url, MOFU_BASE_URL.
+  const baseURL =
+    target.baseUrl ??
+    (target.local ? (process.env.MOFU_BASE_URL ?? DEFAULT_LOCAL_URL) : process.env.MOFU_BASE_URL);
+  let apiKey: string;
+  let model: string;
+  if (baseURL) {
+    setModelTarget(baseURL);
+    // Never send the saved OpenRouter key to another server.
+    apiKey = process.env.MOFU_LOCAL_API_KEY ?? "local";
+    const picked = await pickLocalModel(baseURL, args.model ?? process.env.MOFU_LOCAL_MODEL);
+    if ("error" in picked) {
+      console.error(picked.error);
+      return 1;
+    }
+    model = picked.model;
+    printer.line(pc.dim(`Local model ${model} at ${baseURL}. Nothing goes to OpenRouter.`));
+  } else {
+    const key = resolveApiKey(process.env, config);
+    if (!key) {
+      console.error(
+        "No OpenRouter API key. Run `mofu auth`, set OPENROUTER_API_KEY, or use a local model with `mofu --local`.",
+      );
+      return 1;
+    }
+    apiKey = key;
+    model = resolveModel(args.model, process.env, config);
   }
-  const model = resolveModel(args.model, process.env, config);
   if (args.command === "review") return runReview(args, printer, apiKey, model);
   if (args.command === "commit") return runCommit(args, printer, apiKey, model);
   if (args.command === "pr") return runPr(args, printer, apiKey, model);
@@ -201,12 +229,14 @@ async function main(): Promise<number> {
                 prompt: args.prompt,
                 initialPrompt,
                 // Coding tasks need room for edits, test runs and fixes in one turn.
-                modeSection: args.fix
-                  ? FIX_SECTION
-                  : args.task
-                    ? REPOPILOT_TASK_SECTION
-                    : undefined,
-                maxSteps: args.task || args.fix ? 40 : 20,
+                modeSection: args.docs
+                  ? DOCS_SECTION
+                  : args.fix
+                    ? FIX_SECTION
+                    : args.task
+                      ? REPOPILOT_TASK_SECTION
+                      : undefined,
+                maxSteps: args.task || args.fix || args.docs ? 40 : 20,
               };
 
   const terminal = new Terminal();

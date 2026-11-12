@@ -28,6 +28,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.80",
     "@cfworker/json-schema": "4.1.1",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "@scalar/openapi-parser": "0.29.16",

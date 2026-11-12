@@ -1,3 +1,4 @@
+import { modelTarget } from "./target.js";
 import pc from "picocolors";
 import {
   buildSystemPrompt,
@@ -126,7 +127,7 @@ export class ChatSession {
     this.current = new AbortController();
     try {
       const result = await runTurn({
-        model: createModel({ apiKey: this.opts.apiKey, modelId: this.model }),
+        model: createModel({ apiKey: this.opts.apiKey, modelId: this.model, ...modelTarget() }),
         instructions,
         messages: history,
         tools: this.tools,
