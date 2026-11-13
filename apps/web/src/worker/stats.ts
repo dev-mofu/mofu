@@ -12,6 +12,7 @@ export type StatKey =
   | "tx_explain"
   | "guard_check"
   | "guard_stopped"
+  | "guard_preview"
   | "mcp_scan_token"
   | "mcp_check_dependencies"
   | "mcp_explain_transaction"

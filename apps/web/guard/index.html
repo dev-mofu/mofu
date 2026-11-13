@@ -93,6 +93,14 @@
               to your wallet.
             </li>
             <li>
+              <strong>Previews the result before you sign.</strong> On Robinhood Chain, Mofu
+              simulates the transaction first and shows what leaves your wallet and what comes back:
+              "− 0.5 ETH, + 1,200,000 PEPU". It stops you when the transaction would fail, when
+              you'd give something and get nothing back, or when it quietly sets an approval the
+              request doesn't show. Turn off the preview for ordinary calls in the extension's
+              switches; risky ones are always shown.
+            </li>
+            <li>
               <strong>Flags the usual drainer moves.</strong> Unlimited approvals, approvals and
               permits to a plain wallet instead of an app, marketplace orders that ask nothing in
               return, and blind <code>eth_sign</code> requests.
@@ -160,6 +168,12 @@
               caches a result for five minutes.
             </li>
             <li>
+              For the transaction preview, the transaction itself (your address, the contract, the
+              amount of ETH and the call data) is sent to <code>mofu.works</code>, which simulates
+              it on public Robinhood Chain nodes and sends back the result. Nothing is stored and
+              nothing is sent to the chain. Only for Robinhood Chain transactions.
+            </li>
+            <li>
               When you choose Don't sign on a warning, the extension adds one to a public counter on
               <a href="/stats/">mofu.works/stats</a>. Nothing about the request, the site or your
               wallet is sent with it.
@@ -185,8 +199,10 @@
           <p>
             Mofu Guard works with wallets that use the standard browser provider (MetaMask, Rabby,
             Coinbase Wallet and most others). A site that talks to a wallet in an unusual way, or a
-            signature type Mofu doesn't know, may not be caught. It's a second pair of eyes, not a
-            guarantee: always read what your wallet shows before you confirm.
+            signature type Mofu doesn't know, may not be caught. A preview is a simulation of the
+            chain right now: prices and balances can change before the real transaction lands. It's
+            a second pair of eyes, not a guarantee: always read what your wallet shows before you
+            confirm.
           </p>
         </section>
       </main>

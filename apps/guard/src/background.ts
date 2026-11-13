@@ -1,11 +1,13 @@
 /**
  * Background service worker: analyzes signing requests (decode locally, then add Robinhood Chain
  * checks from mofu.works), answers hover scans, and adds "Scan with Mofu" to the context menu.
- * Nothing about the user's wallet is stored; only addresses being checked are sent to Mofu.
+ * Nothing about the user's wallet is stored. Sent to Mofu: addresses being checked, and on
+ * Robinhood Chain the transaction itself (from, to, value, data) so it can be simulated.
  */
 import { analyzeRequest, enrich, ROBINHOOD_CHAIN_ID, type Analysis } from "./decode.js";
 import { rememberRecipients, withPoisonCheck } from "./lookalike.js";
 import { API, type ScanSummary } from "./messages.js";
+import { judgePreview, previewRequest, type TxPreview } from "./preview.js";
 
 const cache = new Map<string, { at: number; value: ScanSummary | null }>();
 const TTL = 5 * 60 * 1000;
@@ -39,11 +41,36 @@ async function recipients(): Promise<string[]> {
   return Array.isArray(s.recipients) ? (s.recipients as string[]) : [];
 }
 
+/** Mofu's simulation of the transaction on Robinhood Chain; null when it can't be had in time. */
+async function simulate(method: string, params: unknown[]): Promise<TxPreview | null> {
+  const body = previewRequest(method, params);
+  if (!body) return null;
+  const base = await apiBase();
+  const started = Date.now();
+  // One retry when the first try fails fast (a busy RPC); the wallet never waits more than ~7 s.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`${base}/api/guard/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(attempt === 0 ? 4500 : 2500),
+      });
+      if (res.ok) return (await res.json()) as TxPreview;
+      if (res.status < 500) return null;
+    } catch {
+      // timeout or network: try again if there's time
+    }
+    if (Date.now() - started > 4500) return null;
+  }
+  return null;
+}
+
 async function analyze(
   method: string,
   params: unknown[],
   chainId: string | null,
-): Promise<Analysis[]> {
+): Promise<{ analyses: Analysis[]; preview: TxPreview | null }> {
   const from = (params[0] as { from?: unknown } | undefined)?.from;
   const known = {
     recipients: await recipients(),
@@ -51,7 +78,26 @@ async function analyze(
   };
   const analyses = analyzeRequest(method, params).map((a) => withPoisonCheck(a, known));
   const chain = chainId ? Number.parseInt(chainId, 16) : NaN;
-  if (chain !== ROBINHOOD_CHAIN_ID) return analyses;
+  if (chain !== ROBINHOOD_CHAIN_ID) return { analyses, preview: null };
+  const [checked, preview] = await Promise.all([checkAll(analyses), simulate(method, params)]);
+  if (!preview || checked.length === 0) return { analyses: checked, preview };
+  // The preview's own findings ride on the first action.
+  const judged = judgePreview(checked, preview);
+  const [first, ...rest] = checked;
+  return {
+    analyses: [
+      {
+        ...first!,
+        findings: [...judged.findings, ...first!.findings],
+        prompt: first!.prompt || judged.prompt,
+      },
+      ...rest,
+    ],
+    preview,
+  };
+}
+
+function checkAll(analyses: Analysis[]): Promise<Analysis[]> {
   return Promise.all(
     analyses.map(async (a) => {
       if (!a.token && !a.spender) return a;
@@ -70,9 +116,12 @@ async function analyze(
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "analyze") {
     analyze(String(msg.method), Array.isArray(msg.params) ? msg.params : [], msg.chainId ?? null)
-      .then((analyses) => sendResponse({ analyses }))
+      .then((result) => sendResponse(result))
       .catch(() =>
-        sendResponse({ analyses: analyzeRequest(String(msg.method), msg.params ?? []) }),
+        sendResponse({
+          analyses: analyzeRequest(String(msg.method), msg.params ?? []),
+          preview: null,
+        }),
       );
     return true;
   }

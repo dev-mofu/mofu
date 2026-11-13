@@ -264,6 +264,40 @@ export interface SellDepth {
   detail: string;
 }
 
+/** One thing that moves in or out of the sender's wallet in a simulated transaction. */
+export interface PreviewChange {
+  /** Token or collection contract; 0xeeee…eeee for ETH. */
+  asset: string;
+  kind: "eth" | "token" | "nft";
+  symbol: string | null;
+  direction: "in" | "out";
+  /** Human amount, already scaled by decimals ("1" for one NFT). */
+  amount: string;
+  tokenId: string | null;
+}
+
+/** An approval the transaction sets (or clears) for the sender. */
+export interface PreviewApproval {
+  token: string;
+  symbol: string | null;
+  spender: string;
+  kind: "token" | "nft";
+  revoke: boolean;
+  unlimited: boolean;
+  /** "unlimited", a human amount, "every item", "item #12" or "0". */
+  amount: string;
+}
+
+/** Mofu Guard's transaction preview: simulated on Robinhood Chain, nothing sent. */
+export interface TxPreview {
+  status: "ok" | "reverted";
+  error: string | null;
+  /** Which call of a batch failed first (0-based), when one did. */
+  failedCall: number | null;
+  changes: PreviewChange[];
+  approvals: PreviewApproval[];
+}
+
 /** Where a token's liquidity sits and who could take it out. */
 export interface LiquidityInfo {
   /**

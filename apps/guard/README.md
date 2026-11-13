@@ -9,10 +9,15 @@ A browser extension that checks what your wallet is about to sign, before you si
   nothing in return.
 - **Checks Robinhood Chain contracts** with Mofu's Token Scanner (mint, pause, blacklist, fees,
   upgrades, owner).
+- **Previews the result** of a Robinhood Chain transaction before the wallet opens: what leaves
+  the wallet and what comes back, simulated on mofu.works. It stops when the transaction would
+  fail, when you'd give something and get nothing back, or when it sets an approval the request
+  doesn't show.
 - **Hover to scan** any contract address on a page, or right-click a selection → Scan with Mofu.
 
-It never holds keys, never signs and never sends transactions. Only addresses being checked on
-Robinhood Chain are sent to `mofu.works`.
+It never holds keys, never signs and never sends transactions. Sent to `mofu.works`: addresses
+being checked on Robinhood Chain, and for the preview the Robinhood Chain transaction itself
+(nothing is stored).
 
 ## Build
 
@@ -32,4 +37,5 @@ Load it in Chrome: `chrome://extensions` → Developer mode → Load unpacked �
   for the panel; everything else goes straight through.
 - `src/content.ts` shows the panel and the hover tooltip inside a closed shadow root.
 - `src/background.ts` decodes the request (`src/decode.ts`) and, on Robinhood Chain, adds checks
-  from `GET https://mofu.works/api/guard/check?address=0x…`.
+  from `GET https://mofu.works/api/guard/check?address=0x…` and a simulation from
+  `POST https://mofu.works/api/guard/preview` (`src/preview.ts` reads it).

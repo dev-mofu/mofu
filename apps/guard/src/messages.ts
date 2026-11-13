@@ -7,6 +7,8 @@ export interface GuardSettings {
   hover: boolean;
   /** Verdict labels next to contract addresses in posts on X. */
   xLabels: boolean;
+  /** Show the simulated result of every contract call on Robinhood Chain, not only risky ones. */
+  preview: boolean;
 }
 
 /** What Mofu's /api/guard/check returns for one address (Robinhood Chain). */

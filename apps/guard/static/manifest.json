@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Mofu Guard",
   "short_name": "Mofu Guard",
-  "version": "0.2.0",
-  "description": "Checks what your wallet is about to sign, catches lookalike addresses, and labels contract addresses on X with Mofu's verdict.",
+  "version": "0.3.0",
+  "description": "Previews what a transaction sends and receives before you sign, catches lookalike addresses, and labels contract addresses on X.",
   "homepage_url": "https://mofu.works/guard/",
   "icons": {
     "16": "icons/icon-16.png",

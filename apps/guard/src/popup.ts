@@ -1,14 +1,16 @@
-/** Toolbar popup: protection and hover switches, and a quick scan box. */
+/** Toolbar popup: protection, preview, hover and X-label switches, and a quick scan box. */
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const protection = $<HTMLInputElement>("protection");
 const hover = $<HTMLInputElement>("hover");
 const xLabels = $<HTMLInputElement>("xlabels");
+const preview = $<HTMLInputElement>("preview");
 const form = $<HTMLFormElement>("scan");
 const input = $<HTMLInputElement>("query");
 const err = $<HTMLParagraphElement>("err");
 
-chrome.storage.sync.get(["protection", "hover", "xLabels"]).then((s) => {
+chrome.storage.sync.get(["protection", "hover", "xLabels", "preview"]).then((s) => {
+  preview.checked = s.preview !== false;
   protection.checked = s.protection !== false;
   hover.checked = s.hover !== false;
   xLabels.checked = s.xLabels !== false;
@@ -20,6 +22,10 @@ xLabels.addEventListener(
 protection.addEventListener(
   "change",
   () => void chrome.storage.sync.set({ protection: protection.checked }),
+);
+preview.addEventListener(
+  "change",
+  () => void chrome.storage.sync.set({ preview: preview.checked }),
 );
 hover.addEventListener("change", () => void chrome.storage.sync.set({ hover: hover.checked }));
 

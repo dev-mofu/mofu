@@ -7,22 +7,25 @@ import type { Analysis, Finding } from "./decode.js";
 import { sentTo } from "./lookalike.js";
 import { isX, startXLabels } from "./xlabels.js";
 import type { GuardSettings, ScanSummary } from "./messages.js";
+import { changeText, type TxPreview } from "./preview.js";
 
 const IN = "mofu-guard:inpage";
 const OUT = "mofu-guard:content";
 
-let settings: GuardSettings = { protection: true, hover: true, xLabels: true };
-chrome.storage.sync.get(["protection", "hover", "xLabels"]).then((s) => {
+let settings: GuardSettings = { protection: true, hover: true, xLabels: true, preview: true };
+chrome.storage.sync.get(["protection", "hover", "xLabels", "preview"]).then((s) => {
   settings = {
     protection: s.protection !== false,
     hover: s.hover !== false,
     xLabels: s.xLabels !== false,
+    preview: s.preview !== false,
   };
 });
 chrome.storage.onChanged.addListener((c) => {
   if (c.protection) settings.protection = c.protection.newValue !== false;
   if (c.hover) settings.hover = c.hover.newValue !== false;
   if (c.xLabels) settings.xLabels = c.xLabels.newValue !== false;
+  if (c.preview) settings.preview = c.preview.newValue !== false;
 });
 
 // ---------------------------------------------------------------- shadow root for our UI
@@ -62,6 +65,12 @@ style.textContent = `
   .safe .go { background: #f6f1f3; color: #141112; border: 0; }
   .foot { margin-top: 12px; font-size: 12px; color: #8f878b; }
   .foot a { color: #ff8fc0; }
+  .preview { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: #120e11; border: 1px solid #3a2c33; }
+  .ptitle { margin: 0 0 6px; font-family: "VT323", ui-monospace, monospace; font-size: 17px; letter-spacing: 2px; color: #b48cff; }
+  .changes { margin: 0; gap: 4px; }
+  .changes li { display: block; font-size: 15px; font-weight: 700; }
+  .changes .out { color: #ff8a80; } .changes .in { color: #5bd394; } .changes .none { color: #a8a0a3; font-weight: 500; }
+  .pnote { margin: 6px 0 0; font-size: 11.5px; color: #8f878b; }
   .tip { position: fixed; width: 290px; background: #1a1418; color: #f4f0f1; border: 1.5px solid #ff4f9a;
     border-radius: 14px; padding: 10px 12px; font-size: 13px; line-height: 1.4; box-shadow: 0 10px 40px rgba(0,0,0,.5);
     pointer-events: auto; }
@@ -76,7 +85,12 @@ const mount = () => {
 // ---------------------------------------------------------------- signing panel
 const ICON: Record<Finding["level"], string> = { risk: "✕", warn: "!", ok: "✓", info: "i" };
 
-function panel(analyses: Analysis[], origin: string, loading: boolean): Promise<boolean> {
+function panel(
+  analyses: Analysis[],
+  origin: string,
+  loading: boolean,
+  preview: TxPreview | null = null,
+): Promise<boolean> {
   mount();
   const levels = analyses.flatMap((a) => a.findings.map((f) => f.level));
   const tone = levels.includes("risk") ? "risk" : levels.includes("warn") ? "warn" : "safe";
@@ -137,6 +151,28 @@ function panel(analyses: Analysis[], origin: string, loading: boolean): Promise<
       li.append(el("span", "ico", ICON[f.level]), el("span", "t", f.text));
       list.append(li);
     }
+  if (preview) {
+    const box = el("div", "preview");
+    box.append(el("p", "ptitle", "IN YOUR WALLET · SIMULATED"));
+    const rows = el("ul", "changes");
+    if (preview.status === "reverted")
+      rows.append(el("li", "none", "Nothing: the transaction fails."));
+    else if (!preview.changes.length) rows.append(el("li", "none", "Nothing moves in or out."));
+    for (const c of preview.changes) rows.append(el("li", c.direction, changeText(c)));
+    for (const a of preview.approvals.filter((x) => !x.revoke))
+      rows.append(
+        el(
+          "li",
+          "out",
+          `Permission: ${a.spender.slice(0, 6)}…${a.spender.slice(-4)} may spend ${a.amount} ${a.symbol ?? ""}`.trim(),
+        ),
+      );
+    box.append(rows);
+    box.append(
+      el("p", "pnote", "Simulated on Robinhood Chain just now. Prices can move before it lands."),
+    );
+    body.append(box);
+  }
   if (list.childElementCount) body.append(list);
   if (loading) body.append(el("p", "loading", "Checking the contract on Robinhood Chain…"));
   const actions = el("div", "actions");
@@ -201,19 +237,27 @@ window.addEventListener("message", async (e) => {
       chainId,
     })) as {
       analyses: Analysis[];
+      preview?: TxPreview | null;
     };
     const analyses = result?.analyses ?? [];
+    const preview = result?.preview ?? null;
     // Remember recipients locally, so a later lookalike of them can be caught.
     const remember = () => {
       const targets = sentTo(analyses);
       if (targets.length)
         void chrome.runtime.sendMessage({ type: "sent", targets }).catch(() => undefined);
     };
-    if (!analyses.some((a) => a.prompt)) {
+    // With previews on, every simulated contract call is shown; otherwise only the risky ones.
+    const showPreview =
+      settings.preview &&
+      !!preview &&
+      analyses.some((a) => a.kind === "call") &&
+      (preview.changes.length > 0 || preview.approvals.length > 0 || preview.status === "reverted");
+    if (!analyses.some((a) => a.prompt) && !showPreview) {
       remember();
       return reply(true);
     }
-    const allow = await panel(analyses, origin, false);
+    const allow = await panel(analyses, origin, false, preview);
     // An anonymous count for mofu.works/stats: nothing about the request or the wallet.
     if (!allow) void chrome.runtime.sendMessage({ type: "stopped" }).catch(() => undefined);
     else remember();

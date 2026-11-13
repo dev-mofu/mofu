@@ -54,6 +54,7 @@ import {
 } from "../shared/api.js";
 import { parseRpcUrls } from "./chain.js";
 import { withLookalikes } from "./lookalike.js";
+import { MAX_CALLS as MAX_PREVIEW_CALLS, previewTransaction, type PreviewCall } from "./preview.js";
 import { walletReport } from "./wallet.js";
 import { trimHistory } from "./history.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
@@ -345,7 +346,16 @@ export function createApp(deps: AppDeps = defaultDeps) {
   // Only the app's own pages may call the API. Browsers send Origin on POST.
   app.use("*", async (c, next) => {
     const origin = c.req.header("Origin");
-    if (c.req.method !== "GET" && origin && new URL(origin).host !== new URL(c.req.url).host) {
+    // Mofu Guard posts transactions to preview from its extension page (anonymous, IP-limited).
+    const fromExtension =
+      c.req.path === "/api/guard/preview" &&
+      /^(chrome|moz)-extension:\/\/[a-z0-9-]+$/i.test(origin ?? "");
+    if (
+      c.req.method !== "GET" &&
+      origin &&
+      !fromExtension &&
+      new URL(origin).host !== new URL(c.req.url).host
+    ) {
       return apiError(c, "forbidden_origin", "Requests from other sites aren't allowed.");
     }
     await next();
@@ -921,6 +931,62 @@ export function createApp(deps: AppDeps = defaultDeps) {
       return c.json(body);
     } catch {
       return apiError(c, "server_error", "Couldn't reach Robinhood Chain right now.");
+    }
+  });
+
+  // Mofu Guard's transaction preview: simulate what a transaction does to the sender's wallet.
+  // Public like /guard/check (an extension can't solve Turnstile), limited per IP, nothing stored.
+  app.post("/guard/preview", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      from?: unknown;
+      calls?: unknown;
+    } | null;
+    const from = typeof body?.from === "string" ? body.from.toLowerCase() : "";
+    const rawCalls = Array.isArray(body?.calls) ? (body.calls as unknown[]) : [];
+    if (!isAddress(from) || rawCalls.length === 0 || rawCalls.length > MAX_PREVIEW_CALLS)
+      return apiError(
+        c,
+        "bad_request",
+        `Send { from, calls: [{ to, data, value }] } with 1 to ${MAX_PREVIEW_CALLS} calls.`,
+      );
+    const calls: PreviewCall[] = [];
+    for (const raw of rawCalls) {
+      const r = (raw ?? {}) as { to?: unknown; data?: unknown; value?: unknown };
+      const to = typeof r.to === "string" ? r.to.toLowerCase() : "";
+      const data = typeof r.data === "string" && r.data ? r.data.toLowerCase() : "0x";
+      const value = typeof r.value === "string" && r.value ? r.value : "0x0";
+      if (
+        !isAddress(to) ||
+        !/^0x([0-9a-f]{2})*$/.test(data) ||
+        data.length > 200_000 ||
+        !/^(0x[0-9a-f]{1,64}|\d{1,78})$/i.test(value)
+      )
+        return apiError(c, "bad_request", "Each call needs to (an address), data (hex) and value.");
+      calls.push({ to, data, value: BigInt(value) });
+    }
+    const limit = Math.max(0, Number.parseInt(String(c.env.GUARD_DAILY_LIMIT), 10) || 0);
+    const usage = await deps.getLimiter(c.env).check(clientIp(c), limit, true, "guard");
+    if (!usage.allowed)
+      return apiError(
+        c,
+        "daily_limit",
+        "Mofu Guard's daily checks from this network are used up.",
+        {
+          resetAt: usage.resetAt,
+          limit,
+        },
+      );
+    try {
+      const preview = await previewTransaction(
+        parseRpcUrls(c.env.HOLDER_RPC_URL),
+        deps.fetch,
+        from,
+        calls,
+      );
+      record(c, "guard_preview");
+      return c.json(preview);
+    } catch {
+      return apiError(c, "server_error", "Couldn't simulate on Robinhood Chain right now.");
     }
   });
 
