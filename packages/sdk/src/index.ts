@@ -7,6 +7,7 @@ import type {
   TokenReport,
   Verdict,
   WalletReport,
+  WalletEventType,
   Webhook,
   WebhookEvent,
   WebhookEventType,
@@ -158,10 +159,15 @@ export class Mofu {
 
   readonly webhooks = {
     /**
-     * Watches up to 10 tokens. Mofu pings the URL first and saves the webhook only if it answers
-     * 2xx. The secret comes back once: keep it.
+     * Watches up to 10 tokens, or up to 3 wallets (risky approvals, planted lookalikes, holdings
+     * turning risky). Mofu pings the URL first and saves the webhook only if it answers 2xx. The
+     * secret comes back once: keep it.
      */
-    create: (input: { url: string; tokens: string[]; events?: WebhookEventType[] }) =>
+    create: (
+      input:
+        | { url: string; tokens: string[]; events?: WebhookEventType[] }
+        | { url: string; wallets: string[]; events?: WalletEventType[] },
+    ) =>
       this.call<{ webhook: Webhook; secret: string }>("/api/v1/webhooks", {
         method: "POST",
         body: JSON.stringify(input),

@@ -241,11 +241,18 @@ export const WEBHOOK_EVENTS = [
 ] as const;
 export type WebhookEventType = (typeof WEBHOOK_EVENTS)[number];
 
+/** Wallet Watch events (webhooks created with wallets instead of tokens). */
+export const WALLET_EVENTS = ["risky_approval", "poisoning", "holding_risky"] as const;
+export type WalletEventType = (typeof WALLET_EVENTS)[number];
+
 export interface Webhook {
   id: string;
   url: string;
-  tokens: string[];
-  events: WebhookEventType[];
+  /** Token webhooks (wh_…). */
+  tokens?: string[];
+  /** Wallet webhooks (ww_…). */
+  wallets?: string[];
+  events: Array<WebhookEventType | WalletEventType>;
   createdAt: string;
   status: "active" | "disabled";
   disabledAt: string | null;
@@ -266,9 +273,11 @@ export interface Webhook {
 /** What Mofu POSTs to a webhook URL. */
 export interface WebhookEvent {
   id: string;
-  type: WebhookEventType | "ping" | "test";
+  type: WebhookEventType | WalletEventType | "ping" | "test";
   createdAt: string;
   token: { address: string; name: string | null; symbol: string | null } | null;
+  /** For wallet webhooks: the wallet the event is about. */
+  wallet?: string | null;
   summary: string;
   before: unknown;
   after: unknown;
