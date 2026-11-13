@@ -15,6 +15,8 @@ import { decodeString, scanToken, summaryOnly } from "./token-scan.js";
 import type { UsageResult } from "./usage.js";
 import { walletReport } from "./wallet.js";
 import type { CreateResult } from "./webhook-store.js";
+import { queueVerdict, type PublisherStatus } from "./verdict-store.js";
+import { FLAG } from "./verdicts.js";
 import {
   checkWebhookUrl,
   deliver,
@@ -152,10 +154,34 @@ export function createPublicApi(deps: PublicApiDeps) {
         "GET /api/v1/webhooks/{id}": "A webhook's status (Authorization: Bearer <secret>)",
         "POST /api/v1/webhooks/{id}/test": "Send a test event",
         "DELETE /api/v1/webhooks/{id}": "Delete a webhook",
+        "GET /api/v1/onchain":
+          "Where Mofu publishes verdicts on Robinhood Chain, and how to read them",
       },
       events: WEBHOOK_EVENTS,
     }),
   );
+
+  // On-chain verdicts: where they're published and how far along.
+  app.get("/onchain", async (c) => {
+    const registry = String(c.env.VERDICTS_CONTRACT ?? "") || null;
+    const status: PublisherStatus | null = await Promise.resolve()
+      .then(() => c.env.PUBLISHER.get(c.env.PUBLISHER.idFromName("global")).status())
+      .catch(() => null);
+    return c.json({
+      chain: { name: "Robinhood Chain", id: 4663 },
+      registry,
+      enabled: status?.enabled ?? false,
+      writer: status?.writer ?? null,
+      read: registry
+        ? `cast call ${registry} "verdictOf(address)(uint8,uint8,uint40,bytes16)" <token> --rpc-url https://robinhood-rpc.publicnode.com`
+        : null,
+      verdicts: { 0: "not scanned", 1: "clean", 2: "caution", 3: "risky" },
+      flags: FLAG,
+      pending: status?.pending ?? 0,
+      publishedToday: status?.publishedToday ?? 0,
+      last: status?.last ?? null,
+    });
+  });
 
   const tokenCache = new Map<string, { report: TokenScanReport; at: number }>();
   app.get("/token/:address", async (c) => {
@@ -189,6 +215,7 @@ export function createPublicApi(deps: PublicApiDeps) {
         );
       }
       tokenCache.set(address, { report, at: now });
+      queueVerdict(c.env, report, now, (x) => background(c, x));
       if (tokenCache.size > 500) tokenCache.clear();
       record(c, fromCli(c) ? "cli_scan_token" : "api_scan_token");
       const idx = index(c);

@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { queueVerdict } from "./verdict-store.js";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
   convertToModelMessages,
@@ -860,6 +861,13 @@ export function createApp(deps: AppDeps = defaultDeps) {
         );
       }
       scanCache.set(address, { report, at: now });
+      queueVerdict(c.env, report, now, (p) => {
+        try {
+          c.executionCtx.waitUntil(p);
+        } catch {
+          // no execution context in tests
+        }
+      });
       record(c, "token_scan");
       noteToken(c, report);
       if (scanCache.size > 500) scanCache.clear();

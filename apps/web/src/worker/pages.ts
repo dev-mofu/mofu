@@ -15,6 +15,7 @@ import { tokenIndexFromEnv, type IndexedToken } from "./stats.js";
 import { renderTokenCard, shortAddress, VERDICT_TEXT } from "./token-card.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
 import { withLookalikes } from "./lookalike.js";
+import { queueVerdict } from "./verdict-store.js";
 
 const ORIGIN = "https://mofu.works";
 const REPORT_TTL = 30 * 60;
@@ -319,6 +320,7 @@ export function createPagesApp(deps: PagesDeps) {
         idx = null;
       }
       const full = await withLookalikes(scanned, idx, data);
+      queueVerdict(c.env, full, now, (p) => waitUntil(c, p));
       const body = { report: summaryOnly(full), at: now };
       memory.set(address, body);
       if (memory.size > 500) memory.clear();

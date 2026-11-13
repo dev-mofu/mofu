@@ -165,3 +165,33 @@ describe("webhook signatures", () => {
     });
   });
 });
+
+describe("on-chain verdicts", () => {
+  const word = (v: bigint | number) => BigInt(v).toString(16).padStart(64, "0");
+  const result = `0x${word(3)}${word(1 | 4)}${word(1_800_000_000)}${"282e8b47cfc27b4ba0328b0b37e99100".padEnd(64, "0")}`;
+
+  it("decodes verdictOf", async () => {
+    const { decodeOnchainVerdict } = await import("../src/index.js");
+    const v = decodeOnchainVerdict(result, "0xreg");
+    expect(v).toMatchObject({ verdict: "risky", fingerprint: "282e8b47cfc27b4ba0328b0b37e99100" });
+    expect(v.flags).toMatchObject({ sellFailed: true, canMint: true, honeypotCode: false });
+    expect(v.scannedAt?.getTime()).toBe(1_800_000_000_000);
+    const empty = decodeOnchainVerdict(`0x${word(0).repeat(4)}`, "0xreg");
+    expect(empty).toMatchObject({ verdict: null, scannedAt: null, fingerprint: null });
+  });
+
+  it("finds the registry on mofu.works, then reads the chain", async () => {
+    const { mofu, calls } = client((url, init) => {
+      if (url.endsWith("/api/v1/onchain"))
+        return Response.json({ registry: "0x5fbdb2315678afecb367f032d93f642f64180aa3" });
+      const body = JSON.parse(String(init.body));
+      expect(body.params[0].data).toBe(`0x371ad2ae${TOKEN.slice(2).padStart(64, "0")}`);
+      return Response.json({ jsonrpc: "2.0", id: 1, result });
+    });
+    const v = await mofu.onchainVerdict(TOKEN);
+    expect(v.verdict).toBe("risky");
+    expect(calls[1]!.url).toBe("https://robinhood-rpc.publicnode.com");
+    const off = client(() => Response.json({ registry: null }));
+    await expect(off.mofu.onchainVerdict(TOKEN)).rejects.toMatchObject({ code: "not_published" });
+  });
+});

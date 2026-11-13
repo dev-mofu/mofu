@@ -82,6 +82,19 @@ if (event.type === "owner_changed") pause(event.token!.address);
 
 `parseWebhook` throws when the signature is wrong or older than five minutes; `verifyWebhook` returns a boolean instead.
 
+## Read a verdict on-chain
+
+Mofu publishes verdicts to its MofuVerdicts registry on Robinhood Chain. Read one straight from the chain, without Mofu's API limits:
+
+```ts
+const v = await mofu.onchainVerdict(token); // finds the registry once via mofu.works
+v.verdict; // "clean" | "caution" | "risky" | null (not published)
+v.flags.sellFailed; // also honeypotCode, canMint, canPause, canBlock, upgradeable, fakeMofu
+v.scannedAt; // Date | null
+```
+
+Pass `{ registry, rpcUrl }` to skip the lookup or use your own node.
+
 ## Errors
 
 Failures throw `MofuError` with `status` and `code`: `daily_limit` (429), `bad_address` (400), `chain_unreachable` (503), `network` (Mofu couldn't be reached).

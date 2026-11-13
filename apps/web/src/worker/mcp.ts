@@ -24,6 +24,7 @@ import { explainTransaction, type ChainDataOptions } from "./chain-data.js";
 import type { AppDeps } from "./app.js";
 import { statsFromEnv, tokenIndexFromEnv, type StatKey } from "./stats.js";
 import { withLookalikes } from "./lookalike.js";
+import { queueVerdict } from "./verdict-store.js";
 import { parseRpcUrls } from "./chain.js";
 import { isAddress } from "./holder.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
@@ -336,7 +337,12 @@ export function createMcpApp(deps: AppDeps) {
   });
 
   async function callTool(
-    c: { env: Env; ip: string; record: (key: StatKey) => void },
+    c: {
+      env: Env;
+      ip: string;
+      record: (key: StatKey) => void;
+      background?: (p: Promise<unknown>) => void;
+    },
     name: string,
     args: unknown,
   ): Promise<ToolResult> {
@@ -383,6 +389,7 @@ export function createMcpApp(deps: AppDeps) {
           ),
         );
         c.record("mcp_scan_token");
+        queueVerdict(c.env, report, deps.now(), c.background ?? (() => undefined));
         return {
           content: [
             {
@@ -537,7 +544,12 @@ export function createMcpApp(deps: AppDeps) {
 
   async function handle(
     msg: Message,
-    ctx: { env: Env; ip: string; record: (key: StatKey) => void },
+    ctx: {
+      env: Env;
+      ip: string;
+      record: (key: StatKey) => void;
+      background?: (p: Promise<unknown>) => void;
+    },
   ) {
     const { id, method, params } = msg;
     switch (method) {
@@ -601,6 +613,13 @@ export function createMcpApp(deps: AppDeps) {
     const ctx = {
       env: c.env,
       ip: c.req.header("CF-Connecting-IP") ?? "local",
+      background: (p: Promise<unknown>) => {
+        try {
+          c.executionCtx.waitUntil(p);
+        } catch {
+          // no execution context in tests
+        }
+      },
       record: (key: StatKey) => {
         try {
           const done = (deps.getStats ?? statsFromEnv)(c.env)

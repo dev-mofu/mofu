@@ -573,6 +573,22 @@ function fromMofu(header, rawBody, secret) {
             new webhooks a day per IP, 3 per URL.
           </p>
 
+          <h3 id="onchain">Verdicts on-chain</h3>
+          <p>
+            Mofu publishes Token Scanner verdicts to its MofuVerdicts registry on Robinhood Chain,
+            so a wallet, a DEX or a bot can read them without calling Mofu at all:
+          </p>
+          <pre><code>cast call &lt;registry&gt; "verdictOf(address)(uint8,uint8,uint40,bytes16)" &lt;token&gt; \
+  --rpc-url https://robinhood-rpc.publicnode.com</code></pre>
+          <p>
+            It returns the verdict (0 not scanned, 1 clean, 2 caution, 3 risky), flags (1 sell test
+            failed, 2 code matches known honeypots, 4 can mint, 8 can pause, 16 can block wallets,
+            32 upgradeable, 64 copies the $MOFU name), the scan time and the code fingerprint. Only
+            changed verdicts are written, in batches. The registry address and the latest batch are
+            at <a href="/api/v1/onchain"><code>/api/v1/onchain</code></a
+            >; in <code>mofu-sdk</code> it's <code>mofu.onchainVerdict(token)</code>.
+          </p>
+
           <h3 id="sdk">SDK</h3>
           <p>
             <code>mofu-sdk</code> wraps the API for TypeScript and JavaScript, with no dependencies

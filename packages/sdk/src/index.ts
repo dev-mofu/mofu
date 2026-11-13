@@ -100,6 +100,49 @@ export class Mofu {
     return this.call(`/api/v1/wallet/${Mofu.address(address, "address")}`);
   }
 
+  /**
+   * A token's verdict as published on Robinhood Chain (the MofuVerdicts registry), read straight
+   * from the chain with one eth_call. Pass `registry` to skip asking mofu.works where it is.
+   */
+  async onchainVerdict(
+    token: string,
+    options: { registry?: string; rpcUrl?: string } = {},
+  ): Promise<OnchainVerdict> {
+    const address = Mofu.address(token, "token");
+    let registry = options.registry;
+    if (!registry) {
+      const info = await this.call<{ registry: string | null }>("/api/v1/onchain");
+      if (!info.registry)
+        throw new MofuError("Mofu isn't publishing verdicts on-chain yet", 404, "not_published");
+      registry = info.registry;
+    }
+    const res = await this.fetchFn(options.rpcUrl ?? "https://robinhood-rpc.publicnode.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_call",
+        // verdictOf(address)
+        params: [
+          { to: registry, data: `0x371ad2ae${address.slice(2).padStart(64, "0")}` },
+          "latest",
+        ],
+      }),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    }).catch((err) => {
+      throw new MofuError(
+        `Couldn't reach Robinhood Chain: ${(err as Error).message}`,
+        0,
+        "network",
+      );
+    });
+    const body = (await res.json().catch(() => null)) as { result?: string } | null;
+    if (!body?.result || body.result.length < 2 + 64 * 4)
+      throw new MofuError("Unexpected answer from the chain", 502, "bad_rpc");
+    return decodeOnchainVerdict(body.result, registry);
+  }
+
   /** Scans a token and applies a buy rule. Says no, with a reason, when Mofu can't be reached. */
   async checkBeforeBuy(address: string, policy: Partial<Policy> = {}): Promise<Decision> {
     try {
@@ -248,4 +291,48 @@ export async function parseWebhook(
   if (!(await verifyWebhook(signatureHeader, rawBody, secret, options)))
     throw new MofuError("The webhook signature doesn't match", 401, "bad_signature");
   return JSON.parse(rawBody) as WebhookEvent;
+}
+
+// ---------------------------------------------------------------- on-chain verdicts
+
+export interface OnchainVerdict {
+  registry: string;
+  /** null when Mofu hasn't published one for this token. */
+  verdict: "clean" | "caution" | "risky" | null;
+  flags: {
+    sellFailed: boolean;
+    honeypotCode: boolean;
+    canMint: boolean;
+    canPause: boolean;
+    canBlock: boolean;
+    upgradeable: boolean;
+    fakeMofu: boolean;
+  };
+  scannedAt: Date | null;
+  fingerprint: string | null;
+}
+
+/** Decodes verdictOf(address) → (uint8 verdict, uint8 flags, uint40 scannedAt, bytes16 fingerprint). */
+export function decodeOnchainVerdict(result: string, registry: string): OnchainVerdict {
+  const words = result.replace(/^0x/, "").match(/.{64}/g) ?? [];
+  const n = (i: number) => BigInt(`0x${words[i] ?? "0"}`);
+  const code = Number(n(0));
+  const f = Number(n(1));
+  const at = Number(n(2));
+  const fp = (words[3] ?? "").slice(0, 32);
+  return {
+    registry,
+    verdict: code === 1 ? "clean" : code === 2 ? "caution" : code === 3 ? "risky" : null,
+    flags: {
+      sellFailed: !!(f & 1),
+      honeypotCode: !!(f & 2),
+      canMint: !!(f & 4),
+      canPause: !!(f & 8),
+      canBlock: !!(f & 16),
+      upgradeable: !!(f & 32),
+      fakeMofu: !!(f & 64),
+    },
+    scannedAt: at ? new Date(at * 1000) : null,
+    fingerprint: /^0+$/.test(fp) || !fp ? null : fp,
+  };
 }

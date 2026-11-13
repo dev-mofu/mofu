@@ -46,6 +46,7 @@ apps/cli        The `mofu` command (published to npm, bundled with esbuild)
 apps/web        Cloudflare Worker (Hono API) + landing page, docs and React app
 apps/guard      Mofu Guard browser extension
 examples/       The safe trading agent template
+contracts/      MofuVerdicts: the on-chain verdict registry (Foundry)
 assets/         Screenshots
 apps/web/privacy, apps/web/terms   Privacy policy and terms pages (mofu.works/privacy/, /terms/)
 mascot/         The approved mascot concept
