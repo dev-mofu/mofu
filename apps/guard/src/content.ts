@@ -169,7 +169,11 @@ function panel(
       );
     box.append(rows);
     box.append(
-      el("p", "pnote", "Simulated on Robinhood Chain just now. Prices can move before it lands."),
+      el(
+        "p",
+        "pnote",
+        `Simulated on ${preview.chainName ?? "the chain"} just now. Prices can move before it lands.`,
+      ),
     );
     body.append(box);
   }
@@ -248,6 +252,7 @@ window.addEventListener("message", async (e) => {
         void chrome.runtime.sendMessage({ type: "sent", targets }).catch(() => undefined);
     };
     // With previews on, every simulated contract call is shown; otherwise only the risky ones.
+    // (Robinhood Chain, Ethereum, Base and Arbitrum.)
     const showPreview =
       settings.preview &&
       !!preview &&

@@ -296,6 +296,9 @@ export interface TxPreview {
   failedCall: number | null;
   changes: PreviewChange[];
   approvals: PreviewApproval[];
+  /** Set by the API: where it was simulated. */
+  chainId?: number;
+  chainName?: string;
 }
 
 /** Where a token's liquidity sits and who could take it out. */

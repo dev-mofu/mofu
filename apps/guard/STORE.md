@@ -14,7 +14,7 @@ When a website asks your wallet to approve tokens, approve a whole NFT collectio
 sign a blind message, Mofu Guard shows what the request really does, in plain English, and lets you
 stop it before your wallet even opens.
 
-On Robinhood Chain it previews the result first: Mofu simulates the transaction and shows what
+On Robinhood Chain, Ethereum, Base and Arbitrum it previews the result first: Mofu simulates the transaction and shows what
 leaves your wallet and what comes back. It stops you when the transaction would fail, when you'd
 give something and get nothing back, or when it quietly sets an approval the request doesn't show.
 
@@ -44,11 +44,11 @@ they act on them.
   addresses the user has sent to, to catch lookalike (poisoned) addresses.
 - contextMenus: adds "Scan with Mofu" for selected addresses and transaction hashes.
 - Host permission https://mofu.works/*: asks Mofu's API to check a contract or spender address on
-  Robinhood Chain, and to simulate a Robinhood Chain transaction for the preview.
+  Robinhood Chain, and to simulate a transaction for the preview (Robinhood Chain, Ethereum, Base, Arbitrum).
 
 **Data use:** Does not collect personal data, browsing history, wallet keys or balances. The only
 data sent off the device is the contract or spender address being checked (including contract
-addresses shown in X posts, for the labels), and for the preview the Robinhood Chain transaction
+addresses shown in X posts, for the labels), and for the preview the transaction
 itself (sender, contract, ETH amount, call data), to mofu.works, which simulates it and stores
 nothing. Privacy
 policy: https://mofu.works/guard/ (section "What it sends, and to whom") and

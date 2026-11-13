@@ -34,6 +34,22 @@ describe("readLogs", () => {
     ]);
   });
 
+  it("counts WETH9's Deposit and Withdrawal events", () => {
+    const DEPOSIT = "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c";
+    const WETH9 = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+    const r = readLogs(ME, [
+      {
+        status: "0x1",
+        logs: [
+          { address: NATIVE, topics: [TRANSFER, topic(ME), topic(WETH9)], data: word(ETH) },
+          { address: WETH9, topics: [DEPOSIT, topic(ME)], data: word(ETH) },
+        ],
+      },
+    ]);
+    expect(r.net.get(WETH9)).toBe(ETH);
+    expect(r.net.get(NATIVE)).toBe(-ETH);
+  });
+
   it("ignores transfers between other wallets", () => {
     const r = readLogs(THIEF.replace("9", "8"), [{ status: "0x1", logs: LOGS }]);
     expect(r.net.size).toBe(0);
@@ -114,6 +130,7 @@ describe("POST /api/guard/preview", () => {
       approvals: Array<{ amount: string; spender: string }>;
     };
     expect(p.status).toBe("ok");
+    expect(p).toMatchObject({ chainId: 4663, chainName: "Robinhood Chain" });
     expect(p.changes.map((c) => `${c.direction} ${c.amount} ${c.symbol}`)).toEqual([
       "out 0.001 ETH",
       "in 342,356 MOFU",
@@ -126,6 +143,7 @@ describe("POST /api/guard/preview", () => {
       403,
     );
     expect((await post({ from: "nope", calls: [] })).status).toBe(400);
+    expect((await post({ from: ME, chainId: 56, calls: [{ to: CURVE }] })).status).toBe(400);
     expect((await post({ from: ME, calls: [{ to: CURVE, data: "0xzz" }] })).status).toBe(400);
   });
 });

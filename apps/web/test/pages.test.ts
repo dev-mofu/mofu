@@ -2,10 +2,21 @@ import { inflateSync } from "node:zlib";
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 import { createApp, type AppDeps } from "../src/worker/app.js";
-import { createPagesApp, escapeHtml, isPagesPath, tokenTitle } from "../src/worker/pages.js";
+import {
+  createPagesApp,
+  escapeHtml,
+  isPagesPath,
+  tokenTitle,
+  widgetData,
+} from "../src/worker/pages.js";
 import { createSessionToken, SESSION_COOKIE } from "../src/worker/session.js";
 import { evaluateUsage, type UsageState } from "../src/worker/usage.js";
-import type { IndexedToken, TokenIndex } from "../src/worker/stats.js";
+import {
+  summarizeCreators,
+  type CreatorEntry,
+  type IndexedToken,
+  type TokenIndex,
+} from "../src/worker/stats.js";
 import { PixelCanvas, fontSafe } from "../src/worker/pixel-png.js";
 
 const SECRET = "s".repeat(40);
@@ -89,7 +100,7 @@ function setup(limit = "300") {
     SCAN_HOLDER_DAILY: "50",
     PAGE_DAILY_LIMIT: limit,
   } as unknown as Env;
-  return { pages: createPagesApp(deps), app: createApp(deps), env, listed, states };
+  return { pages: createPagesApp(deps), app: createApp(deps), env, listed, states, index };
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -235,5 +246,89 @@ describe("pixel png helpers", () => {
     const c = new PixelCanvas(10, 10, ["#000000", "#ffffff"]);
     c.rect(-5, -5, 100, 100, 1);
     expect(c.data.every((v) => v === 1)).toBe(true);
+  });
+});
+
+describe("Checked by Mofu widget", () => {
+  it("serves a small JSON summary any site can read", async () => {
+    const { pages, env } = setup();
+    const res = await pages.request(`http://localhost/token/${TOKEN}.json`, {}, env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    const d = (await res.json()) as ReturnType<typeof widgetData>;
+    expect(d).toMatchObject({ address: TOKEN, isContract: true, verdict: "clean", symbol: "EVL" });
+    expect(d.url).toBe(`https://mofu.works/token/${TOKEN}`);
+    expect(d.lines.length).toBeGreaterThan(0);
+    expect(d.lines.length).toBeLessThanOrEqual(3);
+  });
+
+  it("puts flagged checks first, and only fine ones when nothing is flagged", () => {
+    const base = {
+      address: TOKEN,
+      isContract: true,
+      token: { name: "T", symbol: "T", decimals: 18, totalSupply: "1" },
+      verdict: "risky",
+    } as unknown as Parameters<typeof widgetData>[0];
+    const d = widgetData(
+      {
+        ...base,
+        checks: [
+          { id: "mint", label: "Can new tokens be created?", status: "ok", detail: "" },
+          { id: "fees", label: "Can fees be changed?", status: "warn", detail: "" },
+          { id: "sell", label: "Can you sell it?", status: "risk", detail: "" },
+        ],
+      },
+      NOW,
+    );
+    expect(d.lines.map((l) => l.status)).toEqual(["risk", "warn"]);
+    expect(d.counts).toEqual({ risk: 1, warn: 1, ok: 1 });
+  });
+
+  it("shows the widget and its code on the token page", async () => {
+    const { pages, env } = setup();
+    const html = await (await pages.request(`http://localhost/token/${TOKEN}`, {}, env)).text();
+    expect(html).toContain(`data-mofu-token="${TOKEN}"`);
+    expect(html).toContain('<script src="/widget.js" async></script>');
+  });
+});
+
+describe("creator leaderboard", () => {
+  const entry = (address: string, over: Partial<CreatorEntry> = {}): CreatorEntry => ({
+    address,
+    symbol: "T",
+    verdict: "clean",
+    honeypot: false,
+    at: NOW,
+    ...over,
+  });
+
+  it("counts each creator's tokens", () => {
+    const rows = summarizeCreators([
+      [`creator:${WALLET}:${TOKEN}`, entry(TOKEN, { honeypot: true, verdict: "risky" })],
+      [`creator:${WALLET}:${OTHER}`, entry(OTHER)],
+      [`creator:${OTHER}:${TOKEN}`, entry(TOKEN, { verdict: "caution" })],
+    ]);
+    expect(rows).toEqual([
+      { creator: WALLET, launches: 2, honeypots: 1, risky: 0, caution: 0, clean: 1, last: NOW },
+      { creator: OTHER, launches: 1, honeypots: 0, risky: 0, caution: 1, clean: 0, last: NOW },
+    ]);
+  });
+
+  it("lists creators who launched a failed-sell token, with escaped symbols on their page", async () => {
+    const { pages, env, index } = setup();
+    const records = [entry(TOKEN, { honeypot: true, symbol: EVIL }), entry(OTHER)];
+    index.creatorBoard = async () =>
+      summarizeCreators(records.map((e) => [`creator:${WALLET}:${e.address}`, e]));
+    index.creatorRecords = async () => records;
+    expect(isPagesPath("/creators/")).toBe(true);
+    expect(isPagesPath(`/creator/${WALLET}`)).toBe(true);
+    const board = await (await pages.request("http://localhost/creators/", {}, env)).text();
+    expect(board).toContain("Launched a token that failed the sell test");
+    expect(board).toContain(`href="/creator/${WALLET}"`);
+    const one = await pages.request(`http://localhost/creator/${WALLET}`, {}, env);
+    const html = await one.text();
+    expect(html).toContain("Sell failed or honeypot code");
+    expect(html).not.toContain("<script>alert");
+    expect(html).toContain('content="noindex"');
   });
 });

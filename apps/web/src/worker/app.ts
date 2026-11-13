@@ -54,7 +54,12 @@ import {
 } from "../shared/api.js";
 import { parseRpcUrls } from "./chain.js";
 import { withLookalikes } from "./lookalike.js";
-import { MAX_CALLS as MAX_PREVIEW_CALLS, previewTransaction, type PreviewCall } from "./preview.js";
+import {
+  MAX_CALLS as MAX_PREVIEW_CALLS,
+  PREVIEW_CHAINS,
+  previewTransaction,
+  type PreviewCall,
+} from "./preview.js";
 import { walletReport } from "./wallet.js";
 import { trimHistory } from "./history.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
@@ -940,7 +945,25 @@ export function createApp(deps: AppDeps = defaultDeps) {
     const body = (await c.req.json().catch(() => null)) as {
       from?: unknown;
       calls?: unknown;
+      chainId?: unknown;
     } | null;
+    const chainId =
+      body?.chainId === undefined
+        ? 4663
+        : typeof body.chainId === "number"
+          ? body.chainId
+          : typeof body.chainId === "string" && /^(0x[0-9a-f]+|d+)$/i.test(body.chainId)
+            ? Number(body.chainId)
+            : NaN;
+    const chain = PREVIEW_CHAINS[chainId];
+    if (!chain)
+      return apiError(
+        c,
+        "bad_request",
+        `Previews work on ${Object.values(PREVIEW_CHAINS)
+          .map((x) => x.name)
+          .join(", ")}.`,
+      );
     const from = typeof body?.from === "string" ? body.from.toLowerCase() : "";
     const rawCalls = Array.isArray(body?.calls) ? (body.calls as unknown[]) : [];
     if (!isAddress(from) || rawCalls.length === 0 || rawCalls.length > MAX_PREVIEW_CALLS)
@@ -977,16 +1000,12 @@ export function createApp(deps: AppDeps = defaultDeps) {
         },
       );
     try {
-      const preview = await previewTransaction(
-        parseRpcUrls(c.env.HOLDER_RPC_URL),
-        deps.fetch,
-        from,
-        calls,
-      );
+      const urls = chainId === 4663 ? parseRpcUrls(c.env.HOLDER_RPC_URL) : chain.rpcs;
+      const preview = await previewTransaction(urls, deps.fetch, from, calls);
       record(c, "guard_preview");
-      return c.json(preview);
+      return c.json({ ...preview, chainId, chainName: chain.name });
     } catch {
-      return apiError(c, "server_error", "Couldn't simulate on Robinhood Chain right now.");
+      return apiError(c, "server_error", `Couldn't simulate on ${chain.name} right now.`);
     }
   });
 

@@ -3,8 +3,10 @@ import type { CodeMatch, DeployerToken } from "../shared/api.js";
 import {
   type CodeEntry,
   type CreatorEntry,
+  type CreatorSummary,
   type LaunchCache,
   nameKeys,
+  summarizeCreators,
   normalizeName,
   TOKEN_INDEX_MAX,
   type IndexedToken,
@@ -136,6 +138,19 @@ export class StatsStore extends DurableObject<Env> implements Stats, TokenIndex 
       });
     }
     return [...out.values()];
+  }
+
+  async creatorBoard(): Promise<CreatorSummary[]> {
+    const rows = await this.ctx.storage.list<CreatorEntry>({ prefix: "creator:", limit: 20_000 });
+    return summarizeCreators([...rows.entries()]);
+  }
+
+  async creatorRecords(creator: string): Promise<CreatorEntry[]> {
+    const rows = await this.ctx.storage.list<CreatorEntry>({
+      prefix: `creator:${creator.toLowerCase()}:`,
+      limit: 200,
+    });
+    return [...rows.values()].sort((a, b) => b.at - a.at);
   }
 
   async launchCache(token: string): Promise<LaunchCache | null> {

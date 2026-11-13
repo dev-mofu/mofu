@@ -93,12 +93,12 @@
               to your wallet.
             </li>
             <li>
-              <strong>Previews the result before you sign.</strong> On Robinhood Chain, Mofu
-              simulates the transaction first and shows what leaves your wallet and what comes back:
-              "− 0.5 ETH, + 1,200,000 PEPU". It stops you when the transaction would fail, when
-              you'd give something and get nothing back, or when it quietly sets an approval the
-              request doesn't show. Turn off the preview for ordinary calls in the extension's
-              switches; risky ones are always shown.
+              <strong>Previews the result before you sign.</strong> On Robinhood Chain, Ethereum,
+              Base and Arbitrum, Mofu simulates the transaction first and shows what leaves your
+              wallet and what comes back: "− 0.5 ETH, + 1,200,000 PEPU". It stops you when the
+              transaction would fail, when you'd give something and get nothing back, or when it
+              quietly sets an approval the request doesn't show. Turn off the preview for ordinary
+              calls in the extension's switches; risky ones are always shown.
             </li>
             <li>
               <strong>Flags the usual drainer moves.</strong> Unlimited approvals, approvals and
@@ -170,8 +170,8 @@
             <li>
               For the transaction preview, the transaction itself (your address, the contract, the
               amount of ETH and the call data) is sent to <code>mofu.works</code>, which simulates
-              it on public Robinhood Chain nodes and sends back the result. Nothing is stored and
-              nothing is sent to the chain. Only for Robinhood Chain transactions.
+              it on public nodes of that chain and sends back the result. Nothing is stored and
+              nothing is sent to the chain. Only for Robinhood Chain, Ethereum, Base and Arbitrum.
             </li>
             <li>
               When you choose Don't sign on a warning, the extension adds one to a public counter on

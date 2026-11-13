@@ -622,6 +622,26 @@ function fromMofu(header, rawBody, secret) {
             >; in <code>mofu-sdk</code> it's <code>mofu.onchainVerdict(token)</code>.
           </p>
 
+          <h3 id="widget">Checked by Mofu widget</h3>
+          <p>
+            Put Mofu's verdict for a Robinhood Chain token on any page: a launchpad, a project site,
+            a listing. Two lines of HTML; the card shows the verdict, the three checks that matter
+            most and a link to the full report, and follows the visitor's light or dark mode (or set
+            <code>data-theme="light"</code> / <code>"dark"</code>).
+          </p>
+          <pre><code>&lt;div data-mofu-token="0xYOUR_TOKEN"&gt;&lt;/div&gt;
+&lt;script src="https://mofu.works/widget.js" async&gt;&lt;/script&gt;</code></pre>
+          <p>
+            It renders inside a closed shadow root, so it won't touch your page's styles. The data
+            comes from <code>https://mofu.works/token/0x….json</code> (open to any site, cached for
+            five minutes). Every token page has the snippet ready to copy.
+          </p>
+          <h3 id="creators">Token creators</h3>
+          <p>
+            <a href="/creators/">mofu.works/creators</a> lists every wallet that created a token
+            Mofu has scanned, with how many of its tokens failed the sell test, were risky or came
+            out clean. These are scan results, not accusations.
+          </p>
           <h3 id="sdk">SDK</h3>
           <p>
             <code>mofu-sdk</code> wraps the API for TypeScript and JavaScript, with no dependencies

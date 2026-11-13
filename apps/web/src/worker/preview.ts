@@ -1,7 +1,8 @@
 /**
  * Transaction preview for Mofu Guard: simulates a transaction (or a batch of calls) on Robinhood
- * Chain with eth_simulateV1 and says what changes for the sender's wallet: ETH, tokens and NFTs
- * out and in, and any approval the transaction sets along the way. Nothing is sent or stored.
+ * Chain, Ethereum, Base or Arbitrum with eth_simulateV1 and says what changes for the sender's
+ * wallet: ETH, tokens and NFTs out and in, and any approval the transaction sets along the way.
+ * Nothing is sent or stored.
  */
 import type { PreviewApproval, PreviewChange, TxPreview } from "../shared/api.js";
 import { callOf, rpcBatch, rpcCall } from "./chain.js";
@@ -12,8 +13,34 @@ const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523
 const APPROVAL = "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925";
 const APPROVAL_ALL = "0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31";
 const TRANSFER_SINGLE = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62";
+const DEPOSIT = "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c";
+const WITHDRAWAL = "0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65";
 const UNLIMITED = 1n << 128n;
 export const MAX_CALLS = 10;
+
+/**
+ * Chains the preview can simulate on, with public RPCs checked to answer eth_simulateV1 with
+ * traceTransfers. Robinhood Chain uses the Worker's configured list instead.
+ */
+export const PREVIEW_CHAINS: Record<number, { name: string; rpcs: string[] }> = {
+  4663: { name: "Robinhood Chain", rpcs: [] },
+  1: {
+    name: "Ethereum",
+    rpcs: ["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"],
+  },
+  8453: {
+    name: "Base",
+    rpcs: ["https://base-rpc.publicnode.com", "https://mainnet.base.org", "https://base.drpc.org"],
+  },
+  42161: {
+    name: "Arbitrum",
+    rpcs: [
+      "https://arbitrum-one-rpc.publicnode.com",
+      "https://arb1.arbitrum.io/rpc",
+      "https://arbitrum.drpc.org",
+    ],
+  },
+};
 
 export interface PreviewCall {
   to: string;
@@ -119,6 +146,11 @@ export function readLogs(from: string, calls: SimCall[]): Raw {
           value: big(l.data),
           kind: "nft",
         });
+      } else if (t0 === DEPOSIT && l.topics.length === 2 && topicAddr(t1) === me) {
+        // WETH9 (Ethereum's WETH) mints with Deposit, not Transfer.
+        add(asset, big(l.data));
+      } else if (t0 === WITHDRAWAL && l.topics.length === 2 && topicAddr(t1) === me) {
+        add(asset, -big(l.data));
       }
     }
   // An approval set and then used or reset in the same batch: keep the last one per pair.

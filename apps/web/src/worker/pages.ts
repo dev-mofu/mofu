@@ -11,7 +11,13 @@ import type { TokenCheck, TokenScanReport } from "../shared/api.js";
 import type { AppDeps } from "./app.js";
 import { parseRpcUrls } from "./chain.js";
 import { isAddress } from "./holder.js";
-import { tokenIndexFromEnv, type IndexedToken } from "./stats.js";
+import {
+  summarizeCreators,
+  tokenIndexFromEnv,
+  type CreatorEntry,
+  type CreatorSummary,
+  type IndexedToken,
+} from "./stats.js";
 import { renderTokenCard, shortAddress, VERDICT_TEXT } from "./token-card.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
 import { withLookalikes } from "./lookalike.js";
@@ -157,12 +163,18 @@ export function tokenMain(r: TokenScanReport, scannedAt: number): string {
           <p><img src="/token/${a}.svg" alt="Scanned by Mofu: ${verdict}" height="20" /></p>
           <pre><code>${escapeHtml(badgeSnippet(a, verdict))}</code></pre>
           <button class="pill pill--small pill--ghost token-copy" type="button" data-copy="${escapeHtml(badgeSnippet(a, verdict))}">Copy badge code</button>
+          <h3>Or the full widget</h3>
+          <p>A card with the verdict and the checks that matter most, for a launchpad, a project page or a listing. Two lines of HTML; it follows your visitor's light or dark mode.</p>
+          <div class="token-widget-demo" data-mofu-token="${a}"></div>
+          <script src="/widget.js" async></script>
+          <pre><code>${escapeHtml(widgetSnippet(a))}</code></pre>
+          <button class="pill pill--small pill--ghost token-copy" type="button" data-copy="${escapeHtml(widgetSnippet(a))}">Copy widget code</button>
         </section>
 
         <section id="more">
           <h2>Check another token</h2>
           ${lookupForm()}
-          <p>Recently scanned: <a href="/token/">all tokens</a>. Mofu Guard runs the same check before you sign: <a href="/guard/">get the extension</a>.</p>
+          <p>Recently scanned: <a href="/token/">all tokens</a>. Who launches what: <a href="/creators/">token creators</a>. Mofu Guard runs the same check before you sign: <a href="/guard/">get the extension</a>.</p>
         </section>`;
 }
 
@@ -199,8 +211,104 @@ export function indexMain(tokens: IndexedToken[]): string {
               ? `<div class="table-wrap"><table><thead><tr><th scope="col">Token</th><th scope="col">Result</th><th scope="col">Contract</th></tr></thead><tbody>${rows}</tbody></table></div>`
               : "<p>No scans yet. Be the first.</p>"
           }
-          <p class="token-note">A token shows up here after someone scans it in the app. Being listed isn't an endorsement.</p>
+          <p class="token-note">A token shows up here after someone scans it in the app. Being listed isn't an endorsement. See also <a href="/creators/">token creators and their track records</a>.</p>
         </section>`;
+}
+
+const dateOf = (ms: number) =>
+  new Date(ms).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+
+function creatorRows(list: CreatorSummary[]): string {
+  return list
+    .map(
+      (s) =>
+        `<tr><td><a href="/creator/${s.creator}"><code>${shortAddress(s.creator)}</code></a></td><td>${s.launches}</td><td>${s.honeypots ? `<span class="verify-verdict--bad">${s.honeypots}</span>` : "0"}</td><td>${s.risky}</td><td>${s.caution}</td><td>${s.clean}</td><td>${dateOf(s.last)}</td></tr>`,
+    )
+    .join("\n");
+}
+
+const creatorTable = (list: CreatorSummary[], empty: string) =>
+  list.length
+    ? `<div class="table-wrap"><table><thead><tr><th scope="col">Creator</th><th scope="col">Tokens scanned</th><th scope="col">Sell failed</th><th scope="col">Risky</th><th scope="col">Caution</th><th scope="col">Clean</th><th scope="col">Last scan</th></tr></thead><tbody>${creatorRows(list)}</tbody></table></div>`
+    : `<p>${empty}</p>`;
+
+/** The creator leaderboard: facts from Mofu's scans, grouped three ways. */
+export function creatorsMain(board: CreatorSummary[]): string {
+  const bad = board
+    .filter((s) => s.honeypots > 0)
+    .sort((a, b) => b.honeypots - a.honeypots || b.launches - a.launches)
+    .slice(0, 50);
+  const good = board
+    .filter((s) => s.launches >= 2 && s.honeypots === 0 && s.risky === 0)
+    .sort((a, b) => b.launches - a.launches || b.clean - a.clean)
+    .slice(0, 50);
+  const busy = [...board].sort((a, b) => b.launches - a.launches).slice(0, 50);
+  return `<header class="docs-hero">
+          <div>
+            <h1>Token creators</h1>
+            <p>Every wallet that created a token Mofu has scanned, and what Mofu found in those tokens.</p>
+          </div>
+        </header>
+        <section id="about">
+          <p class="token-note">These are results of Mofu's scans, counted per creator wallet since Nov 13, 2026: whether a token's simulated sell failed (or its code matched known honeypots), and the verdict at the time of the scan. They aren't accusations, and a token can change after it's scanned. ${board.length} creator${board.length === 1 ? "" : "s"} so far.</p>
+        </section>
+        <section id="sell-failed">
+          <h2>Launched a token that failed the sell test</h2>
+          ${creatorTable(bad, "None so far.")}
+        </section>
+        <section id="clean">
+          <h2>Clean track records</h2>
+          <p>Two or more tokens scanned, none risky, none failed the sell test.</p>
+          ${creatorTable(good, "None with two or more scanned tokens yet.")}
+        </section>
+        <section id="most">
+          <h2>Most launches</h2>
+          ${creatorTable(busy, "No creators yet. They appear as tokens get scanned.")}
+        </section>
+        <section id="more">
+          <h2>Check a token</h2>
+          ${lookupForm()}
+          <p>Every token scan shows its creator's track record under “What else did the creator launch?”.</p>
+        </section>`;
+}
+
+/** One creator's tokens. */
+export function creatorMain(creator: string, records: CreatorEntry[]): string {
+  const s = summarizeCreators(records.map((e) => [`creator:${creator}:${e.address}`, e]))[0];
+  const rows = records
+    .map((e) => {
+      const result = e.honeypot
+        ? `<span class="verify-verdict--bad">Sell failed or honeypot code</span>`
+        : `<span class="verify-verdict--${VERDICT_CLASS[e.verdict]}">${VERDICT_TEXT[e.verdict]}</span>`;
+      return `<tr><td><a href="/token/${e.address}">${escapeHtml(e.symbol ? `$${e.symbol}` : shortAddress(e.address))}</a></td><td>${result}</td><td><code>${shortAddress(e.address)}</code></td><td>${dateOf(e.at)}</td></tr>`;
+    })
+    .join("\n");
+  return `<header class="docs-hero">
+          <div>
+            <p class="token-kicker">Token creator · Robinhood Chain</p>
+            <h1><code>${shortAddress(creator)}</code></h1>
+          </div>
+        </header>
+        <section id="summary">
+          <div class="copy-wrap">
+            <button class="code-chip" type="button" data-copy="${creator}" aria-label="Copy the creator address">
+              <span>${creator}</span>
+            </button>
+            <span class="copy-status" role="status" aria-live="polite"></span>
+          </div>
+          <p>${
+            s
+              ? `Mofu has scanned ${s.launches} token${s.launches === 1 ? "" : "s"} created by this wallet: ${s.honeypots} failed the sell test or matched honeypot code, ${s.risky} risky, ${s.caution} caution, ${s.clean} clean.`
+              : "Mofu hasn't scanned a token created by this wallet yet."
+          } <a href="https://robinhoodchain.blockscout.com/address/${creator}" rel="noopener" target="_blank">See the wallet on the explorer</a>.</p>
+        </section>
+        ${
+          rows
+            ? `<section id="tokens"><h2>Tokens</h2><div class="table-wrap"><table><thead><tr><th scope="col">Token</th><th scope="col">Mofu at the time</th><th scope="col">Contract</th><th scope="col">Scanned</th></tr></thead><tbody>${rows}</tbody></table></div>
+          <p class="token-note">The result is the verdict when Mofu scanned it, before the creator and launch checks. Open a token for its current scan.</p></section>`
+            : ""
+        }
+        <section id="more"><p><a href="/creators/">All creators</a></p></section>`;
 }
 
 interface PageHead {
@@ -277,6 +385,18 @@ export function createPagesApp(deps: PagesDeps) {
       // no execution context in tests
     }
   };
+
+  /** A token-index read that falls back when the binding is missing or the call fails. */
+  async function safely<T>(
+    read: () => Promise<T | undefined> | undefined,
+    fallback: T,
+  ): Promise<T> {
+    try {
+      return (await read()) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
 
   /** The summary scan for an address: memory, then the edge cache, then the chain. */
   async function report(
@@ -377,6 +497,42 @@ export function createPagesApp(deps: PagesDeps) {
     );
 
   app.get("/token", (c) => c.redirect("/token/", 301));
+  app.get("/creators", (c) => c.redirect("/creators/", 301));
+
+  app.get("/creators/", async (c) => {
+    const board = await safely(() => index(c.env).creatorBoard?.(), [] as CreatorSummary[]);
+    return page(
+      c,
+      {
+        title: "Token creators on Robinhood Chain · Mofu",
+        description:
+          "Wallets that created tokens Mofu has scanned on Robinhood Chain, with how many failed the sell test, were risky or came out clean.",
+        canonical: `${ORIGIN}/creators/`,
+      },
+      creatorsMain(board),
+    );
+  });
+
+  app.get("/creator/:id", async (c) => {
+    const raw = c.req.param("id");
+    if (!isAddress(raw)) return notFound(c, "That isn't a wallet address.");
+    const creator = raw.toLowerCase();
+    if (raw !== creator) return c.redirect(`/creator/${creator}`, 301);
+    const records = await safely(
+      () => index(c.env).creatorRecords?.(creator),
+      [] as CreatorEntry[],
+    );
+    return page(
+      c,
+      {
+        title: `Token creator ${shortAddress(creator)} · Mofu`,
+        description: `Tokens created by ${creator} on Robinhood Chain and what Mofu's scans found in them.`,
+        canonical: `${ORIGIN}/creator/${creator}`,
+        noindex: true,
+      },
+      creatorMain(creator, records),
+    );
+  });
 
   app.get("/token/", async (c) => {
     const q = (c.req.query("address") ?? "").trim();
@@ -403,11 +559,35 @@ export function createPagesApp(deps: PagesDeps) {
     const id = c.req.param("id");
     const png = id.endsWith(".png");
     const svg = id.endsWith(".svg");
-    const ext = png ? ".png" : svg ? ".svg" : "";
-    const raw = ext ? id.slice(0, -4) : id;
+    const json = id.endsWith(".json");
+    const ext = png ? ".png" : svg ? ".svg" : json ? ".json" : "";
+    const raw = ext ? id.slice(0, -ext.length) : id;
     if (!isAddress(raw)) return ext ? c.notFound() : notFound(c, "That isn't a contract address.");
     const address = raw.toLowerCase();
     if (raw !== address) return c.redirect(`/token/${address}${ext}`, 301);
+
+    if (json) {
+      // The "Checked by Mofu" widget reads this from any site.
+      const r = await report(c, address);
+      const headers = {
+        "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": typeof r === "string" ? "no-store" : "public, max-age=300",
+      };
+      if (r === "limited")
+        return c.json(
+          { error: "busy", message: "Too many new scans from this network today." },
+          429,
+          headers,
+        );
+      if (r === "error")
+        return c.json(
+          { error: "unavailable", message: "Robinhood Chain couldn't be read right now." },
+          503,
+          headers,
+        );
+      return c.json(widgetData(r.report, r.at), 200, headers);
+    }
 
     if (svg) {
       const r = await report(c, address);
@@ -475,6 +655,7 @@ export function createPagesApp(deps: PagesDeps) {
       .catch(() => [] as IndexedToken[]);
     const urls = [
       `<url><loc>${ORIGIN}/token/</loc></url>`,
+      `<url><loc>${ORIGIN}/creators/</loc></url>`,
       ...tokens.map(
         (t) =>
           `<url><loc>${ORIGIN}/token/${escapeXml(t.address)}</loc><lastmod>${new Date(t.at).toISOString().slice(0, 10)}</lastmod></url>`,
@@ -492,7 +673,47 @@ export function createPagesApp(deps: PagesDeps) {
 
 /** Paths the pages app answers (the rest of the site is static assets or the API). */
 export const isPagesPath = (path: string) =>
-  path === "/token" || path.startsWith("/token/") || path === "/sitemap-tokens.xml";
+  path === "/token" ||
+  path.startsWith("/token/") ||
+  path === "/creators" ||
+  path === "/creators/" ||
+  path.startsWith("/creator/") ||
+  path === "/sitemap-tokens.xml";
+
+/** What the "Checked by Mofu" widget shows: the verdict and the three checks that matter most. */
+export function widgetData(r: TokenScanReport, scannedAt: number) {
+  const rank = { risk: 0, warn: 1, ok: 2, info: 3 } as const;
+  const flagged = r.checks
+    .filter((k) => k.status === "risk" || k.status === "warn")
+    .sort((a, b) => rank[a.status] - rank[b.status]);
+  // Nothing flagged: show the reassuring checks people look for first.
+  const key = ["sell", "liquidity", "mint", "bundle", "owner"];
+  const fine = r.checks
+    .filter((k) => k.status === "ok" && key.includes(k.id))
+    .sort((a, b) => key.indexOf(a.id) - key.indexOf(b.id));
+  const lines = (flagged.length ? flagged : fine)
+    .slice(0, 3)
+    .map((k) => ({ status: k.status, label: k.label }));
+  return {
+    address: r.address,
+    isContract: r.isContract,
+    name: r.token.name,
+    symbol: r.token.symbol,
+    verdict: r.verdict,
+    counts: {
+      risk: r.checks.filter((k) => k.status === "risk").length,
+      warn: r.checks.filter((k) => k.status === "warn").length,
+      ok: r.checks.filter((k) => k.status === "ok").length,
+    },
+    lines,
+    scannedAt: new Date(scannedAt).toISOString(),
+    url: `${ORIGIN}/token/${r.address}`,
+  };
+}
+
+/** HTML for the widget: a placeholder and the script. */
+export const widgetSnippet = (address: string) =>
+  `<div data-mofu-token="${address}"></div>\n<script src="${ORIGIN}/widget.js" async></script>`;
 
 /** HTML for embedding the badge. */
 export const badgeSnippet = (address: string, verdict: string) =>

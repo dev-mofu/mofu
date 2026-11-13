@@ -24,7 +24,11 @@ export interface PreviewApproval {
   amount: string;
 }
 
+/** Chains mofu.works can simulate on: Robinhood Chain, Ethereum, Base, Arbitrum. */
+export const PREVIEW_CHAIN_IDS = new Set([4663, 1, 8453, 42161]);
+
 export interface TxPreview {
+  chainName?: string;
   status: "ok" | "reverted";
   error: string | null;
   failedCall: number | null;

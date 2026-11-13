@@ -21,6 +21,20 @@ export default tseslint.config(
     },
   },
   {
+    // The embeddable widget: a plain browser script served from mofu.works.
+    files: ["apps/web/public/widget.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: {
+        window: "readonly",
+        document: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+        MutationObserver: "readonly",
+      },
+    },
+  },
+  {
     // Plain Node build/deploy scripts.
     files: ["**/*.mjs"],
     languageOptions: {

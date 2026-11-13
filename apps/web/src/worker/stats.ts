@@ -67,6 +67,48 @@ export interface TokenIndex {
   /** Launch-window buyers found earlier (they never change), or null. */
   launchCache?(token: string): Promise<LaunchCache | null>;
   saveLaunch?(token: string, cache: LaunchCache): Promise<void>;
+  /** Every creator Mofu has filed tokens under, with their counts. */
+  creatorBoard?(): Promise<CreatorSummary[]>;
+  /** The tokens filed under one creator, newest first. */
+  creatorRecords?(creator: string): Promise<CreatorEntry[]>;
+}
+
+/** One creator's record across the tokens Mofu scanned. */
+export interface CreatorSummary {
+  creator: string;
+  launches: number;
+  honeypots: number;
+  risky: number;
+  caution: number;
+  clean: number;
+  /** When Mofu last scanned one of their tokens (ms). */
+  last: number;
+}
+
+/** Counts per creator from the filed entries. Pure. */
+export function summarizeCreators(rows: Array<[string, CreatorEntry]>): CreatorSummary[] {
+  const by = new Map<string, CreatorSummary>();
+  for (const [key, e] of rows) {
+    const creator = key.split(":")[1] ?? "";
+    if (!/^0x[0-9a-f]{40}$/.test(creator)) continue;
+    const s = by.get(creator) ?? {
+      creator,
+      launches: 0,
+      honeypots: 0,
+      risky: 0,
+      caution: 0,
+      clean: 0,
+      last: 0,
+    };
+    s.launches += 1;
+    if (e.honeypot) s.honeypots += 1;
+    else if (e.verdict === "risky") s.risky += 1;
+    else if (e.verdict === "caution") s.caution += 1;
+    else s.clean += 1;
+    s.last = Math.max(s.last, e.at);
+    by.set(creator, s);
+  }
+  return [...by.values()];
 }
 
 /** A scanned token under its creator; the verdict is the one before the creator and launch checks. */

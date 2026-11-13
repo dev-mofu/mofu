@@ -18,7 +18,16 @@
     "not_found_handling": "single-page-application",
     "binding": "ASSETS",
     // Token pages (/token/0x…) and their sitemap are rendered by the Worker too.
-    "run_worker_first": ["/api/*", "/mcp", "/token", "/token/*", "/sitemap-tokens.xml"],
+    "run_worker_first": [
+      "/api/*",
+      "/mcp",
+      "/token",
+      "/token/*",
+      "/creators",
+      "/creators/*",
+      "/creator/*",
+      "/sitemap-tokens.xml"
+    ],
   },
   "durable_objects": {
     "bindings": [
