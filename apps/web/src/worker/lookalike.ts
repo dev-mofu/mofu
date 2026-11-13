@@ -50,7 +50,7 @@ export async function withLookalikes(
   data: ChainDataOptions | undefined,
 ): Promise<TokenScanReport> {
   const coded = await withCodeMatch(await lookalikesOnly(r, index, data), index);
-  return withTimeline(await withLaunchChecks(coded, index, data), index);
+  return withTimeline(await withLaunchChecks(coded, index, data), index, data);
 }
 
 async function lookalikesOnly(

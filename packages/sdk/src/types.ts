@@ -151,6 +151,13 @@ export interface TokenReport {
   deployer?: DeployerReputation | null;
   launch?: LaunchActivity | null;
   liquidity?: LiquidityInfo | null;
+  /** Standard launchpad code, or the functions beyond a plain token. */
+  code?: {
+    standard: "pons" | null;
+    functions: number;
+    named: string[];
+    unknown: number;
+  } | null;
   /** What Mofu has seen happen to the token, newest first. */
   timeline?: Array<{
     at: string;
@@ -162,7 +169,8 @@ export interface TokenReport {
       | "supply"
       | "graduated"
       | "liquidity"
-      | "sell";
+      | "sell"
+      | "upgrade";
     text: string;
     level: "ok" | "warn" | "risk" | "info";
     tx: string | null;
@@ -242,7 +250,12 @@ export const WEBHOOK_EVENTS = [
 export type WebhookEventType = (typeof WEBHOOK_EVENTS)[number];
 
 /** Wallet Watch events (webhooks created with wallets instead of tokens). */
-export const WALLET_EVENTS = ["risky_approval", "poisoning", "holding_risky"] as const;
+export const WALLET_EVENTS = [
+  "risky_approval",
+  "poisoning",
+  "holding_risky",
+  "creator_launched",
+] as const;
 export type WalletEventType = (typeof WALLET_EVENTS)[number];
 
 export interface Webhook {

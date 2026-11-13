@@ -164,17 +164,22 @@ export class StatsStore extends DurableObject<Env> implements Stats, TokenIndex 
     return out;
   }
 
+  async tokenSnapshot(token: string): Promise<TokenSnapshot | null> {
+    return (await this.ctx.storage.get<StoredSnapshot>(`snap:${token.toLowerCase()}`)) ?? null;
+  }
+
   async observeToken(
     token: string,
     snapshot: TokenSnapshot,
     first: TimelineEvent[],
     now: number,
+    extra: TimelineEvent[] = [],
   ): Promise<TimelineEvent[]> {
     const k = token.toLowerCase();
     const prev = (await this.ctx.storage.get<StoredSnapshot>(`snap:${k}`)) ?? null;
     const list = (await this.ctx.storage.get<TimelineEvent[]>(`tl:${k}`)) ?? [];
     const { events, stored } = step(prev, snapshot, new Date(now).toISOString());
-    const added = prev ? events : first;
+    const added = [...extra, ...(prev ? events : first)];
     const timeline = [...added, ...list]
       .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
       .slice(0, TIMELINE_MAX);

@@ -14,6 +14,7 @@ import { withLookalikes } from "./lookalike.js";
 import { tokenIndexFromEnv } from "./stats.js";
 import { scanToken } from "./token-scan.js";
 import { queueVerdict } from "./verdict-store.js";
+import { walletWatchFromEnv } from "./wallet-watch.js";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 /** Wait this long after launch, so the launch window (first minute) is complete. */
@@ -229,7 +230,12 @@ export class RadarStore extends DurableObject<Env> {
               },
             ])
             .catch(() => undefined);
-        await this.ctx.storage.put(entryKey(q.at, q.token), radarEntry(full, q.creator, q.at, at));
+        const entry = radarEntry(full, q.creator, q.at, at);
+        await this.ctx.storage.put(entryKey(q.at, q.token), entry);
+        // Creator Watch: tell anyone following this creator.
+        await walletWatchFromEnv(this.env)
+          .creatorLaunched(entry)
+          .catch(() => 0);
         await this.ctx.storage.delete(`q:${q.token}`);
         scanned++;
       } catch (err) {

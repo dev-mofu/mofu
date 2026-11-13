@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { parseRpcUrls, rpcBatch, type BatchCall } from "./chain.js";
 import { withLookalikes } from "./lookalike.js";
 import { tokenIndexFromEnv } from "./stats.js";
+import { upgradeSummary } from "./templates.js";
 import { scanToken } from "./token-scan.js";
 import {
   applyScan,
@@ -294,6 +295,18 @@ export class WebhookStore extends DurableObject<Env> {
       } catch {
         break;
       }
+    }
+
+    // An upgrade says what the new code added and removed (two code reads, if the budget allows).
+    for (const e of events) {
+      if (e.change.type !== "upgraded" || used > BUDGET - 8) continue;
+      const s = await upgradeSummary(
+        urls,
+        counted,
+        (e.change.before as string | null) ?? null,
+        (e.change.after as string | null) ?? null,
+      ).catch(() => null);
+      if (s) e.change = { ...e.change, summary: `${e.change.summary.split(":")[0]}: ${s.text}` };
     }
 
     // 3. Deliver, with whatever budget is left. Each hook gets the events it asked for.

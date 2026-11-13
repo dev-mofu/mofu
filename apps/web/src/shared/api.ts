@@ -178,7 +178,8 @@ export interface TokenCheck {
     | "fingerprint"
     | "deployer"
     | "bundle"
-    | "liquidity";
+    | "liquidity"
+    | "code";
   label: string;
   status: "ok" | "warn" | "risk" | "info";
   detail: string;
@@ -231,6 +232,13 @@ export interface TokenScanReport {
   liquidity?: LiquidityInfo | null;
   /** What Mofu has seen happen to this token across its scans, newest first. */
   timeline?: TimelineEvent[];
+  /** Standard launchpad code, or the functions beyond a plain token. */
+  code?: {
+    standard: "pons" | null;
+    functions: number;
+    named: string[];
+    unknown: number;
+  } | null;
   /** What this scan can't see. */
   limits: string[];
 }
@@ -271,7 +279,15 @@ export interface TimelineEvent {
   /** When it happened (launch) or when Mofu noticed it (everything else). */
   at: string;
   kind:
-    "launched" | "first-scan" | "verdict" | "owner" | "supply" | "graduated" | "liquidity" | "sell";
+    | "launched"
+    | "first-scan"
+    | "verdict"
+    | "owner"
+    | "supply"
+    | "graduated"
+    | "liquidity"
+    | "sell"
+    | "upgrade";
   /** One plain sentence. */
   text: string;
   level: "ok" | "warn" | "risk" | "info";

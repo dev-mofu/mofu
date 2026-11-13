@@ -6,6 +6,7 @@
  */
 import type { TimelineEvent, TokenScanReport } from "../shared/api.js";
 import type { TokenIndex } from "./stats.js";
+import { upgradeSummary } from "./templates.js";
 
 export const TIMELINE_MAX = 40;
 
@@ -19,10 +20,13 @@ export interface TokenSnapshot {
   /** ETH on the curve or in the pool. */
   eth: number | null;
   sell: "passed" | "failed" | null;
+  /** The implementation behind a proxy (absent in snapshots from before upgrades were tracked). */
+  implementation?: string | null;
 }
 
 export function snapshotOf(r: TokenScanReport): TokenSnapshot {
   return {
+    implementation: r.proxy?.implementation ?? null,
     verdict: r.verdict,
     ownerStatus: r.owner.status,
     owner: r.owner.address,
@@ -151,11 +155,22 @@ export function firstEvents(r: TokenScanReport, at: string): TimelineEvent[] {
 export async function withTimeline(
   r: TokenScanReport,
   index: TokenIndex | null,
+  data?: { rpcUrls: readonly string[]; fetch: typeof fetch },
   now = Date.now(),
 ): Promise<TokenScanReport> {
   if (!r.isContract || !index?.observeToken) return r;
+  const at = new Date(now).toISOString();
+  // An implementation swap since the last scan: say what the new code added and removed.
+  const extra: TimelineEvent[] = [];
+  const prev = index.tokenSnapshot ? await index.tokenSnapshot(r.address).catch(() => null) : null;
+  const before = prev?.implementation;
+  const after = r.proxy?.implementation ?? null;
+  if (before !== undefined && (before ?? null) !== (after ?? null) && data) {
+    const s = await upgradeSummary(data.rpcUrls, data.fetch, before ?? null, after ?? null);
+    extra.push({ at, kind: "upgrade", text: s.text, level: s.risky ? "risk" : "warn", tx: null });
+  }
   const timeline = await index
-    .observeToken(r.address, snapshotOf(r), firstEvents(r, new Date(now).toISOString()), now)
+    .observeToken(r.address, snapshotOf(r), firstEvents(r, at), now, extra)
     .catch(() => null);
   return timeline ? { ...r, timeline } : r;
 }

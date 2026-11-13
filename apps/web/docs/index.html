@@ -593,6 +593,13 @@ curl -X POST https://mofu.works/api/v1/webhooks \
                   <td><code>holding_risky</code></td>
                   <td>A token the wallet holds is now rated risky by Mofu</td>
                 </tr>
+                <tr>
+                  <td><code>creator_launched</code></td>
+                  <td>
+                    Creator Watch: the wallet launched a new token on the Pons launchpad (sent once
+                    the radar has scanned it, with the result)
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -674,6 +681,12 @@ function fromMofu(header, rawBody, secret) {
             comes from <code>https://mofu.works/token/0x….json</code> (open to any site, cached for
             five minutes). Every token page has the snippet ready to copy.
           </p>
+          <p>
+            To follow a token creator without the half-hourly wallet check, subscribe to
+            <code>creator_launched</code> only: <code>"events": ["creator_launched"]</code>. Every
+            creator page on <a href="/creators/">mofu.works/creators</a> has the snippet ready to
+            copy.
+          </p>
           <h3 id="radar">New Token Radar</h3>
           <p>
             <a href="/radar/">mofu.works/radar</a> lists every token launched on the Pons launchpad,
@@ -687,6 +700,19 @@ function fromMofu(header, rawBody, secret) {
             owner, the supply, graduation, a 30% or bigger drop in liquidity, the sell test. Token
             pages, the app and the API show it as a timeline next to the launch. A verdict change
             has to show up on two scans in a row before it's written down.
+          </p>
+          <h3 id="code">Standard code, or custom?</h3>
+          <p>
+            Every Pons launch Mofu has scanned runs the same standard token code; a token that runs
+            it is marked standard. For anything else, Mofu reads the functions the contract's
+            dispatcher really routes (behind a proxy, the implementation's) and lists the ones
+            beyond a plain token: owner powers first, by name, and how many Mofu can't name.
+          </p>
+          <h3 id="upgrades">Upgrade diffs</h3>
+          <p>
+            When a proxy's implementation changes between two scans, the timeline says what the new
+            code added and removed (a mint function, a way to block wallets, fee setters…), and so
+            does the <code>upgraded</code> webhook event.
           </p>
           <h3 id="creators">Token creators</h3>
           <p>

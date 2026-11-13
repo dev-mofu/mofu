@@ -322,6 +322,12 @@ export function creatorMain(creator: string, records: CreatorEntry[]): string {
           <p class="token-note">The result is the verdict when Mofu scanned it, before the creator and launch checks. Open a token for its current scan.</p></section>`
             : ""
         }
+        <section id="watch">
+          <h2>Watch this creator</h2>
+          <p>Get a signed webhook the moment this wallet launches a new token on the Pons launchpad, with Mofu's scan of it. Your URL has to answer Mofu's ping with a 2xx status.</p>
+          <pre><code>${escapeHtml(watchSnippet(creator))}</code></pre>
+          <button class="pill pill--small pill--ghost token-copy" type="button" data-copy="${escapeHtml(watchSnippet(creator))}">Copy</button>
+        </section>
         <section id="more"><p><a href="/creators/">All creators</a></p></section>`;
 }
 
@@ -796,6 +802,15 @@ export function widgetData(r: TokenScanReport, scannedAt: number) {
     url: `${ORIGIN}/token/${r.address}`,
   };
 }
+
+/** How to follow a creator: a wallet webhook with only creator_launched. */
+export const watchSnippet = (creator: string) =>
+  `npx mofu-cli webhook add https://your.domain/mofu ${creator} --wallets --events creator_launched
+
+# or
+curl -X POST https://mofu.works/api/v1/webhooks \\
+  -H "Content-Type: application/json" \\
+  -d '{"url":"https://your.domain/mofu","wallets":["${creator}"],"events":["creator_launched"]}'`;
 
 /** HTML for the widget: a placeholder and the script. */
 export const widgetSnippet = (address: string) =>

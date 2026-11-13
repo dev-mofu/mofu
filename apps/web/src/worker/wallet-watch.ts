@@ -12,6 +12,7 @@ import type { WalletReport } from "../shared/api.js";
 import { parseRpcUrls } from "./chain.js";
 import { tokenIndexFromEnv } from "./stats.js";
 import { walletReport } from "./wallet.js";
+import type { RadarEntry } from "./radar.js";
 import {
   deliver,
   DISABLED_TTL_MS,
@@ -23,7 +24,14 @@ import {
   type WebhookEvent,
 } from "./webhooks.js";
 
-export const WALLET_EVENTS = ["risky_approval", "poisoning", "holding_risky"] as const;
+export const WALLET_EVENTS = [
+  "risky_approval",
+  "poisoning",
+  "holding_risky",
+  "creator_launched",
+] as const;
+/** Events that need the half-hourly wallet check (creator_launched comes from the radar). */
+const POLLED: readonly WalletEventType[] = ["risky_approval", "poisoning", "holding_risky"];
 export type WalletEventType = (typeof WALLET_EVENTS)[number];
 
 export const MAX_WALLETS_PER_HOOK = 3;
@@ -244,6 +252,50 @@ export class WalletWatchStore extends DurableObject<Env> {
     return true;
   }
 
+  /**
+   * Creator Watch: the radar scanned a new launch. Hooks watching its creator with
+   * creator_launched get an event with Mofu's result.
+   */
+  async creatorLaunched(entry: RadarEntry): Promise<number> {
+    const creator = entry.creator.toLowerCase();
+    const hooks = (await this.hooks()).filter(
+      (h) =>
+        h.status === "active" &&
+        h.wallets.includes(creator) &&
+        h.events.includes("creator_launched"),
+    );
+    if (!hooks.length) return 0;
+    const now = Date.now();
+    const name = entry.symbol ? `${entry.symbol}` : (entry.name ?? short(entry.address));
+    const facts = [
+      entry.sell === "failed"
+        ? "its simulated sell failed"
+        : entry.sell === "passed"
+          ? "it sells"
+          : null,
+      entry.bundle === "risk" ? "linked wallets bought the launch" : null,
+      entry.deployer === "risk" ? "the creator has launched honeypots before" : null,
+    ].filter(Boolean);
+    const event: WebhookEvent = {
+      id: `evt_${randomHex(12)}`,
+      type: "creator_launched",
+      createdAt: new Date(now).toISOString(),
+      token: { address: entry.address, name: entry.name, symbol: entry.symbol },
+      wallet: creator,
+      summary: `${short(creator)} launched ${name} (${short(entry.address)}). Mofu says ${entry.verdict}${facts.length ? `: ${facts.join(", ")}` : ""}.`,
+      before: null,
+      after: entry,
+      report: `https://mofu.works/token/${entry.address}`,
+    };
+    let sent = 0;
+    for (const h of hooks) {
+      const res = await deliver(fetch, h, event, now);
+      await this.ctx.storage.put(`hook:${h.id}`, this.afterDelivery(h, res, now));
+      if (res.ok) sent++;
+    }
+    return sent;
+  }
+
   async test(id: string, secret: string, now: number): Promise<DeliveryResult | null> {
     const hook = await this.owned(id, secret);
     if (!hook) return null;
@@ -301,7 +353,13 @@ export class WalletWatchStore extends DurableObject<Env> {
       if (hooks.length) await this.ctx.storage.setAlarm(now + 6 * 60 * 60 * 1000);
       return;
     }
-    const wallets = [...new Set(active.flatMap((h) => h.wallets))];
+    // Only wallets someone wants approvals, lookalikes or holdings for get the wallet check.
+    const wallets = [
+      ...new Set(
+        active.filter((h) => h.events.some((e) => POLLED.includes(e))).flatMap((h) => h.wallets),
+      ),
+    ];
+    if (!wallets.length) return;
     const snaps = await this.ctx.storage.get<WalletSnapshot>(wallets.map((w) => `w:${w}`));
     const order = wallets
       .map((w) => ({ w, s: snaps.get(`w:${w}`) ?? null }))

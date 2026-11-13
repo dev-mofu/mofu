@@ -83,7 +83,10 @@ export interface TokenIndex {
     snapshot: TokenSnapshot,
     first: TimelineEvent[],
     now: number,
+    extra?: TimelineEvent[],
   ): Promise<TimelineEvent[]>;
+  /** The snapshot the token's last full scan left, or null. */
+  tokenSnapshot?(token: string): Promise<TokenSnapshot | null>;
 }
 
 /** One creator's record across the tokens Mofu scanned. */

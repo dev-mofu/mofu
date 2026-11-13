@@ -12,6 +12,7 @@ import { ethCall, RevertError, rpcCall } from "./chain.js";
 import { tokenOrigin, topHolders, type ChainDataOptions } from "./chain-data.js";
 import { codeFingerprint } from "./fingerprint.js";
 import { liquidityCheck, readLiquidity } from "./liquidity.js";
+import { codeCheck } from "./templates.js";
 import { sellTest } from "./sell-test.js";
 
 export const CHAIN_NAME = "Robinhood Chain";
@@ -246,6 +247,8 @@ export async function scanToken(
 
   let facts = analyzeCode(code);
   const own = analyzeCode(code);
+  /** The code that runs: the token's own, or the implementation's behind a proxy. */
+  let logicCode: string = code;
 
   // Proxies: the logic lives elsewhere, so read and analyze the implementation as well.
   let implementation: string | null = facts.minimalProxyTarget;
@@ -289,6 +292,7 @@ export async function scanToken(
       fetchFn,
     ).catch(() => "0x");
     const implFacts = analyzeCode(implCode);
+    if (implCode && implCode !== "0x") logicCode = implCode;
     facts = {
       selectors: new Set([...facts.selectors, ...implFacts.selectors]),
       selfdestruct: facts.selfdestruct || implFacts.selfdestruct,
@@ -538,6 +542,14 @@ export async function scanToken(
     );
   }
 
+  // Standard launchpad code, or custom functions?
+  const coded = codeCheck(
+    proxyKind === "none" ? base.fingerprint : null,
+    logicCode,
+    proxyKind !== "none",
+  );
+  if (coded) checks.push(coded.check);
+
   // Where the liquidity is, and whether a wallet can pull it.
   const liquidity =
     distribution.status === "full"
@@ -567,6 +579,7 @@ export async function scanToken(
     origin,
     sellTest: sold,
     liquidity,
+    code: coded?.facts ?? null,
     // A proxy's own code is the shared proxy template, not the token: no fingerprint for it.
     fingerprint: proxyKind === "none" ? base.fingerprint : null,
   };
