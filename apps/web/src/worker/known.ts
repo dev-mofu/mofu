@@ -13,6 +13,8 @@ export const MOFU_TOKEN = "0xf76593c1c321c2a2f77775025e9677999ce7ea8c";
 export const MOFU_CURVE = "0xc2347eda73ddcbc7a1ce29ff140fd6a62d0cf460";
 export const PONS_LAUNCHPAD = "0xe33e9e479df8802cb0866d5d05258bec4cf62948";
 export const WETH = "0x0bd7d308f8e1639fab988df18a8011f41eacad73";
+/** Has unlock, initialize, modifyLiquidity and extsload: the Uniswap v4 singleton. Graduated Pons tokens trade here. */
+export const V4_POOL_MANAGER = "0x8366a39cc670b4001a1121b8f6a443a643e40951";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const DEAD = "0x000000000000000000000000000000000000dead";
 
@@ -26,6 +28,8 @@ export const KNOWN: Record<string, { label: string; kind: AddressInfo["kind"] }>
   [PONS_LAUNCHPAD]: { label: "Pons launchpad", kind: "contract" },
   // symbol() returns WETH; it's the WETH() address of Robinhood Chain routers.
   [WETH]: { label: "WETH (wrapped ETH)", kind: "token" },
+  // Holds the tokens of every v4 pool at once (it's a singleton), so it shows up as a top holder.
+  [V4_POOL_MANAGER]: { label: "Uniswap v4 pool manager", kind: "pool" },
   [ZERO]: { label: "Burn address (zero)", kind: "burn" },
   [DEAD]: { label: "Burn address (dead)", kind: "burn" },
 };

@@ -342,6 +342,27 @@ export function TokenReport({
         </div>
       )}
 
+      {report.liquidity?.curve && report.liquidity.curve.progressPercent !== null && (
+        <div className="token-section">
+          <h3>On the launch curve</h3>
+          <div
+            className="grad-bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={report.liquidity.curve.progressPercent}
+            aria-label="Progress toward graduation"
+          >
+            <span style={{ width: `${Math.max(2, report.liquidity.curve.progressPercent)}%` }} />
+          </div>
+          <p className="muted small">
+            {report.liquidity.curve.raised} of {report.liquidity.curve.threshold} ETH raised toward
+            graduation ({report.liquidity.curve.progressPercent}%). At the goal, the Pons factory
+            moves the liquidity to a Uniswap v4 pool. Curve <Addr a={report.liquidity.venue} />
+          </p>
+        </div>
+      )}
+
       {report.deployer && report.deployer.tokens.length > 0 && (
         <div className="token-section">
           <h3>The creator's other launches</h3>

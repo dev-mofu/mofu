@@ -132,10 +132,14 @@ describe("change detection", () => {
     ...over,
   });
 
-  it("reads owner, supply, implementation, paused and the venue's liquidity", () => {
+  it("reads owner, supply, implementation, paused, the venue's liquidity and graduation", () => {
     const calls = snapshotCalls(base());
-    expect(calls).toHaveLength(5);
+    expect(calls).toHaveLength(6);
     expect(calls[4]).toEqual({ method: "eth_getBalance", params: [CURVE, "latest"] });
+    expect(calls[5]).toEqual({
+      method: "eth_call",
+      params: [{ to: CURVE, data: "0xe7c2b772" }, "latest"],
+    });
     const pool = snapshotCalls(base({ venueKind: "pool" }));
     expect(pool[4]!.method).toBe("eth_call");
     expect(snapshotCalls(base({ venue: null, venueKind: null }))).toHaveLength(4);

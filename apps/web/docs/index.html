@@ -337,6 +337,15 @@ npx mofu-cli          # chat in the current folder</code></pre>
             already sold don't count against the token.
           </p>
           <p>
+            <strong>Can the liquidity be pulled?</strong> On a Pons launch curve, Mofu shows how
+            much ETH it has raised toward graduation and checks that the curve's code has no owner
+            or withdraw function, so ETH leaves only through sells. A graduated token's liquidity
+            was moved into a Uniswap v4 pool by the Pons factory. In a v2 pool, Mofu reads who holds
+            the LP tokens: burned, held by contracts, or held by a wallet that can remove its share
+            at any time (flagged). For v3 and v4 pools it shows the ETH side; who owns those
+            positions isn't checked yet.
+          </p>
+          <p>
             With the full report (for $MOFU holders) you also see the top 10 holders, with pools and
             burned tokens labeled, and who created the token: the creator wallet, how old it is, how
             much it still holds and whether it launched other tokens through the same launcher, with
@@ -354,17 +363,21 @@ npx mofu-cli          # chat in the current folder</code></pre>
             a quick scan.
           </p>
           <p>
-            <strong>Lookalike addresses.</strong> Wallet Health also reads the wallet's last 100
+            <strong>Lookalike addresses.</strong> Wallet Health also reads the wallet's latest
             transactions for address poisoning: transfers someone else made from or to an address
             that starts and ends like one you send to (or like your own), and 0-token transfers
             "from" you that you never made. Never copy an address from your history; Mofu Guard
             stops a send to a lookalike before your wallet sees it.
           </p>
           <p>
-            <strong>Revoke</strong> sends one transaction from your wallet,
-            <code>approve(spender, 0)</code>, which removes the permission and can't move your
-            tokens. It's the only transaction Mofu ever offers. Approvals for whole NFT collections
-            aren't checked yet.
+            <strong>Revoke</strong> sends <code>approve(spender, 0)</code> from your wallet (for an
+            NFT collection, <code>setApprovalForAll(operator, false)</code>), which removes the
+            permission and can't move anything. It's the only transaction Mofu ever offers.
+            <strong>Clean up</strong> revokes every risky approval, or every flagged one, at once:
+            in one confirmation when your wallet can batch transactions (EIP-5792), otherwise one
+            per approval. After each lands, Mofu reads the allowance back from the chain and marks
+            it revoked only when it's really gone. Approvals for whole NFT collections are listed
+            too, re-checked on the chain.
           </p>
           <h3>Explain a transaction</h3>
           <p>
@@ -530,8 +543,12 @@ npx mofu-cli scan 0xTOKEN --fail-on risky        # exit code 2 if the verdict is
                   <td><code>liquidity_dropped</code></td>
                   <td>
                     ETH on the launch curve, or WETH in the pool, fell 30% or more between two
-                    checks (on a curve this also happens when the token graduates)
+                    checks (not sent when the drop is the token graduating)
                   </td>
+                </tr>
+                <tr>
+                  <td><code>graduated</code></td>
+                  <td>The token left its Pons launch curve for a Uniswap v4 pool</td>
                 </tr>
                 <tr>
                   <td><code>verdict_changed</code></td>

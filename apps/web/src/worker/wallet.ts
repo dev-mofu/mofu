@@ -3,7 +3,13 @@
  * re-checked on the chain and its spender described. Approvals and balances come from GoldRush;
  * live allowances, token names and spender facts from batched RPC calls.
  */
-import type { AddressInfo, WalletApproval, WalletHolding, WalletReport } from "../shared/api.js";
+import type {
+  AddressInfo,
+  WalletApproval,
+  WalletHolding,
+  WalletNftApproval,
+  WalletReport,
+} from "../shared/api.js";
 import { findPoisoning, type HistoryTx } from "./poisoning.js";
 import { callOf, rpcBatch, rpcCall } from "./chain.js";
 import { recentTransactions, type ChainDataOptions } from "./chain-data.js";
@@ -38,6 +44,129 @@ interface ApprovalItem {
     block_signed_at?: string;
     tx_hash?: string;
   }>;
+}
+
+interface NftApprovalItem {
+  contract_address?: string;
+  token_address?: string;
+  contract_name?: string | null;
+  contract_ticker_symbol?: string | null;
+  spenders?: Array<{
+    spender_address?: string;
+    operator?: string;
+    block_signed_at?: string;
+    tx_hash?: string;
+  }>;
+}
+
+const MAX_NFT_APPROVALS = 20;
+
+/**
+ * Collection-wide NFT approvals to check: from GoldRush's index and from ApprovalForAll events in
+ * the wallet's recent transactions, newest first, one per collection and operator.
+ */
+export function nftApprovalCandidates(
+  wallet: string,
+  index: NftApprovalItem[] | null,
+  history: HistoryTx[] | null,
+): Array<{
+  collection: string;
+  operator: string;
+  approvedAt: string | null;
+  txHash: string | null;
+  name: string | null;
+  symbol: string | null;
+}> {
+  const out = new Map<
+    string,
+    {
+      collection: string;
+      operator: string;
+      approvedAt: string | null;
+      txHash: string | null;
+      name: string | null;
+      symbol: string | null;
+    }
+  >();
+  const add = (
+    c: string | undefined,
+    op: string | undefined,
+    at: string | null,
+    tx: string | null,
+    name: string | null,
+    symbol: string | null,
+  ) => {
+    const collection = (c ?? "").toLowerCase();
+    const operator = (op ?? "").toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(collection) || !/^0x[0-9a-f]{40}$/.test(operator)) return;
+    const k = `${collection}:${operator}`;
+    const prev = out.get(k);
+    if (!prev || Date.parse(at ?? "0") > Date.parse(prev.approvedAt ?? "0"))
+      out.set(k, {
+        collection,
+        operator,
+        approvedAt: at,
+        txHash: tx,
+        name: name ?? prev?.name ?? null,
+        symbol: symbol ?? prev?.symbol ?? null,
+      });
+  };
+  for (const item of index ?? [])
+    for (const s of item.spenders ?? [])
+      add(
+        item.contract_address ?? item.token_address,
+        s.spender_address ?? s.operator,
+        s.block_signed_at ?? null,
+        s.tx_hash ?? null,
+        item.contract_name?.trim() || null,
+        item.contract_ticker_symbol?.trim() || null,
+      );
+  for (const tx of history ?? [])
+    for (const e of tx.log_events ?? []) {
+      if (e.decoded?.name !== "ApprovalForAll") continue;
+      const p = (n: string) => e.decoded?.params?.find((x) => x.name === n)?.value;
+      if (String(p("owner") ?? "").toLowerCase() !== wallet) continue;
+      add(
+        e.sender_address ?? undefined,
+        String(p("operator") ?? ""),
+        tx.block_signed_at ?? null,
+        tx.tx_hash,
+        null,
+        e.sender_contract_ticker_symbol ?? null,
+      );
+    }
+  return [...out.values()]
+    .sort((a, b) => Date.parse(b.approvedAt ?? "0") - Date.parse(a.approvedAt ?? "0"))
+    .slice(0, MAX_NFT_APPROVALS);
+}
+
+/** Level and reasons for an approval over a whole NFT collection. */
+export function judgeNftApproval(
+  name: string,
+  operator: AddressInfo,
+): { risk: WalletNftApproval["risk"]; reasons: string[] } {
+  const activity = describeActivity(operator);
+  const reasons = [`It can move every NFT you hold in ${name}, now and later.`];
+  let risk: WalletNftApproval["risk"] = "warn";
+  if (operator.kind === "wallet") {
+    risk = "risk";
+    reasons.push(
+      "The operator is a plain wallet, not a contract. Marketplaces never need that: it's how NFT drainers work.",
+    );
+  } else if (
+    !operator.known &&
+    operator.ageDays !== null &&
+    operator.ageDays < 7 &&
+    (operator.txCount ?? 0) < 1_000
+  ) {
+    risk = "risk";
+    reasons.push(`The operator is a new contract with little use (${activity}).`);
+  }
+  if (operator.label)
+    reasons.unshift(`Operator: ${operator.label}${activity ? ` (${activity})` : ""}.`);
+  else if (operator.kind !== "wallet" && activity)
+    reasons.unshift(`Operator: a contract, ${activity}.`);
+  return { risk, reasons };
 }
 
 async function gr<T>(o: ChainDataOptions, path: string): Promise<T | null> {
@@ -133,10 +262,10 @@ export async function walletReport(
 ): Promise<WalletReport> {
   const wallet = address.toLowerCase();
   const limits = [
-    "Token approvals only. Approvals for whole NFT collections (setApprovalForAll) aren't checked yet.",
-    "Approvals come from GoldRush's index and are re-checked on the chain; a very recent one can be missing for a few minutes.",
+    "Approvals come from GoldRush's index and the wallet's recent transactions, and are re-checked on the chain; a very recent one can be missing for a few minutes.",
+    "NFT approvals cover whole collections (setApprovalForAll); approvals for single NFTs aren't listed.",
   ];
-  const [code, balances, approvals, history] = await Promise.all([
+  const [code, balances, approvals, history, nftIndex] = await Promise.all([
     rpcCall<string>(o.rpcUrls, "eth_getCode", [wallet, "latest"], o.fetch).catch(() => "0x"),
     gr<{ items?: BalanceItem[] }>(o, `address/${wallet}/balances_v2/?no-spam=true`),
     gr<{ items?: ApprovalItem[] }>(o, `approvals/${wallet}/`),
@@ -144,6 +273,7 @@ export async function walletReport(
       (items) => items as unknown as HistoryTx[],
       () => null,
     ),
+    gr<{ items?: NftApprovalItem[] }>(o, `nft/approvals/${wallet}/`),
   ]);
   const poisoning = history ? findPoisoning(wallet, history) : [];
   limits.push(
@@ -244,9 +374,55 @@ export async function walletReport(
     });
   }
 
-  const spenders = await describeAddresses(o, [...new Set(active.map((p) => p.spender))], 8).catch(
-    () => new Map<string, AddressInfo>(),
-  );
+  // Collection-wide NFT approvals, kept only when isApprovedForAll still says yes.
+  const nftCandidates = nftApprovalCandidates(wallet, nftIndex?.items ?? null, history);
+  const nftLive = await rpcBatch(
+    o.rpcUrls,
+    nftCandidates.flatMap((c) => [
+      callOf(c.collection, `0xe985e9c5${pad(wallet)}${pad(c.operator)}`),
+      callOf(c.collection, "0x06fdde03"),
+      callOf(c.collection, "0x95d89b41"),
+    ]),
+    o.fetch,
+  ).catch(() => nftCandidates.flatMap(() => [null, null, null]));
+  const nftActive = nftCandidates
+    .map((c, i) => ({
+      ...c,
+      on: /^0x0*1$/i.test(nftLive[i * 3] ?? ""),
+      name: c.name ?? str(nftLive[i * 3 + 1] ?? null),
+      symbol: c.symbol ?? str(nftLive[i * 3 + 2] ?? null),
+    }))
+    .filter((c) => c.on);
+
+  const spenders = await describeAddresses(
+    o,
+    [...new Set([...active.map((p) => p.spender), ...nftActive.map((c) => c.operator)])],
+    8,
+  ).catch(() => new Map<string, AddressInfo>());
+  const nftApprovals: WalletNftApproval[] = nftActive.map((c) => {
+    const operator: AddressInfo = spenders.get(c.operator) ?? {
+      address: c.operator,
+      kind: "contract",
+      label: null,
+      known: false,
+      txCount: null,
+      firstSeen: null,
+      ageDays: null,
+    };
+    const label = c.name ?? (c.symbol ? `$${c.symbol}` : "this collection");
+    const { risk, reasons } = judgeNftApproval(label, operator);
+    return {
+      collection: c.collection,
+      name: c.name,
+      symbol: c.symbol,
+      operator,
+      approvedAt: c.approvedAt,
+      txHash: c.txHash,
+      risk,
+      reasons,
+    };
+  });
+  nftApprovals.sort((a, b) => RANK[a.risk] - RANK[b.risk]);
   const out: WalletApproval[] = active.map((p) => {
     const m = meta.get(p.token);
     const decimals = m?.decimals ?? p.decimals ?? 18;
@@ -287,6 +463,7 @@ export async function walletReport(
     holdings,
     holdingsTotal: tokensHeld.length,
     approvals: out,
+    nftApprovals,
     poisoning,
     status: {
       holdings: balances ? "ok" : "unavailable",

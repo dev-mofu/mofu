@@ -11,6 +11,7 @@ import type { TokenCheck, TokenScanReport } from "../shared/api.js";
 import { ethCall, RevertError, rpcCall } from "./chain.js";
 import { tokenOrigin, topHolders, type ChainDataOptions } from "./chain-data.js";
 import { codeFingerprint } from "./fingerprint.js";
+import { liquidityCheck, readLiquidity } from "./liquidity.js";
 import { sellTest } from "./sell-test.js";
 
 export const CHAIN_NAME = "Robinhood Chain";
@@ -537,6 +538,18 @@ export async function scanToken(
     );
   }
 
+  // Where the liquidity is, and whether a wallet can pull it.
+  const liquidity =
+    distribution.status === "full"
+      ? await readLiquidity(urls, fetchFn, addr, {
+          holders: distribution.holders,
+          sold,
+          origin,
+          data,
+        })
+      : null;
+  if (liquidity) checks.push(liquidityCheck(liquidity));
+
   const verdict = checks.some((c) => c.status === "risk")
     ? "risky"
     : checks.some((c) => c.status === "warn")
@@ -553,6 +566,7 @@ export async function scanToken(
     distribution,
     origin,
     sellTest: sold,
+    liquidity,
     // A proxy's own code is the shared proxy template, not the token: no fingerprint for it.
     fingerprint: proxyKind === "none" ? base.fingerprint : null,
   };

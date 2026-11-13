@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
-import type { WalletApproval, WalletReport } from "../../shared/api.js";
+import type { WalletApproval, WalletNftApproval, WalletReport } from "../../shared/api.js";
 import { quickCheck, type QuickCheck } from "../lib/api.js";
-import { revokeApproval, WalletError } from "../lib/wallet.js";
+import {
+  isRevoked,
+  sendRevokes,
+  waitForRevoke,
+  WalletError,
+  type RevokeItem,
+} from "../lib/wallet.js";
 
 const EXPLORER = "https://robinhoodchain.blockscout.com";
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -39,37 +45,96 @@ function Link({ a, kind = "address" }: { a: string; kind?: "address" | "tx" }) {
   );
 }
 
-type RevokeState =
+type RowState =
   | { state: "idle" }
   | { state: "sending" }
-  | { state: "sent"; hash: string }
-  | {
-      state: "error";
-      message: string;
-    };
+  | { state: "pending"; hash?: string }
+  | { state: "verified"; hash?: string }
+  | { state: "still"; hash?: string }
+  | { state: "error"; message: string };
 
-function ApprovalRow({ a, owner }: { a: WalletApproval; owner: string }) {
-  const [revoke, setRevoke] = useState<RevokeState>({ state: "idle" });
+interface Entry {
+  key: string;
+  item: RevokeItem;
+  risk: WalletApproval["risk"];
+}
+
+function RevokeActions({
+  risk,
+  row,
+  onRevoke,
+}: {
+  risk: WalletApproval["risk"];
+  row: RowState;
+  onRevoke: () => void;
+}) {
+  return (
+    <div className="approval-actions">
+      {row.state === "verified" ? (
+        <p className="status status--ok">
+          Revoked, checked on the chain
+          {row.hash && (
+            <>
+              {" "}
+              (<Link a={row.hash} kind="tx" />)
+            </>
+          )}
+          .
+        </p>
+      ) : row.state === "pending" ? (
+        <p className="status">
+          Sent
+          {row.hash && (
+            <>
+              {" "}
+              (<Link a={row.hash} kind="tx" />)
+            </>
+          )}
+          . Waiting for it to land, then reading it back from the chain…
+        </p>
+      ) : (
+        <button
+          type="button"
+          className={risk === "ok" ? "ghost-button" : "pill-button"}
+          onClick={onRevoke}
+          disabled={row.state === "sending"}
+        >
+          {row.state === "sending"
+            ? "Confirm in your wallet…"
+            : row.state === "still"
+              ? "Try again"
+              : "Revoke"}
+        </button>
+      )}
+      {row.state === "still" && (
+        <p className="status status--bad" role="alert">
+          The chain still shows this approval. The transaction may have failed.
+        </p>
+      )}
+      {row.state === "error" && (
+        <p className="status status--bad" role="alert">
+          {row.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ApprovalRow({
+  a,
+  row,
+  onRevoke,
+}: {
+  a: WalletApproval;
+  row: RowState;
+  onRevoke: () => void;
+}) {
   const token = a.tokenSymbol ? `$${a.tokenSymbol}` : (a.tokenName ?? short(a.token));
   const spender = a.spender.label ?? KIND[a.spender.kind];
-
-  const send = async () => {
-    setRevoke({ state: "sending" });
-    try {
-      const hash = await revokeApproval(owner, a.token, a.spender.address);
-      setRevoke({ state: "sent", hash });
-    } catch (err) {
-      setRevoke({
-        state: "error",
-        message: err instanceof WalletError ? err.message : "The revoke didn't go through.",
-      });
-    }
-  };
-
   return (
-    <li className={`token-check token-check--${a.risk} approval`}>
+    <li className={`token-check token-check--${row.state === "verified" ? "ok" : a.risk} approval`}>
       <span className="token-check-icon" aria-hidden="true">
-        {ICON[a.risk]}
+        {row.state === "verified" ? ICON.ok : ICON[a.risk]}
       </span>
       <div>
         <strong>
@@ -90,28 +155,46 @@ function ApprovalRow({ a, owner }: { a: WalletApproval; owner: string }) {
         {a.reasons.map((r) => (
           <p key={r}>{r}</p>
         ))}
-        <div className="approval-actions">
-          {revoke.state === "sent" ? (
-            <p className="status status--ok">
-              Revoke sent (<Link a={revoke.hash} kind="tx" />
-              ). Check again in a minute to see it gone.
-            </p>
-          ) : (
-            <button
-              type="button"
-              className={a.risk === "ok" ? "ghost-button" : "pill-button"}
-              onClick={() => void send()}
-              disabled={revoke.state === "sending"}
-            >
-              {revoke.state === "sending" ? "Confirm in your wallet…" : "Revoke"}
-            </button>
+        <RevokeActions risk={a.risk} row={row} onRevoke={onRevoke} />
+      </div>
+    </li>
+  );
+}
+
+function NftApprovalRow({
+  a,
+  row,
+  onRevoke,
+}: {
+  a: WalletNftApproval;
+  row: RowState;
+  onRevoke: () => void;
+}) {
+  const collection = a.name ?? (a.symbol ? `$${a.symbol}` : short(a.collection));
+  const operator = a.operator.label ?? KIND[a.operator.kind];
+  return (
+    <li className={`token-check token-check--${row.state === "verified" ? "ok" : a.risk} approval`}>
+      <span className="token-check-icon" aria-hidden="true">
+        {row.state === "verified" ? ICON.ok : ICON[a.risk]}
+      </span>
+      <div>
+        <strong>
+          {collection} (all items) → {operator}
+        </strong>
+        <p className="approval-meta">
+          Collection <Link a={a.collection} /> · operator <Link a={a.operator.address} />
+          {a.approvedAt && ` · approved ${fmtDate(a.approvedAt)}`}
+          {a.txHash && (
+            <>
+              {" "}
+              (<Link a={a.txHash} kind="tx" />)
+            </>
           )}
-          {revoke.state === "error" && (
-            <p className="status status--bad" role="alert">
-              {revoke.message}
-            </p>
-          )}
-        </div>
+        </p>
+        {a.reasons.map((r) => (
+          <p key={r}>{r}</p>
+        ))}
+        <RevokeActions risk={a.risk} row={row} onRevoke={onRevoke} />
       </div>
     </li>
   );
@@ -136,8 +219,69 @@ export function WalletHealthView({
   onClear,
   onScanToken,
 }: Props) {
-  const risky = report.approvals.filter((a) => a.risk === "risk").length;
-  const toCheck = report.approvals.filter((a) => a.risk === "warn").length;
+  const nfts = report.nftApprovals ?? [];
+  const entries: Entry[] = [
+    ...report.approvals.map((a) => ({
+      key: `token:${a.token}:${a.spender.address}`,
+      item: { kind: "token" as const, contract: a.token, spender: a.spender.address },
+      risk: a.risk,
+    })),
+    ...nfts.map((a) => ({
+      key: `nft:${a.collection}:${a.operator.address}`,
+      item: { kind: "nft" as const, contract: a.collection, spender: a.operator.address },
+      risk: a.risk,
+    })),
+  ];
+  const [rows, setRows] = useState<Record<string, RowState>>({});
+  useEffect(() => setRows({}), [report]);
+  const rowOf = (key: string): RowState => rows[key] ?? { state: "idle" };
+  const setRow = (key: string, s: RowState) => setRows((p) => ({ ...p, [key]: s }));
+
+  /** Sends the revokes, then waits for each to land and reads it back from the chain. */
+  const revoke = async (list: Entry[]) => {
+    if (!list.length) return;
+    for (const e of list) setRow(e.key, { state: "sending" });
+    const waits = new Map<string, Promise<boolean>>();
+    const checks: Promise<void>[] = [];
+    try {
+      await sendRevokes(
+        report.address,
+        list.map((e) => e.item),
+        (i, ref) => {
+          const e = list[i]!;
+          setRow(e.key, { state: "pending", hash: ref.hash });
+          const id = ref.hash ?? ref.batch ?? e.key;
+          if (!waits.has(id)) waits.set(id, waitForRevoke(ref));
+          checks.push(
+            waits.get(id)!.then(async () => {
+              const gone = await isRevoked(report.address, e.item);
+              setRow(
+                e.key,
+                gone === false
+                  ? { state: "still", hash: ref.hash }
+                  : { state: "verified", hash: ref.hash },
+              );
+            }),
+          );
+        },
+      );
+    } catch (err) {
+      const message = err instanceof WalletError ? err.message : "The revoke didn't go through.";
+      setRows((p) => {
+        const next = { ...p };
+        for (const e of list)
+          if (next[e.key]?.state === "sending") next[e.key] = { state: "error", message };
+        return next;
+      });
+    }
+    await Promise.all(checks);
+  };
+  const open = entries.filter((e) => e.risk !== "ok" && rowOf(e.key).state !== "verified");
+  const openRisky = open.filter((e) => e.risk === "risk");
+  const busyRevoking = entries.some((e) => ["sending", "pending"].includes(rowOf(e.key).state));
+
+  const risky = openRisky.length;
+  const toCheck = open.length - openRisky.length;
   const verdict =
     risky > 0
       ? {
@@ -151,14 +295,20 @@ export function WalletHealthView({
             title: `${toCheck} approval${toCheck === 1 ? "" : "s"} to check`,
             body: "Mostly unlimited approvals to busy contracts. Normal after trading, but revoking the ones you don't use is good hygiene.",
           }
-        : {
-            cls: "clean",
-            title: "No risky approvals found",
-            body:
-              report.approvals.length === 0
-                ? "This wallet has no active token approvals."
-                : "The active approvals are limited or go to established contracts.",
-          };
+        : entries.some((e) => rowOf(e.key).state === "verified")
+          ? {
+              cls: "clean",
+              title: "Cleaned up",
+              body: "Everything flagged was revoked, and each revoke was read back from the chain.",
+            }
+          : {
+              cls: "clean",
+              title: "No risky approvals found",
+              body:
+                entries.length === 0
+                  ? "This wallet has no active token or NFT approvals."
+                  : "The active approvals are limited or go to established contracts.",
+            };
 
   // Light scans of the tokens it holds, a few at a time.
   const [checks, setChecks] = useState<Record<string, QuickCheck | "error">>({});
@@ -208,6 +358,41 @@ export function WalletHealthView({
         <span>{verdict.body}</span>
       </div>
 
+      {open.length > 0 && !report.isContract && (
+        <div className="cleanup-bar">
+          <div>
+            <strong>Clean up</strong>
+            <span className="muted small">
+              {" "}
+              One confirmation if your wallet can batch transactions, otherwise one per approval.
+              Each is read back from the chain once it lands.
+            </span>
+          </div>
+          <div className="cleanup-actions">
+            {openRisky.length > 0 && (
+              <button
+                type="button"
+                className="pill-button"
+                disabled={busyRevoking}
+                onClick={() => void revoke(openRisky)}
+              >
+                Revoke {openRisky.length} risky
+              </button>
+            )}
+            {open.length > openRisky.length && (
+              <button
+                type="button"
+                className={openRisky.length ? "ghost-button" : "pill-button"}
+                disabled={busyRevoking}
+                onClick={() => void revoke(open)}
+              >
+                {open.length === 1 ? "Revoke 1 flagged" : `Revoke all ${open.length} flagged`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <ul className="scan-totals">
         {report.eth !== null && (
           <li>
@@ -218,7 +403,7 @@ export function WalletHealthView({
           Tokens held <strong>{report.holdingsTotal}</strong>
         </li>
         <li>
-          Active approvals <strong>{report.approvals.length}</strong>
+          Active approvals <strong>{report.approvals.length + nfts.length}</strong>
         </li>
       </ul>
 
@@ -286,18 +471,46 @@ export function WalletHealthView({
         ) : (
           <>
             <p className="muted small">
-              Revoking sends one transaction from your wallet, approve(spender, 0). It costs a
-              little gas, removes the permission and can't move your tokens. Connect the wallet
-              you're checking to use it.
+              Revoking sends approve(spender, 0) from your wallet. It costs a little gas, removes
+              the permission and can't move your tokens. Connect the wallet you're checking to use
+              it.
             </p>
             <ul className="token-checks">
-              {report.approvals.map((a) => (
-                <ApprovalRow key={`${a.token}:${a.spender.address}`} a={a} owner={report.address} />
-              ))}
+              {report.approvals.map((a) => {
+                const key = `token:${a.token}:${a.spender.address}`;
+                const e = entries.find((x) => x.key === key)!;
+                return (
+                  <ApprovalRow key={key} a={a} row={rowOf(key)} onRevoke={() => void revoke([e])} />
+                );
+              })}
             </ul>
           </>
         )}
       </div>
+
+      {nfts.length > 0 && (
+        <div className="token-section">
+          <h3>NFT collection approvals</h3>
+          <p className="muted small">
+            Each one lets the operator move every NFT you hold in that collection. Revoking sends
+            setApprovalForAll(operator, false) and can't move your NFTs.
+          </p>
+          <ul className="token-checks">
+            {nfts.map((a) => {
+              const key = `nft:${a.collection}:${a.operator.address}`;
+              const e = entries.find((x) => x.key === key)!;
+              return (
+                <NftApprovalRow
+                  key={key}
+                  a={a}
+                  row={rowOf(key)}
+                  onRevoke={() => void revoke([e])}
+                />
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="token-section">
         <h3>What it holds</h3>

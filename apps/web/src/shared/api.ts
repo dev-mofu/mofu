@@ -177,7 +177,8 @@ export interface TokenCheck {
     | "lookalike"
     | "fingerprint"
     | "deployer"
-    | "bundle";
+    | "bundle"
+    | "liquidity";
   label: string;
   status: "ok" | "warn" | "risk" | "info";
   detail: string;
@@ -226,6 +227,8 @@ export interface TokenScanReport {
   deployer?: DeployerReputation | null;
   /** Who bought in the first minute, whether those wallets are linked, and what they still hold. */
   launch?: LaunchActivity | null;
+  /** Where the liquidity is and whether a wallet can pull it. */
+  liquidity?: LiquidityInfo | null;
   /** What this scan can't see. */
   limits: string[];
 }
@@ -258,6 +261,35 @@ export interface SellDepth {
   moreThan: boolean;
   /** Each size tried: share of the supply sold, the ETH it returned and the price drop, 0–100. */
   steps: Array<{ supplyPercent: number | null; ethOut: number; impactPercent: number }>;
+  detail: string;
+}
+
+/** Where a token's liquidity sits and who could take it out. */
+export interface LiquidityInfo {
+  /**
+   * "curve": still on its Pons launch curve. "graduated": moved from the curve to a v4 pool.
+   * "v2" / "v3": a Uniswap-style pool. "v4": a v4 pool it wasn't graduated into.
+   */
+  kind: "curve" | "graduated" | "v2" | "v3" | "v4";
+  venue: string;
+  /** ETH on the ETH side (curve balance or the pool's WETH); null when not ETH-paired or unknown. */
+  eth: number | null;
+  /** On a launch curve: what it raised toward graduation, in ETH. */
+  curve: {
+    raised: number | null;
+    threshold: number | null;
+    progressPercent: number | null;
+    /** The curve's code has an owner or withdraw function. */
+    adminFunctions: string[];
+  } | null;
+  /** In a v2 pool: who holds the LP tokens, 0–100 each. */
+  lp: {
+    burnedPercent: number;
+    contractPercent: number | null;
+    walletPercent: number | null;
+    topWallet: { address: string; percent: number } | null;
+  } | null;
+  status: "ok" | "warn" | "risk" | "info";
   detail: string;
 }
 
@@ -381,6 +413,18 @@ export interface WalletApproval {
   reasons: string[];
 }
 
+/** An approval for a whole NFT collection (setApprovalForAll), re-checked on the chain. */
+export interface WalletNftApproval {
+  collection: string;
+  name: string | null;
+  symbol: string | null;
+  operator: AddressInfo;
+  approvedAt: string | null;
+  txHash: string | null;
+  risk: "ok" | "warn" | "risk";
+  reasons: string[];
+}
+
 export interface WalletHolding {
   token: string;
   name: string | null;
@@ -414,6 +458,8 @@ export interface WalletReport {
   holdings: WalletHolding[];
   holdingsTotal: number;
   approvals: WalletApproval[];
+  /** Approvals for whole NFT collections that are still on. */
+  nftApprovals?: WalletNftApproval[];
   /** Lookalike addresses planted in the wallet's recent history (address poisoning). */
   poisoning: PoisonAlert[];
   status: { holdings: "ok" | "unavailable"; approvals: "ok" | "unavailable" };

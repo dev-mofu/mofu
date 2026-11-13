@@ -39,6 +39,27 @@ export interface CodeMatch {
   examples: Array<{ address: string; symbol: string | null }>;
 }
 
+/** Where a token's liquidity sits and whether a wallet can pull it. */
+export interface LiquidityInfo {
+  kind: "curve" | "graduated" | "v2" | "v3" | "v4";
+  venue: string;
+  eth: number | null;
+  curve: {
+    raised: number | null;
+    threshold: number | null;
+    progressPercent: number | null;
+    adminFunctions: string[];
+  } | null;
+  lp: {
+    burnedPercent: number;
+    contractPercent: number | null;
+    walletPercent: number | null;
+    topWallet: { address: string; percent: number } | null;
+  } | null;
+  status: "ok" | "warn" | "risk" | "info";
+  detail: string;
+}
+
 /** The creator's track record: other tokens they launched and what Mofu found in them. */
 export interface DeployerReputation {
   creator: string;
@@ -129,6 +150,7 @@ export interface TokenReport {
   codeMatch: CodeMatch | null;
   deployer?: DeployerReputation | null;
   launch?: LaunchActivity | null;
+  liquidity?: LiquidityInfo | null;
   limits: string[];
 }
 
@@ -198,6 +220,7 @@ export const WEBHOOK_EVENTS = [
   "upgraded",
   "pause_changed",
   "liquidity_dropped",
+  "graduated",
   "verdict_changed",
 ] as const;
 export type WebhookEventType = (typeof WEBHOOK_EVENTS)[number];

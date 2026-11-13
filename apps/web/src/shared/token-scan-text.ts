@@ -54,6 +54,9 @@ export function formatTokenScanForModel(r: TokenScanReport): string {
           ),
         ]
       : []),
+    ...(r.liquidity
+      ? [`Liquidity (${r.liquidity.kind} at ${r.liquidity.venue}): ${r.liquidity.detail}`]
+      : []),
     ...(r.launch
       ? [
           `Launch window (first ${r.launch.windowSeconds} s): ${r.launch.buyers} buyers, ${r.launch.snipers} within 3 s, bought ${r.launch.boughtPercent}% of supply, still hold ${r.launch.holdPercent ?? "?"}%; creator bought ${r.launch.creatorBoughtPercent}%; most buyers in one block: ${r.launch.sameBlock}.`,
@@ -115,6 +118,15 @@ export function formatWalletForModel(r: WalletReport): string {
       (a) =>
         `- [${a.risk}] ${a.tokenSymbol ?? a.token} → spender ${a.spender.address} (${a.spender.label ?? a.spender.kind}); allowance ${a.allowance}; wallet holds ${a.balance ?? "?"}. ${a.reasons.join(" ")}`,
     ),
+    ...((r.nftApprovals ?? []).length
+      ? [
+          `Active NFT collection approvals (setApprovalForAll): ${r.nftApprovals!.length}.`,
+          ...r.nftApprovals!.map(
+            (a) =>
+              `- [${a.risk}] ${a.name ?? a.symbol ?? a.collection} → operator ${a.operator.address} (${a.operator.label ?? a.operator.kind}). ${a.reasons.join(" ")}`,
+          ),
+        ]
+      : []),
     ...((r.poisoning ?? []).length
       ? [
           "Address poisoning: lookalike addresses planted in the wallet's recent history (never send to these):",

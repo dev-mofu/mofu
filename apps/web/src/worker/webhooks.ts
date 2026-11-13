@@ -14,6 +14,7 @@ export const WEBHOOK_EVENTS = [
   "upgraded",
   "pause_changed",
   "liquidity_dropped",
+  "graduated",
   "verdict_changed",
 ] as const;
 export type WebhookEventType = (typeof WEBHOOK_EVENTS)[number];
@@ -83,6 +84,8 @@ export interface TokenSnapshot {
   venueKind: "curve" | "pool" | null;
   /** ETH on the curve, or WETH in the pool, in wei. */
   liquidity: string | null;
+  /** The launch curve's graduated() flag; null when not on a curve or not read yet. */
+  graduated?: boolean | null;
   verdict: TokenScanReport["verdict"] | null;
   /** A different verdict seen once, waiting for the next scan to confirm it. */
   pendingVerdict: TokenScanReport["verdict"] | null;
@@ -102,6 +105,7 @@ export const emptySnapshot = (address: string): TokenSnapshot => ({
   venue: null,
   venueKind: null,
   liquidity: null,
+  graduated: null,
   verdict: null,
   pendingVerdict: null,
   polledAt: 0,
@@ -234,7 +238,10 @@ export function snapshotCalls(s: TokenSnapshot): BatchCall[] {
     callOf(s.address, "0x5c975abb"), // paused()
   ];
   if (s.venue && s.venueKind === "curve")
-    calls.push({ method: "eth_getBalance", params: [s.venue, "latest"] });
+    calls.push(
+      { method: "eth_getBalance", params: [s.venue, "latest"] },
+      callOf(s.venue, "0xe7c2b772"), // graduated()
+    );
   else if (s.venue && s.venueKind === "pool") calls.push(callOf(WETH, `0x70a08231${pad(s.venue)}`)); // WETH.balanceOf(pool)
   return calls;
 }
@@ -254,11 +261,12 @@ const asAddress = (hex: BatchResult): string | null => {
 
 /** Applies the answers of snapshotCalls. A read that didn't come back keeps the old value. */
 export function applySnapshot(s: TokenSnapshot, out: BatchResult[], now: number): TokenSnapshot {
-  const [owner, supply, impl, paused, liquidity] = out;
+  const [owner, supply, impl, paused, liquidity, graduated] = out;
   const implAddr = asAddress(impl ?? null);
   const supplyN = word(supply ?? null);
   const pausedN = word(paused ?? null);
   const liqN = word(liquidity ?? null);
+  const gradN = s.venueKind === "curve" ? word(graduated ?? null) : null;
   return {
     ...s,
     owner: asAddress(owner ?? null) ?? s.owner,
@@ -266,6 +274,7 @@ export function applySnapshot(s: TokenSnapshot, out: BatchResult[], now: number)
     implementation: impl ? (implAddr === ZERO ? null : implAddr) : s.implementation,
     paused: pausedN !== null ? pausedN !== 0n : s.paused,
     liquidity: s.venue && liqN !== null ? liqN.toString() : s.liquidity,
+    graduated: gradN !== null ? gradN !== 0n : (s.graduated ?? null),
     polledAt: now,
   };
 }
@@ -347,7 +356,17 @@ export function cheapChanges(prev: TokenSnapshot, next: TokenSnapshot): Change[]
       after: next.paused,
     });
   }
+  const justGraduated = prev.graduated === false && next.graduated === true;
+  if (justGraduated) {
+    out.push({
+      type: "graduated",
+      summary: `${label}: it graduated from its launch curve to a Uniswap v4 pool.`,
+      before: false,
+      after: true,
+    });
+  }
   if (
+    !justGraduated &&
     prev.venue &&
     prev.venue === next.venue &&
     prev.liquidity &&
