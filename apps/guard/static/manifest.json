@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Mofu Guard",
   "short_name": "Mofu Guard",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Previews what a transaction sends and receives before you sign, catches lookalike addresses, and labels contract addresses on X.",
   "homepage_url": "https://mofu.works/guard/",
   "icons": {
