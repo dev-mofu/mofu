@@ -8,6 +8,7 @@ export { VoteStore } from "./vote-store.js";
 export { StatsStore } from "./stats-store.js";
 export { WebhookStore } from "./webhook-store.js";
 export { VerdictPublisher } from "./verdict-store.js";
+export { RadarStore } from "./radar.js";
 
 const app = createApp();
 const mcp = createMcpApp(defaultDeps);

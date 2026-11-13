@@ -2011,6 +2011,58 @@ a.ghost-button {
   color: var(--bad);
 }
 
+.timeline {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0 0 0 1rem;
+  border-left: 2px solid var(--line, #2e292b);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: calc(-1rem - 6px);
+  top: 0.35rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.timeline-item--ok::before {
+  background: var(--ok);
+}
+
+.timeline-item--warn::before {
+  background: #ffb35c;
+}
+
+.timeline-item--risk::before {
+  background: var(--bad);
+}
+
+.timeline-when {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 560px) {
+  .timeline-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+}
+
 .cleanup-bar {
   display: flex;
   flex-wrap: wrap;

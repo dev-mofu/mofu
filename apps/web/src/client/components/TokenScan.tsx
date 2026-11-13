@@ -452,6 +452,31 @@ export function TokenReport({
         </div>
       )}
 
+      {(report.timeline ?? []).length > 1 && (
+        <div className="token-section">
+          <h3>Timeline</h3>
+          <ol className="timeline">
+            {report.timeline!.map((e, i) => (
+              <li key={`${e.at}:${i}`} className={`timeline-item timeline-item--${e.level}`}>
+                <span className="timeline-when">{fmtDate(e.at)}</span>
+                <span>
+                  {e.text}
+                  {e.tx && (
+                    <>
+                      {" "}
+                      <Addr a={e.tx} kind="tx" />
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="muted small">
+            Times are when Mofu noticed a change while scanning, except the launch.
+          </p>
+        </div>
+      )}
+
       {report.lookalikes.length > 0 && (
         <div className="token-section">
           <h3>Same name or ticker</h3>

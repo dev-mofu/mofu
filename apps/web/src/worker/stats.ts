@@ -2,7 +2,8 @@
  * Public usage counters for mofu.works/stats. Counts only (no addresses, no content), kept in one
  * Durable Object. Recording never blocks or fails a request.
  */
-import type { CodeMatch, DeployerToken } from "../shared/api.js";
+import type { CodeMatch, DeployerToken, TimelineEvent } from "../shared/api.js";
+import type { TokenSnapshot } from "./timeline.js";
 
 export type StatKey =
   | "chat_free"
@@ -71,6 +72,16 @@ export interface TokenIndex {
   creatorBoard?(): Promise<CreatorSummary[]>;
   /** The tokens filed under one creator, newest first. */
   creatorRecords?(creator: string): Promise<CreatorEntry[]>;
+  /**
+   * Records a scan in the token's timeline (the first events when it's new) and returns the
+   * timeline, newest first.
+   */
+  observeToken?(
+    token: string,
+    snapshot: TokenSnapshot,
+    first: TimelineEvent[],
+    now: number,
+  ): Promise<TimelineEvent[]>;
 }
 
 /** One creator's record across the tokens Mofu scanned. */

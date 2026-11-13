@@ -7,6 +7,7 @@ import type { TokenCheck, TokenLookalike, TokenScanReport } from "../shared/api.
 import type { ChainDataOptions } from "./chain-data.js";
 import { withCodeMatch } from "./fingerprint.js";
 import { withLaunchChecks } from "./launch.js";
+import { withTimeline } from "./timeline.js";
 import { MOFU_TOKEN } from "./known.js";
 import { normalizeName, type TokenIndex } from "./stats.js";
 
@@ -49,7 +50,7 @@ export async function withLookalikes(
   data: ChainDataOptions | undefined,
 ): Promise<TokenScanReport> {
   const coded = await withCodeMatch(await lookalikesOnly(r, index, data), index);
-  return withLaunchChecks(coded, index, data);
+  return withTimeline(await withLaunchChecks(coded, index, data), index);
 }
 
 async function lookalikesOnly(

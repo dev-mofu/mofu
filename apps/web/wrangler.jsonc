@@ -26,7 +26,9 @@
       "/creators",
       "/creators/*",
       "/creator/*",
-      "/sitemap-tokens.xml"
+      "/radar",
+      "/radar/*",
+      "/sitemap-tokens.xml",
     ],
   },
   "durable_objects": {
@@ -36,6 +38,7 @@
       { "name": "STATS", "class_name": "StatsStore" },
       { "name": "WEBHOOKS", "class_name": "WebhookStore" },
       { "name": "PUBLISHER", "class_name": "VerdictPublisher" },
+      { "name": "RADAR", "class_name": "RadarStore" },
     ],
   },
   "migrations": [
@@ -44,8 +47,13 @@
     { "tag": "v3", "new_sqlite_classes": ["StatsStore"] },
     { "tag": "v4", "new_sqlite_classes": ["WebhookStore"] },
     { "tag": "v5", "new_sqlite_classes": ["VerdictPublisher"] },
+    { "tag": "v6", "new_sqlite_classes": ["RadarStore"] },
   ],
   "vars": {
+    // New Token Radar: "false" stops it. Scans per run (a run every 2 min, every 45 s with a backlog);
+    // one full scan uses most of an invocation's 50 subrequests on the Workers Free plan.
+    "RADAR_ENABLED": "true",
+    "RADAR_PER_RUN": "1",
     "DEFAULT_MODEL": "anthropic/claude-haiku-5.5",
     "FREE_DAILY_LIMIT": "10",
     // Kill switch: set to "false" to stop spending on the free tier. BYOK keeps working.

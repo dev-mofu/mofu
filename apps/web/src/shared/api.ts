@@ -229,6 +229,8 @@ export interface TokenScanReport {
   launch?: LaunchActivity | null;
   /** Where the liquidity is and whether a wallet can pull it. */
   liquidity?: LiquidityInfo | null;
+  /** What Mofu has seen happen to this token across its scans, newest first. */
+  timeline?: TimelineEvent[];
   /** What this scan can't see. */
   limits: string[];
 }
@@ -262,6 +264,18 @@ export interface SellDepth {
   /** Each size tried: share of the supply sold, the ETH it returned and the price drop, 0–100. */
   steps: Array<{ supplyPercent: number | null; ethOut: number; impactPercent: number }>;
   detail: string;
+}
+
+/** Something that happened to a token, as Mofu saw it. */
+export interface TimelineEvent {
+  /** When it happened (launch) or when Mofu noticed it (everything else). */
+  at: string;
+  kind:
+    "launched" | "first-scan" | "verdict" | "owner" | "supply" | "graduated" | "liquidity" | "sell";
+  /** One plain sentence. */
+  text: string;
+  level: "ok" | "warn" | "risk" | "info";
+  tx: string | null;
 }
 
 /** One thing that moves in or out of the sender's wallet in a simulated transaction. */

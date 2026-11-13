@@ -22,6 +22,7 @@ import { renderTokenCard, shortAddress, VERDICT_TEXT } from "./token-card.js";
 import { scanToken, summaryOnly } from "./token-scan.js";
 import { withLookalikes } from "./lookalike.js";
 import { queueVerdict } from "./verdict-store.js";
+import { radarFromEnv, type RadarEntry } from "./radar.js";
 
 const ORIGIN = "https://mofu.works";
 const REPORT_TTL = 30 * 60;
@@ -154,6 +155,19 @@ export function tokenMain(r: TokenScanReport, scannedAt: number): string {
           ${holderFacts.length ? `<ul>${holderFacts.join("")}</ul>` : "<p>Holder data isn't available for this token right now.</p>"}
           <p>The top holder list and who created the token are in the <a href="/app/?scan=${a}">full scan</a>, a perk for $MOFU holders.</p>
         </section>
+
+        ${
+          (r.timeline ?? []).length > 1
+            ? `<section id="timeline"><h2>Timeline</h2><ul>${r
+                .timeline!.map(
+                  (e) =>
+                    `<li><strong>${escapeHtml(new Date(e.at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }))}</strong> · ${escapeHtml(e.text)}</li>`,
+                )
+                .join(
+                  "",
+                )}</ul><p class="token-note">Times are when Mofu noticed a change while scanning, except the launch.</p></section>`
+            : ""
+        }
 
         ${limits ? `<section id="limits"><h2>What this scan can't see</h2><ul>${limits}</ul></section>` : ""}
 
@@ -309,6 +323,44 @@ export function creatorMain(creator: string, records: CreatorEntry[]): string {
             : ""
         }
         <section id="more"><p><a href="/creators/">All creators</a></p></section>`;
+}
+
+const minutesAgo = (iso: string, now: number) => {
+  const m = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000));
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+};
+const LEVEL_WORD = {
+  ok: ["fine", "ok"],
+  warn: ["check", "warn"],
+  risk: ["flagged", "bad"],
+} as const;
+
+/** The New Token Radar: launches as they're scanned, newest first. */
+export function radarMain(entries: RadarEntry[], queued: number, now: number): string {
+  const level = (s: RadarEntry["bundle"]) =>
+    s ? `<span class="verify-verdict--${LEVEL_WORD[s][1]}">${LEVEL_WORD[s][0]}</span>` : "–";
+  const rows = entries
+    .map(
+      (e) =>
+        `<tr><td>${minutesAgo(e.launchedAt, now)}</td><td><a href="/token/${e.address}">${escapeHtml(tokenTitle(e, e.address))}</a></td><td><span class="verify-verdict--${VERDICT_CLASS[e.verdict]}">${VERDICT_TEXT[e.verdict]}</span></td><td>${e.sell === "passed" ? `<span class="verify-verdict--ok">sells</span>` : e.sell === "failed" ? `<span class="verify-verdict--bad">sell failed</span>` : "–"}</td><td>${level(e.bundle)}</td><td><a href="/creator/${e.creator}">${level(e.deployer)}</a></td><td>${e.progress === null ? "–" : `${Number(e.progress.toFixed(1))}%`}</td></tr>`,
+    )
+    .join("\n");
+  return `<header class="docs-hero">
+          <div>
+            <p class="token-kicker">Live · Robinhood Chain</p>
+            <h1>New Token Radar</h1>
+            <p>Every token launched on the Pons launchpad, scanned by Mofu about three minutes after launch.</p>
+          </div>
+        </header>
+        <section id="radar">
+          ${
+            rows
+              ? `<div class="table-wrap"><table><thead><tr><th scope="col">Launched</th><th scope="col">Token</th><th scope="col">Mofu</th><th scope="col">Sell test</th><th scope="col">Launch buyers</th><th scope="col">Creator record</th><th scope="col">To graduation</th></tr></thead><tbody>${rows}</tbody></table></div>`
+              : "<p>Nothing scanned yet. New launches show up here a few minutes after they happen.</p>"
+          }
+          <p class="token-note">${queued ? `${queued} new launch${queued === 1 ? "" : "es"} waiting to be scanned. ` : ""}Each scan waits about three minutes so the first minute of buying can be read. Launch buyers: whether linked wallets bought the launch and still hold it. Creator record: what Mofu found in the creator's other tokens. The page refreshes every minute. Being listed isn't an endorsement, and a reading of the code isn't advice.</p>
+          <p class="token-note">For bots: <code>GET https://mofu.works/api/v1/radar</code> returns the same list as JSON.</p>
+        </section>`;
 }
 
 interface PageHead {
@@ -498,6 +550,37 @@ export function createPagesApp(deps: PagesDeps) {
 
   app.get("/token", (c) => c.redirect("/token/", 301));
   app.get("/creators", (c) => c.redirect("/creators/", 301));
+  app.get("/radar", (c) => c.redirect("/radar/", 301));
+
+  app.get("/radar/", async (c) => {
+    // Visiting the radar keeps it running (it schedules itself; this only restarts a stopped one).
+    waitUntil(
+      c,
+      Promise.resolve()
+        .then(() => radarFromEnv(c.env).ensure())
+        .catch(() => undefined),
+    );
+    const data = await safely(() => radarFromEnv(c.env).list(100), {
+      entries: [] as RadarEntry[],
+      queued: 0,
+      lastTick: null,
+      lastError: null,
+      alarm: null,
+    });
+    const res = await page(
+      c,
+      {
+        title: "New Token Radar: fresh launches on Robinhood Chain, scanned · Mofu",
+        description:
+          "Every new token on the Pons launchpad, scanned by Mofu minutes after launch: sell test, linked launch buyers, the creator's record and the way to graduation.",
+        canonical: `${ORIGIN}/radar/`,
+      },
+      radarMain(data.entries, data.queued, deps.now()),
+    );
+    res.headers.set("Cache-Control", "public, max-age=60");
+    res.headers.set("Refresh", "60");
+    return res;
+  });
 
   app.get("/creators/", async (c) => {
     const board = await safely(() => index(c.env).creatorBoard?.(), [] as CreatorSummary[]);
@@ -656,6 +739,7 @@ export function createPagesApp(deps: PagesDeps) {
     const urls = [
       `<url><loc>${ORIGIN}/token/</loc></url>`,
       `<url><loc>${ORIGIN}/creators/</loc></url>`,
+      `<url><loc>${ORIGIN}/radar/</loc></url>`,
       ...tokens.map(
         (t) =>
           `<url><loc>${ORIGIN}/token/${escapeXml(t.address)}</loc><lastmod>${new Date(t.at).toISOString().slice(0, 10)}</lastmod></url>`,
@@ -678,6 +762,8 @@ export const isPagesPath = (path: string) =>
   path === "/creators" ||
   path === "/creators/" ||
   path.startsWith("/creator/") ||
+  path === "/radar" ||
+  path === "/radar/" ||
   path === "/sitemap-tokens.xml";
 
 /** What the "Checked by Mofu" widget shows: the verdict and the three checks that matter most. */

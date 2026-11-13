@@ -10,6 +10,7 @@ import { parseRpcUrls, rpcBatch, callOf } from "./chain.js";
 import type { ChainDataOptions } from "./chain-data.js";
 import { isAddress } from "./holder.js";
 import { withLookalikes } from "./lookalike.js";
+import { radarFromEnv } from "./radar.js";
 import { statsFromEnv, tokenIndexFromEnv, type StatKey } from "./stats.js";
 import { decodeString, scanToken, summaryOnly } from "./token-scan.js";
 import type { UsageResult } from "./usage.js";
@@ -182,6 +183,35 @@ export function createPublicApi(deps: PublicApiDeps) {
       publishedToday: status?.publishedToday ?? 0,
       last: status?.last ?? null,
     });
+  });
+
+  // New Token Radar: the latest scanned launches (no allowance used; it's a list, not a scan).
+  app.get("/radar", async (c) => {
+    const limit = Math.max(
+      1,
+      Math.min(100, Number.parseInt(c.req.query("limit") ?? "50", 10) || 50),
+    );
+    try {
+      const radar = radarFromEnv(c.env);
+      await radar.ensure().catch(() => undefined);
+      const data = await radar.list(limit);
+      c.header("Cache-Control", "public, max-age=60");
+      c.header("Access-Control-Allow-Origin", "*");
+      return c.json({
+        chain: { name: "Robinhood Chain", id: 4663 },
+        source: "Pons launchpad",
+        queued: data.queued,
+        lastRun: data.lastTick,
+        nextRun: data.alarm ? new Date(data.alarm).toISOString() : null,
+        problem: data.lastError,
+        tokens: data.entries.map((e) => ({ ...e, url: `https://mofu.works/token/${e.address}` })),
+      });
+    } catch {
+      return c.json(
+        { error: "unavailable", message: "The radar couldn't be read right now." },
+        503,
+      );
+    }
   });
 
   const tokenCache = new Map<string, { report: TokenScanReport; at: number }>();

@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
-import type { CodeMatch, DeployerToken } from "../shared/api.js";
+import type { CodeMatch, DeployerToken, TimelineEvent } from "../shared/api.js";
+import { step, TIMELINE_MAX, type StoredSnapshot, type TokenSnapshot } from "./timeline.js";
 import {
   type CodeEntry,
   type CreatorEntry,
@@ -151,6 +152,27 @@ export class StatsStore extends DurableObject<Env> implements Stats, TokenIndex 
       limit: 200,
     });
     return [...rows.values()].sort((a, b) => b.at - a.at);
+  }
+
+  async observeToken(
+    token: string,
+    snapshot: TokenSnapshot,
+    first: TimelineEvent[],
+    now: number,
+  ): Promise<TimelineEvent[]> {
+    const k = token.toLowerCase();
+    const prev = (await this.ctx.storage.get<StoredSnapshot>(`snap:${k}`)) ?? null;
+    const list = (await this.ctx.storage.get<TimelineEvent[]>(`tl:${k}`)) ?? [];
+    const { events, stored } = step(prev, snapshot, new Date(now).toISOString());
+    const added = prev ? events : first;
+    const timeline = [...added, ...list]
+      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+      .slice(0, TIMELINE_MAX);
+    const writes: Record<string, unknown> = {};
+    if (JSON.stringify(prev) !== JSON.stringify(stored)) writes[`snap:${k}`] = stored;
+    if (added.length) writes[`tl:${k}`] = timeline;
+    if (Object.keys(writes).length) await this.ctx.storage.put(writes);
+    return timeline;
   }
 
   async launchCache(token: string): Promise<LaunchCache | null> {

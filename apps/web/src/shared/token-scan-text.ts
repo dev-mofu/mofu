@@ -54,6 +54,12 @@ export function formatTokenScanForModel(r: TokenScanReport): string {
           ),
         ]
       : []),
+    ...((r.timeline ?? []).length
+      ? [
+          "Timeline (newest first; times are when Mofu noticed, except the launch):",
+          ...r.timeline!.map((e) => `  ${e.at} ${e.text}`),
+        ]
+      : []),
     ...(r.liquidity
       ? [`Liquidity (${r.liquidity.kind} at ${r.liquidity.venue}): ${r.liquidity.detail}`]
       : []),

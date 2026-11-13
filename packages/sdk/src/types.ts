@@ -151,6 +151,22 @@ export interface TokenReport {
   deployer?: DeployerReputation | null;
   launch?: LaunchActivity | null;
   liquidity?: LiquidityInfo | null;
+  /** What Mofu has seen happen to the token, newest first. */
+  timeline?: Array<{
+    at: string;
+    kind:
+      | "launched"
+      | "first-scan"
+      | "verdict"
+      | "owner"
+      | "supply"
+      | "graduated"
+      | "liquidity"
+      | "sell";
+    text: string;
+    level: "ok" | "warn" | "risk" | "info";
+    tx: string | null;
+  }>;
   limits: string[];
 }
 
