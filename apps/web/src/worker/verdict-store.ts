@@ -16,6 +16,8 @@ const MAX_PENDING = 500;
 
 export interface PublisherStatus {
   enabled: boolean;
+  /** Why it's off, when it is. */
+  problem: string | null;
   contract: string | null;
   writer: string | null;
   pending: number;
@@ -25,14 +27,40 @@ export interface PublisherStatus {
 }
 
 type Env2 = Env & { VERDICT_SIGNER_KEY?: string };
+
+/**
+ * The signer key from the secret. Pasting the whole `cast wallet new` output (with "Private key:"
+ * and the 40-character address) still works: exactly one 64-hex-character value is the key.
+ */
+export function signerKeyFrom(secret: string): string | null {
+  const found = secret.match(/(?<![0-9a-fA-F])(?:0x)?[0-9a-fA-F]{64}(?![0-9a-fA-F])/g) ?? [];
+  if (found.length !== 1) return null;
+  const key = found[0]!.replace(/^0x/, "");
+  return `0x${key.toLowerCase()}`;
+}
+
+/** Why publishing is off, in words that never include the key itself. */
+const problem = (env: Env2): string | null => {
+  const contract = String(env.VERDICTS_CONTRACT ?? "").trim();
+  const secret = String(env.VERDICT_SIGNER_KEY ?? "").trim();
+  if (!contract) return "no registry address (VERDICTS_CONTRACT)";
+  if (!/^0x[0-9a-fA-F]{40}$/.test(contract))
+    return "the registry address isn't 0x + 40 hex characters";
+  if (!secret) return "no VERDICT_SIGNER_KEY secret";
+  const found = secret.match(/(?<![0-9a-fA-F])(?:0x)?[0-9a-fA-F]{64}(?![0-9a-fA-F])/g) ?? [];
+  if (found.length === 0)
+    return `no 64-character private key found in the secret (${secret.length} characters)`;
+  if (found.length > 1)
+    return "the secret has more than one 64-character value; put only the private key in it";
+  return null;
+};
+
 const config = (env: Env2) => {
   const contract = String(env.VERDICTS_CONTRACT ?? "")
     .trim()
     .toLowerCase();
-  const key = String(env.VERDICT_SIGNER_KEY ?? "").trim();
-  return /^0x[0-9a-f]{40}$/.test(contract) && /^(0x)?[0-9a-fA-F]{64}$/.test(key)
-    ? { contract, key: key.startsWith("0x") ? key : `0x${key}` }
-    : null;
+  const key = signerKeyFrom(String(env.VERDICT_SIGNER_KEY ?? ""));
+  return /^0x[0-9a-f]{40}$/.test(contract) && key ? { contract, key } : null;
 };
 export const publishingEnabled = (env: Env) => config(env as Env2) !== null;
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -65,6 +93,7 @@ export class VerdictPublisher extends DurableObject<Env> {
     const now = Date.now();
     return {
       enabled: !!c,
+      problem: c ? null : problem(this.env as Env2),
       contract: c?.contract ?? null,
       writer: c ? addressOf(c.key) : null,
       pending: (await this.ctx.storage.get<number>("pendingCount")) ?? 0,

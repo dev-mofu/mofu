@@ -171,6 +171,7 @@ export function createPublicApi(deps: PublicApiDeps) {
       chain: { name: "Robinhood Chain", id: 4663 },
       registry,
       enabled: status?.enabled ?? false,
+      problem: status?.problem ?? null,
       writer: status?.writer ?? null,
       read: registry
         ? `cast call ${registry} "verdictOf(address)(uint8,uint8,uint40,bytes16)" <token> --rpc-url https://robinhood-rpc.publicnode.com`

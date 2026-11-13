@@ -288,3 +288,17 @@ describe("VerdictPublisher", () => {
     expect(await pub.status()).toMatchObject({ enabled: false, pending: 0, writer: null });
   });
 });
+
+describe("signer key from the secret", () => {
+  it("takes the one 64-hex value, even from the whole cast wallet new output", async () => {
+    const { signerKeyFrom } = await import("../src/worker/verdict-store.js");
+    const body = "ab".repeat(32);
+    expect(signerKeyFrom(`0x${body}`)).toBe(`0x${body}`);
+    expect(signerKeyFrom(body.toUpperCase())).toBe(`0x${body}`);
+    const pasted = `Successfully created new keypair.\nAddress:     0x${"cd".repeat(20)}\nPrivate key: 0x${body}\n`;
+    expect(signerKeyFrom(pasted)).toBe(`0x${body}`);
+    expect(signerKeyFrom(`0x${body} 0x${"ef".repeat(32)}`)).toBeNull();
+    expect(signerKeyFrom("hello")).toBeNull();
+    expect(signerKeyFrom(`0x${body}ff`)).toBeNull();
+  });
+});

@@ -66,7 +66,7 @@
     "WEBHOOK_DAILY_LIMIT": "5",
     // On-chain verdicts: the MofuVerdicts registry on Robinhood Chain. Empty = off. The writer's key
     // is the VERDICT_SIGNER_KEY secret (set it with wrangler secret put; never in this file).
-    "VERDICTS_CONTRACT": "",
+    "VERDICTS_CONTRACT": "0xB53d9d9a286e1b57118b1634c2dd46CFb05Ee97d",
     // Publishing transactions a day (each carries up to 25 changed verdicts).
     "VERDICT_DAILY_TXS": "48",
     // Mofu Town tower: top holders come from GoldRush; the key is the GOLDRUSH_API_KEY secret.
