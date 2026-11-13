@@ -83,9 +83,10 @@ const TOOLS = [
     description:
       "Scan a token contract on Robinhood Chain (chain ID 4663) and report what its code allows: minting " +
       "new tokens, pausing transfers, blocking wallets, changing fees or trading limits, upgradeable code, " +
-      "who the owner is, total supply and burned share. Reads the chain directly; deterministic, not AI. " +
-      "A technical check of the contract only: it doesn't cover price, liquidity or holder distribution, " +
-      "and it isn't financial advice.",
+      "who the owner is, total supply and burned share; plus a simulated sell, the creator's other launches " +
+      "(honeypots, risky ones, serial launching) and the launch window (wallets that bought the first minute, " +
+      "whether they're linked by funder, sender or the creator, and what they still hold). Reads the chain " +
+      "directly; deterministic, not AI. It doesn't cover price, and it isn't financial advice.",
     inputSchema: {
       type: "object",
       properties: {

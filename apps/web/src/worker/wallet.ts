@@ -6,7 +6,7 @@
 import type { AddressInfo, WalletApproval, WalletHolding, WalletReport } from "../shared/api.js";
 import { findPoisoning, type HistoryTx } from "./poisoning.js";
 import { callOf, rpcBatch, rpcCall } from "./chain.js";
-import type { ChainDataOptions } from "./chain-data.js";
+import { recentTransactions, type ChainDataOptions } from "./chain-data.js";
 import { decodeString } from "./token-scan.js";
 import { describeActivity, describeAddresses } from "./known.js";
 
@@ -140,12 +140,15 @@ export async function walletReport(
     rpcCall<string>(o.rpcUrls, "eth_getCode", [wallet, "latest"], o.fetch).catch(() => "0x"),
     gr<{ items?: BalanceItem[] }>(o, `address/${wallet}/balances_v2/?no-spam=true`),
     gr<{ items?: ApprovalItem[] }>(o, `approvals/${wallet}/`),
-    gr<{ items?: HistoryTx[] }>(o, `address/${wallet}/transactions_v3/page/0/`),
+    recentTransactions(o, wallet).then(
+      (items) => items as unknown as HistoryTx[],
+      () => null,
+    ),
   ]);
-  const poisoning = history?.items ? findPoisoning(wallet, history.items) : [];
+  const poisoning = history ? findPoisoning(wallet, history) : [];
   limits.push(
-    history?.items
-      ? "Lookalike addresses are checked in the wallet's last 100 transactions."
+    history
+      ? "Lookalike addresses are checked in the wallet's latest 50 to 200 transactions."
       : "The wallet's recent transactions couldn't be read, so lookalike addresses weren't checked.",
   );
 

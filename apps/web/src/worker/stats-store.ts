@@ -1,7 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
-import type { CodeMatch } from "../shared/api.js";
+import type { CodeMatch, DeployerToken } from "../shared/api.js";
 import {
   type CodeEntry,
+  type CreatorEntry,
+  type LaunchCache,
   nameKeys,
   normalizeName,
   TOKEN_INDEX_MAX,
@@ -98,6 +100,50 @@ export class StatsStore extends DurableObject<Env> implements Stats, TokenIndex 
       passed: others.length - failed.length,
       examples: failed.slice(0, 3).map((e) => ({ address: e.address, symbol: e.symbol })),
     };
+  }
+
+  async noteCreator(creator: string, entry: CreatorEntry): Promise<void> {
+    const c = creator.toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(c)) return;
+    await this.ctx.storage.put(`creator:${c}:${entry.address.toLowerCase()}`, {
+      ...entry,
+      address: entry.address.toLowerCase(),
+    });
+  }
+
+  async creatorTokens(creator: string, also: string[]): Promise<DeployerToken[]> {
+    const c = creator.toLowerCase();
+    const rows = await this.ctx.storage.list<CreatorEntry>({ prefix: `creator:${c}:`, limit: 200 });
+    const out = new Map<string, DeployerToken>();
+    for (const e of rows.values())
+      out.set(e.address, {
+        address: e.address,
+        symbol: e.symbol,
+        verdict: e.verdict,
+        honeypot: e.honeypot,
+      });
+    const rest = [...new Set(also.map((a) => a.toLowerCase()))].filter((a) => !out.has(a));
+    const known = rest.length
+      ? await this.ctx.storage.get<IndexedToken>(rest.slice(0, 100).map((a) => `token:${a}`))
+      : new Map<string, IndexedToken>();
+    for (const a of rest) {
+      const t = known.get(`token:${a}`);
+      out.set(a, {
+        address: a,
+        symbol: t?.symbol ?? null,
+        verdict: t?.verdict ?? null,
+        honeypot: false,
+      });
+    }
+    return [...out.values()];
+  }
+
+  async launchCache(token: string): Promise<LaunchCache | null> {
+    return (await this.ctx.storage.get<LaunchCache>(`launch:${token.toLowerCase()}`)) ?? null;
+  }
+
+  async saveLaunch(token: string, cache: LaunchCache): Promise<void> {
+    await this.ctx.storage.put(`launch:${token.toLowerCase()}`, cache);
   }
 
   async tokens(limit = TOKEN_INDEX_MAX): Promise<IndexedToken[]> {

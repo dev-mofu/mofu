@@ -175,7 +175,9 @@ export interface TokenCheck {
     | "concentration"
     | "sell"
     | "lookalike"
-    | "fingerprint";
+    | "fingerprint"
+    | "deployer"
+    | "bundle";
   label: string;
   status: "ok" | "warn" | "risk" | "info";
   detail: string;
@@ -220,6 +222,10 @@ export interface TokenScanReport {
   fingerprint: string | null;
   /** Other tokens with the same code fingerprint whose simulated sell failed. */
   codeMatch: CodeMatch | null;
+  /** The creator's track record: other tokens they launched and what Mofu found in them. */
+  deployer?: DeployerReputation | null;
+  /** Who bought in the first minute, whether those wallets are linked, and what they still hold. */
+  launch?: LaunchActivity | null;
   /** What this scan can't see. */
   limits: string[];
 }
@@ -252,6 +258,79 @@ export interface SellDepth {
   moreThan: boolean;
   /** Each size tried: share of the supply sold, the ETH it returned and the price drop, 0–100. */
   steps: Array<{ supplyPercent: number | null; ethOut: number; impactPercent: number }>;
+  detail: string;
+}
+
+/** A token launched by the same creator, as Mofu last saw it. */
+export interface DeployerToken {
+  address: string;
+  symbol: string | null;
+  /** Mofu's verdict, or null when Mofu hasn't scanned it. */
+  verdict: "clean" | "caution" | "risky" | null;
+  /** Mofu's simulated sell failed, or its code matches known honeypots. */
+  honeypot: boolean;
+}
+
+export interface DeployerReputation {
+  creator: string;
+  status: "ok" | "warn" | "risk";
+  /** Other tokens this creator launched that Mofu knows of. */
+  launches: number;
+  /** How many of those Mofu has scanned, and what it found. */
+  scanned: number;
+  honeypots: number;
+  risky: number;
+  caution: number;
+  clean: number;
+  /** Of the recent launches looked at, how many had no activity in the last 7 days. */
+  quiet: number | null;
+  quietOf: number | null;
+  /** A few of the other launches, honeypots first. */
+  tokens: DeployerToken[];
+  detail: string;
+}
+
+/** A wallet that bought in the launch window. */
+export interface LaunchBuyer {
+  address: string;
+  /** Seconds after the token's first transaction. */
+  seconds: number;
+  /** Share of the supply it bought in the window, 0–100. */
+  boughtPercent: number;
+  /** Share it holds now, 0–100; null when it couldn't be read. */
+  holdPercent: number | null;
+  /** Who sent this wallet its first ETH, when it was looked up. */
+  funder: string | null;
+  contract: boolean;
+}
+
+/** Wallets tied together: funded by the same wallet, or bought for by the same sender. */
+export interface LaunchGroup {
+  via: string;
+  kind: "creator" | "funder" | "sender";
+  wallets: string[];
+  /** What the group holds now, 0–100 of the supply. */
+  holdPercent: number;
+}
+
+export interface LaunchActivity {
+  status: "ok" | "warn" | "risk";
+  /** Seconds of trading looked at, from the token's first transaction. */
+  windowSeconds: number;
+  /** Distinct wallets that bought in the window, the creator left out. */
+  buyers: number;
+  /** Of those, bought within the first 3 seconds (almost always bots). */
+  snipers: number;
+  /** Share of the supply the early buyers bought, and what they still hold, 0–100. */
+  boughtPercent: number;
+  holdPercent: number | null;
+  /** What the creator bought in the window, 0–100. */
+  creatorBoughtPercent: number;
+  /** Most distinct buyers in one block. */
+  sameBlock: number;
+  groups: LaunchGroup[];
+  /** The biggest early buyers. */
+  top: LaunchBuyer[];
   detail: string;
 }
 
@@ -386,7 +465,7 @@ export interface TokenOrigin {
   /** Whole tokens the creator still holds. */
   creatorHolds: string | null;
   creatorHoldsPercent: number | null;
-  /** Other tokens the creator launched through the same launcher, in its latest 100 transactions. */
+  /** Other tokens the creator launched through the same launcher, in its latest transactions (up to 20). */
   otherLaunches: string[];
   otherLaunchCount: number;
   /** A closer look at up to five of those launches. */

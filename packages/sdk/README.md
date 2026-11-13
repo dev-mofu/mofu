@@ -25,6 +25,8 @@ report.verdict; // "clean" | "caution" | "risky"
 report.sellTest?.status; // "passed" | "failed"
 report.sellTest?.depth?.ethAt10Percent; // ETH one sale can take before the price drops 10%
 report.codeMatch; // same code as tokens whose sell failed, if any
+report.deployer?.honeypots; // other tokens by the same creator whose sell failed
+report.launch?.groups; // linked wallets that bought the launch, and what they still hold
 url; // the shareable report on mofu.works
 ```
 

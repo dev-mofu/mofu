@@ -45,6 +45,24 @@ export function formatTokenScanForModel(r: TokenScanReport): string {
           `Code fingerprint ${r.fingerprint}: the same code is used by ${r.codeMatch.flagged} token(s) whose simulated sell failed and ${r.codeMatch.passed} that sold fine. Examples of the failed ones: ${r.codeMatch.examples.map((e) => `${e.address}${e.symbol ? ` (${e.symbol})` : ""}`).join(", ")}.`,
         ]
       : []),
+    ...(r.deployer
+      ? [
+          `Creator ${r.deployer.creator}: ${r.deployer.launches} other launches known, Mofu scanned ${r.deployer.scanned} (${r.deployer.honeypots} honeypot, ${r.deployer.risky} risky, ${r.deployer.caution} caution, ${r.deployer.clean} clean).`,
+          ...r.deployer.tokens.map(
+            (t) =>
+              `  other launch ${t.address} (${t.symbol ?? "?"}): ${t.honeypot ? "sell failed or honeypot code" : (t.verdict ?? "not scanned")}`,
+          ),
+        ]
+      : []),
+    ...(r.launch
+      ? [
+          `Launch window (first ${r.launch.windowSeconds} s): ${r.launch.buyers} buyers, ${r.launch.snipers} within 3 s, bought ${r.launch.boughtPercent}% of supply, still hold ${r.launch.holdPercent ?? "?"}%; creator bought ${r.launch.creatorBoughtPercent}%; most buyers in one block: ${r.launch.sameBlock}.`,
+          ...r.launch.groups.map(
+            (g) =>
+              `  linked group (${g.kind === "creator" ? "funded or bought for by the creator" : g.kind === "funder" ? `same funder ${g.via}` : `same sender ${g.via}`}): ${g.wallets.length} wallets, hold ${g.holdPercent}% now`,
+          ),
+        ]
+      : []),
     ...((r.lookalikes ?? []).length
       ? [
           "Other tokens with the same name or ticker that Mofu has seen:",

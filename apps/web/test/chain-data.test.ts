@@ -121,7 +121,8 @@ describe("tokenOrigin", () => {
             { total_count: 34, earliest_transaction: { block_signed_at: "2026-11-01T00:00:00Z" } },
           ],
         },
-        [`address/${CREATOR}/transactions_v3/page/0/`]: {
+        [`address/${CREATOR}/transactions_v3/`]: {
+          current_page: 0,
           items: [
             { to_address: LAUNCHER, log_events: [transfer(other, ZERO, CURVE, SUPPLY, "OTHER")] },
             { to_address: LAUNCHER, log_events: [transfer(TOKEN, ZERO, CURVE, SUPPLY)] },

@@ -39,6 +39,54 @@ export interface CodeMatch {
   examples: Array<{ address: string; symbol: string | null }>;
 }
 
+/** The creator's track record: other tokens they launched and what Mofu found in them. */
+export interface DeployerReputation {
+  creator: string;
+  status: "ok" | "warn" | "risk";
+  launches: number;
+  scanned: number;
+  honeypots: number;
+  risky: number;
+  caution: number;
+  clean: number;
+  quiet: number | null;
+  quietOf: number | null;
+  tokens: Array<{
+    address: string;
+    symbol: string | null;
+    verdict: Verdict | null;
+    honeypot: boolean;
+  }>;
+  detail: string;
+}
+
+/** Who bought in the first minute, whether they're linked, and what they still hold. */
+export interface LaunchActivity {
+  status: "ok" | "warn" | "risk";
+  windowSeconds: number;
+  buyers: number;
+  snipers: number;
+  boughtPercent: number;
+  holdPercent: number | null;
+  creatorBoughtPercent: number;
+  sameBlock: number;
+  groups: Array<{
+    via: string;
+    kind: "creator" | "funder" | "sender";
+    wallets: string[];
+    holdPercent: number;
+  }>;
+  top: Array<{
+    address: string;
+    seconds: number;
+    boughtPercent: number;
+    holdPercent: number | null;
+    funder: string | null;
+    contract: boolean;
+  }>;
+  detail: string;
+}
+
 export interface TokenReport {
   address: string;
   chainName: string;
@@ -79,6 +127,8 @@ export interface TokenReport {
   }>;
   fingerprint: string | null;
   codeMatch: CodeMatch | null;
+  deployer?: DeployerReputation | null;
+  launch?: LaunchActivity | null;
   limits: string[];
 }
 

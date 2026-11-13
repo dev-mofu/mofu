@@ -2,7 +2,7 @@
  * Public usage counters for mofu.works/stats. Counts only (no addresses, no content), kept in one
  * Durable Object. Recording never blocks or fails a request.
  */
-import type { CodeMatch } from "../shared/api.js";
+import type { CodeMatch, DeployerToken } from "../shared/api.js";
 
 export type StatKey =
   | "chat_free"
@@ -59,6 +59,40 @@ export interface TokenIndex {
   noteCode?(fingerprint: string, entry: CodeEntry): Promise<void>;
   /** Other tokens with this fingerprint: how many failed the sell test, how many passed. */
   codeMatches?(fingerprint: string, exclude: string): Promise<CodeMatch>;
+  /** Remembers a scanned token under its creator. */
+  noteCreator?(creator: string, entry: CreatorEntry): Promise<void>;
+  /** What Mofu knows of a creator's tokens, plus of `also` (other launches found on the chain). */
+  creatorTokens?(creator: string, also: string[]): Promise<DeployerToken[]>;
+  /** Launch-window buyers found earlier (they never change), or null. */
+  launchCache?(token: string): Promise<LaunchCache | null>;
+  saveLaunch?(token: string, cache: LaunchCache): Promise<void>;
+}
+
+/** A scanned token under its creator; the verdict is the one before the creator and launch checks. */
+export interface CreatorEntry {
+  address: string;
+  symbol: string | null;
+  verdict: IndexedToken["verdict"];
+  honeypot: boolean;
+  at: number;
+}
+
+/** The launch window of a token, kept once read. Amounts are raw token units as strings. */
+export interface LaunchCache {
+  /** Time of the token's first transaction (ISO). */
+  startedAt: string;
+  windowSeconds: number;
+  sameBlock: number;
+  creatorBought: string;
+  buyers: Array<{
+    address: string;
+    seconds: number;
+    bought: string;
+    sender: string;
+    contract: boolean;
+    /** undefined: not looked up yet; null: looked up, no plain ETH funding found. */
+    funder?: string | null;
+  }>;
 }
 
 export interface CodeEntry {

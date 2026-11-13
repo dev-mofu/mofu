@@ -103,9 +103,11 @@ export async function topHolders(
 
 // ---------------------------------------------------------------- origin
 
-interface TxItem {
+export interface TxItem {
   tx_hash?: string;
   block_signed_at?: string;
+  block_height?: number;
+  tx_offset?: number;
   from_address?: string;
   to_address?: string;
   successful?: boolean;
@@ -113,7 +115,7 @@ interface TxItem {
   fees_paid?: string;
   log_events?: LogEvent[];
 }
-interface LogEvent {
+export interface LogEvent {
   sender_address?: string;
   sender_contract_ticker_symbol?: string | null;
   sender_contract_decimals?: number | null;
@@ -125,6 +127,59 @@ interface Summary {
     earliest_transaction?: { tx_hash?: string; block_signed_at?: string };
     latest_transaction?: { tx_hash?: string; block_signed_at?: string };
   }>;
+}
+
+interface TxPage {
+  items?: TxItem[];
+  current_page?: number;
+}
+
+const byBlock = (a: TxItem, b: TxItem) =>
+  (a.block_height ?? 0) - (b.block_height ?? 0) || (a.tx_offset ?? 0) - (b.tx_offset ?? 0);
+
+/**
+ * An address's newest transactions, newest first: GoldRush's latest page, plus the page before
+ * it when the latest is short. (Numbered pages count from the oldest: page 0 is the first 100.)
+ */
+export async function recentTransactions(
+  o: ChainDataOptions,
+  address: string,
+  { logs = true, min = 50 }: { logs?: boolean; min?: number } = {},
+): Promise<TxItem[]> {
+  const q = logs ? "" : "?no-logs=true";
+  const latest = await gr<TxPage>(o, `address/${address}/transactions_v3/${q}`);
+  const items = [...(latest.items ?? [])];
+  const page = latest.current_page;
+  if (items.length < min && typeof page === "number" && page > 0) {
+    const prev = await gr<TxPage>(
+      o,
+      `address/${address}/transactions_v3/page/${page - 1}/${q}`,
+    ).catch(() => null);
+    items.push(...(prev?.items ?? []));
+  }
+  return items.sort((a, b) => byBlock(b, a));
+}
+
+/** An address's first 100 transactions, oldest first. */
+export async function earliestTransactions(
+  o: ChainDataOptions,
+  address: string,
+  { logs = true }: { logs?: boolean } = {},
+): Promise<TxItem[]> {
+  const page = await gr<TxPage>(
+    o,
+    `address/${address}/transactions_v3/page/0/${logs ? "" : "?no-logs=true"}`,
+  );
+  return [...(page.items ?? [])].sort(byBlock);
+}
+
+/** Total transactions of an address, or null when unknown. */
+export async function transactionCount(
+  o: ChainDataOptions,
+  address: string,
+): Promise<number | null> {
+  const s = await gr<Summary>(o, `address/${address}/transactions_summary/`).catch(() => null);
+  return s?.items?.[0]?.total_count ?? null;
 }
 
 const str = (h: string | null | undefined) => {
@@ -206,13 +261,13 @@ export async function tokenOrigin(
       o.fetch,
     ).catch(() => null),
     gr<Summary>(o, `address/${creator}/transactions_summary/`).catch(() => null),
-    gr<{ items?: TxItem[] }>(o, `address/${creator}/transactions_v3/page/0/`).catch(() => null),
+    recentTransactions(o, creator).catch(() => null),
   ]);
   const balance = balanceHex && /^0x[0-9a-f]+$/i.test(balanceHex) ? BigInt(balanceHex) : null;
   const firstSeen = creatorSummary?.items?.[0]?.earliest_transaction?.block_signed_at ?? null;
-  // Other tokens this wallet launched through the same launcher, in its latest 100 transactions.
+  // Other tokens this wallet launched through the same launcher, in its latest transactions.
   const others = new Set<string>();
-  for (const t of creatorTxs?.items ?? []) {
+  for (const t of creatorTxs ?? []) {
     if (!launcher || t.to_address?.toLowerCase() !== launcher) continue;
     for (const e of t.log_events ?? []) {
       const sender = e.sender_address?.toLowerCase();
@@ -233,7 +288,7 @@ export async function tokenOrigin(
     creatorTxCount: creatorSummary?.items?.[0]?.total_count ?? null,
     creatorHolds: balance !== null ? whole(balance, decimals) : null,
     creatorHoldsPercent: balance !== null && totalSupply ? share(balance, totalSupply) : null,
-    otherLaunches: [...others].slice(0, 5),
+    otherLaunches: [...others].slice(0, 20),
     otherLaunchCount: others.size,
     otherLaunchDetails,
   };

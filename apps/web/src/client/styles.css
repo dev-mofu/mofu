@@ -1999,6 +1999,53 @@ a.ghost-button {
   color: var(--muted);
 }
 
+.launch-status--clean {
+  color: var(--ok);
+}
+
+.launch-status--caution {
+  color: #ffb35c;
+}
+
+.launch-status--risky {
+  color: var(--bad);
+}
+
+.early-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.early-list li {
+  display: grid;
+  grid-template-columns: 4.2rem minmax(0, 1fr) auto auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  font-size: 0.88rem;
+}
+
+.early-when {
+  font-family: var(--font-led);
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.early-held--gone {
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .early-list li {
+    grid-template-columns: 3.4rem minmax(0, 1fr) auto;
+  }
+  .early-list .early-bought {
+    display: none;
+  }
+}
+
 @media (max-width: 560px) {
   .wallet-holdings li {
     grid-template-columns: minmax(0, 1fr) auto;

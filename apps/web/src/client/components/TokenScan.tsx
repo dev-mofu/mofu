@@ -342,6 +342,95 @@ export function TokenReport({
         </div>
       )}
 
+      {report.deployer && report.deployer.tokens.length > 0 && (
+        <div className="token-section">
+          <h3>The creator's other launches</h3>
+          <ul className="launch-list">
+            {report.deployer.tokens.map((l) => (
+              <li key={l.address}>
+                {l.symbol && <strong>{l.symbol}</strong>} <Addr a={l.address} />{" "}
+                <span
+                  className={`launch-status launch-status--${l.honeypot ? "risky" : (l.verdict ?? "quiet")}`}
+                >
+                  {l.honeypot
+                    ? "sell failed or honeypot code"
+                    : l.verdict
+                      ? `Mofu: ${l.verdict}`
+                      : "not scanned yet"}
+                </span>{" "}
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onScanOther(l.address)}
+                >
+                  {l.verdict || l.honeypot ? "see scan" : "scan it"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {report.deployer.launches > report.deployer.tokens.length && (
+            <p className="muted small">
+              {report.deployer.launches} other launches in its recent history; showing{" "}
+              {report.deployer.tokens.length}.
+            </p>
+          )}
+        </div>
+      )}
+
+      {report.launch && report.launch.top.length > 0 && (
+        <div className="token-section">
+          <h3>The first {report.launch.windowSeconds} seconds</h3>
+          <ul className="early-list">
+            {report.launch.top.map((b) => (
+              <li key={b.address}>
+                <span className="early-when">+{b.seconds}s</span>
+                <span>
+                  <Addr a={b.address} />
+                  {b.contract && <span className="muted small"> bot contract</span>}
+                  {b.funder && report.launch!.groups.some((g) => g.wallets.includes(b.address)) && (
+                    <span className="muted small">
+                      {" "}
+                      funded by <Addr a={b.funder} />
+                    </span>
+                  )}
+                </span>
+                <span className="early-bought muted small">
+                  bought {Number(b.boughtPercent.toFixed(2))}%
+                </span>
+                <strong
+                  className={
+                    b.holdPercent !== null && b.holdPercent < 0.01 ? "early-held--gone" : ""
+                  }
+                >
+                  {b.holdPercent === null
+                    ? "?"
+                    : b.holdPercent < 0.01
+                      ? "sold"
+                      : `holds ${Number(b.holdPercent.toFixed(2))}%`}
+                </strong>
+              </li>
+            ))}
+          </ul>
+          {report.launch.groups.length > 0 && (
+            <ul className="launch-list">
+              {report.launch.groups.map((g) => (
+                <li key={`${g.kind}:${g.via}`}>
+                  <span className="launch-status launch-status--risky">linked</span>{" "}
+                  {g.wallets.length} wallets{" "}
+                  {g.kind === "creator"
+                    ? "funded or bought for by the creator"
+                    : g.kind === "funder"
+                      ? "funded by"
+                      : "bought for by"}{" "}
+                  {g.kind !== "creator" && <Addr a={g.via} />}, holding{" "}
+                  {Number(g.holdPercent.toFixed(2))}% now
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {report.lookalikes.length > 0 && (
         <div className="token-section">
           <h3>Same name or ticker</h3>

@@ -321,6 +321,22 @@ npx mofu-cli          # chat in the current folder</code></pre>
             but isn't the official contract is called out.
           </p>
           <p>
+            <strong>What else did the creator launch?</strong> Mofu looks at the other tokens the
+            creator launched and what it found in them. A creator with a past launch whose sell
+            failed, or whose code matched known honeypots, is flagged. So is a creator with two or
+            more risky launches, or ten or more launches in its recent history, which is how
+            pump-and-dump farms work.
+          </p>
+          <p>
+            <strong>Was the launch bundled or sniped?</strong> Mofu reads who bought in the token's
+            first minute (routers counted through to the final wallet) and what those wallets hold
+            now. For the ones still holding, it looks up who sent them their first ETH. Wallets
+            funded by the creator, funded by the same wallet, or bought for by the same sender are
+            grouped, and a group still holding a big share is flagged. Busy services such as
+            exchanges aren't counted as a shared funder. Bots that sniped the first seconds and
+            already sold don't count against the token.
+          </p>
+          <p>
             With the full report (for $MOFU holders) you also see the top 10 holders, with pools and
             burned tokens labeled, and who created the token: the creator wallet, how old it is, how
             much it still holds and whether it launched other tokens through the same launcher, with
