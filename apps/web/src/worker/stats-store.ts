@@ -154,6 +154,16 @@ export class StatsStore extends DurableObject<Env> implements Stats, TokenIndex 
     return [...rows.values()].sort((a, b) => b.at - a.at);
   }
 
+  async knownVerdicts(tokens: string[]): Promise<Record<string, IndexedToken["verdict"]>> {
+    const keys = [...new Set(tokens.map((t) => t.toLowerCase()))].slice(0, 100);
+    const snaps = keys.length
+      ? await this.ctx.storage.get<StoredSnapshot>(keys.map((t) => `snap:${t}`))
+      : new Map<string, StoredSnapshot>();
+    const out: Record<string, IndexedToken["verdict"]> = {};
+    for (const [k, s] of snaps) out[k.slice("snap:".length)] = s.verdict;
+    return out;
+  }
+
   async observeToken(
     token: string,
     snapshot: TokenSnapshot,

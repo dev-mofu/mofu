@@ -28,11 +28,25 @@ export interface ChainDataOptions {
 
 export class ChainDataError extends Error {}
 
+/** A GoldRush GET, tried once more after a short pause when it's rate-limited (HTTP 429). */
+export async function goldrushGet(
+  o: ChainDataOptions,
+  url: string,
+  timeoutMs: number,
+): Promise<Response> {
+  const go = () =>
+    o.fetch(url, {
+      headers: { Authorization: `Bearer ${o.apiKey}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  const res = await go();
+  if (res.status !== 429) return res;
+  await new Promise((r) => setTimeout(r, 1200));
+  return go();
+}
+
 async function gr<T>(o: ChainDataOptions, path: string): Promise<T> {
-  const res = await o.fetch(`${BASE}/${o.chain}/${path}`, {
-    headers: { Authorization: `Bearer ${o.apiKey}`, Accept: "application/json" },
-    signal: AbortSignal.timeout(12_000),
-  });
+  const res = await goldrushGet(o, `${BASE}/${o.chain}/${path}`, 12_000);
   const body = (await res.json().catch(() => null)) as {
     data?: T;
     error?: boolean;

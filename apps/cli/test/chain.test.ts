@@ -68,6 +68,28 @@ describe("parseArgs: chain commands", () => {
     expect(() => parseArgs(["webhook", "nope"])).toThrow(ArgsError);
   });
 
+  it("parses wallet webhooks", () => {
+    expect(
+      parseArgs(["webhook", "add", "https://x.example.com/h", WALLET, "--wallets"]),
+    ).toMatchObject({ sub: "add", tokens: [], wallets: [WALLET.toLowerCase()] });
+    expect(() =>
+      parseArgs([
+        "webhook",
+        "add",
+        "https://x.example.com/h",
+        WALLET,
+        WALLET,
+        WALLET,
+        TOKEN,
+        "--wallets",
+      ]),
+    ).toThrow(/up to 3 wallets/);
+    expect(parseArgs(["webhook", "status", `ww_${"a".repeat(24)}`])).toMatchObject({
+      sub: "status",
+      id: `ww_${"a".repeat(24)}`,
+    });
+  });
+
   it("lists the new commands in --help", () => {
     expect(HELP).toContain("mofu scan <token>");
     expect(HELP).toContain("mofu wallet <address>");

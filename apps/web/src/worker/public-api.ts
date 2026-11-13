@@ -11,6 +11,13 @@ import type { ChainDataOptions } from "./chain-data.js";
 import { isAddress } from "./holder.js";
 import { withLookalikes } from "./lookalike.js";
 import { radarFromEnv } from "./radar.js";
+import {
+  MAX_WALLETS_PER_HOOK,
+  newWatchId,
+  WALLET_EVENTS,
+  walletWatchFromEnv,
+  type WalletEventType,
+} from "./wallet-watch.js";
 import { statsFromEnv, tokenIndexFromEnv, type StatKey } from "./stats.js";
 import { decodeString, scanToken, summaryOnly } from "./token-scan.js";
 import type { UsageResult } from "./usage.js";
@@ -151,7 +158,8 @@ export function createPublicApi(deps: PublicApiDeps) {
         "GET /api/v1/token/{address}": "Token Scanner report for a token contract",
         "GET /api/v1/wallet/{address}":
           "Wallet Health: approvals (risky ones flagged) and holdings",
-        "POST /api/v1/webhooks": "Watch tokens and get a signed POST when one changes",
+        "POST /api/v1/webhooks":
+          "Watch tokens (or wallets: risky approvals, planted lookalikes, holdings turning risky) and get a signed POST when something changes",
         "GET /api/v1/webhooks/{id}": "A webhook's status (Authorization: Bearer <secret>)",
         "POST /api/v1/webhooks/{id}/test": "Send a test event",
         "DELETE /api/v1/webhooks/{id}": "Delete a webhook",
@@ -313,7 +321,8 @@ export function createPublicApi(deps: PublicApiDeps) {
     const m = /^Bearer\s+(\S+)$/i.exec(c.req.header("Authorization") ?? "");
     return m?.[1] ?? "";
   };
-  const validId = (id: string) => /^wh_[0-9a-f]{24}$/.test(id);
+  const validId = (id: string) => /^w[hw]_[0-9a-f]{24}$/.test(id);
+  const watches = (c: Ctx) => walletWatchFromEnv(c.env);
   const notYours = (c: Ctx) =>
     err(
       c,
@@ -322,16 +331,100 @@ export function createPublicApi(deps: PublicApiDeps) {
       "No webhook with that id and secret. Send the secret as Authorization: Bearer <secret>.",
     );
 
+  /** POST /webhooks with "wallets": Wallet Watch. Same URL rules, ping and daily limit. */
+  async function createWalletWatch(c: Ctx, url: string, rawWallets: unknown, rawEvents: unknown) {
+    const list = Array.isArray(rawWallets) ? rawWallets : [];
+    const wallets = [...new Set(list.map((w) => String(w).toLowerCase()))];
+    if (
+      wallets.length === 0 ||
+      wallets.length > MAX_WALLETS_PER_HOOK ||
+      !wallets.every((w) => isAddress(w))
+    )
+      return err(
+        c,
+        422,
+        "bad_wallets",
+        `wallets must be a list of 1 to ${MAX_WALLETS_PER_HOOK} wallet addresses (0x followed by 40 hex characters).`,
+      );
+    let events: WalletEventType[] = [...WALLET_EVENTS];
+    if (rawEvents !== undefined) {
+      const wanted = Array.isArray(rawEvents) ? rawEvents.map(String) : [];
+      const bad = wanted.filter((e) => !(WALLET_EVENTS as readonly string[]).includes(e));
+      if (wanted.length === 0 || bad.length)
+        return err(
+          c,
+          422,
+          "bad_events",
+          `events must be a list from: ${WALLET_EVENTS.join(", ")}.`,
+        );
+      events = [...new Set(wanted)] as WalletEventType[];
+    }
+    const limit = intVar(c.env.WEBHOOK_DAILY_LIMIT);
+    const usage = await deps.getLimiter(c.env).check(ip(c), limit, true, "webhooks");
+    if (!usage.allowed)
+      return err(
+        c,
+        429,
+        "daily_limit",
+        `You can create ${limit} webhooks a day from one network. It resets at ${usage.resetAt}.`,
+      );
+    const secret = newSecret();
+    const id = newWatchId();
+    const now = deps.now();
+    const ping = await deliver(
+      deps.fetch,
+      { id, url, secret },
+      {
+        id: `evt_${randomHex(12)}`,
+        type: "ping",
+        createdAt: new Date(now).toISOString(),
+        token: null,
+        wallet: wallets[0] ?? null,
+        summary: "Mofu is checking that this URL accepts webhooks. Answer with any 2xx status.",
+        before: null,
+        after: null,
+        report: null,
+      },
+      now,
+    );
+    if (!ping.ok)
+      return err(
+        c,
+        422,
+        "ping_failed",
+        `Your URL didn't answer Mofu's ping with a 2xx status (got: ${ping.result}). Make sure it accepts POST requests, then try again.`,
+      );
+    const created = await watches(c).create({ id, url, secret, wallets, events, now });
+    if ("error" in created) return err(c, 503, "full", created.error);
+    record(c, "webhook_created");
+    return c.json(
+      {
+        webhook: created.hook,
+        secret,
+        note: "Keep the secret: it verifies Mofu-Signature on every event and is the only way to manage this webhook. It isn't shown again. Mofu checks each wallet about every 30 minutes; the first check is the baseline.",
+      },
+      201,
+    );
+  }
+
   app.post("/webhooks", async (c) => {
     const body = (await c.req.json().catch(() => null)) as {
       url?: unknown;
       tokens?: unknown;
+      wallets?: unknown;
       events?: unknown;
     } | null;
     if (!body)
-      return err(c, 400, "bad_request", 'Send JSON: { "url": "https://…", "tokens": ["0x…"] }.');
+      return err(
+        c,
+        400,
+        "bad_request",
+        'Send JSON: { "url": "https://…", "tokens": ["0x…"] } or { "url": "https://…", "wallets": ["0x…"] }.',
+      );
     const checked = checkWebhookUrl(body.url);
     if ("error" in checked) return err(c, 422, "bad_url", checked.error);
+    if (body.wallets !== undefined && body.tokens === undefined)
+      return createWalletWatch(c, checked.url, body.wallets, body.events);
     const list = Array.isArray(body.tokens) ? body.tokens : [];
     const tokens = [...new Set(list.map((t) => String(t).toLowerCase()))];
     if (
@@ -460,6 +553,10 @@ export function createPublicApi(deps: PublicApiDeps) {
   app.get("/webhooks/:id", async (c) => {
     const id = c.req.param("id");
     if (!validId(id) || !bearer(c)) return notYours(c);
+    if (id.startsWith("ww_")) {
+      const watch = await watches(c).get(id, bearer(c));
+      return watch ? c.json({ webhook: watch }) : notYours(c);
+    }
     const hook = await hooks(c).get(id, bearer(c));
     return hook ? c.json({ webhook: hook }) : notYours(c);
   });
@@ -467,7 +564,10 @@ export function createPublicApi(deps: PublicApiDeps) {
   app.delete("/webhooks/:id", async (c) => {
     const id = c.req.param("id");
     if (!validId(id) || !bearer(c)) return notYours(c);
-    return (await hooks(c).remove(id, bearer(c))) ? c.json({ deleted: true }) : notYours(c);
+    const gone = id.startsWith("ww_")
+      ? await watches(c).remove(id, bearer(c))
+      : await hooks(c).remove(id, bearer(c));
+    return gone ? c.json({ deleted: true }) : notYours(c);
   });
 
   app.post("/webhooks/:id/test", async (c) => {
@@ -482,7 +582,9 @@ export function createPublicApi(deps: PublicApiDeps) {
         "daily_limit",
         `Too many webhook calls today. It resets at ${usage.resetAt}.`,
       );
-    const res = await hooks(c).test(id, bearer(c), deps.now());
+    const res = id.startsWith("ww_")
+      ? await watches(c).test(id, bearer(c), deps.now())
+      : await hooks(c).test(id, bearer(c), deps.now());
     return res ? c.json({ delivered: res.ok, result: res.result }) : notYours(c);
   });
 

@@ -58,7 +58,8 @@ interface Summary {
   items?: Array<{ total_count?: number; earliest_transaction?: { block_signed_at?: string } }>;
 }
 
-async function summary(o: ChainDataOptions, address: string) {
+/** Transaction count and first activity of an address (GoldRush). Never throws. */
+export async function addressSummary(o: ChainDataOptions, address: string) {
   try {
     const res = await o.fetch(
       `https://api.covalenthq.com/v1/${o.chain}/address/${address}/transactions_summary/`,
@@ -166,7 +167,7 @@ export async function describeAddresses(
       let firstSeen: string | null = null;
       if (kind !== "burn" && summaries < maxSummaries) {
         summaries++;
-        ({ txCount, firstSeen } = await summary(o, f.address));
+        ({ txCount, firstSeen } = await addressSummary(o, f.address));
       }
       const info: AddressInfo = {
         address: f.address,

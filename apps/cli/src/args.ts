@@ -53,6 +53,8 @@ export type WebhookArgs = {
   json: boolean;
   url?: string;
   tokens?: string[];
+  /** Wallet Watch: wallets instead of tokens. */
+  wallets?: string[];
   events?: string[];
   id?: string;
   secret?: string;
@@ -209,6 +211,7 @@ function parseChainArgs(command: "scan" | "wallet", words: string[]): ChainArgs 
 
 const WEBHOOK_USAGE = `Usage:
   mofu webhook add <https-url> <token> [token…] [--events owner_changed,verdict_changed]
+  mofu webhook add <https-url> <wallet> [wallet…] --wallets [--events risky_approval,poisoning]
   mofu webhook status <id> [--secret <secret>]
   mofu webhook test <id> [--secret <secret>]
   mofu webhook remove <id> [--secret <secret>]`;
@@ -218,6 +221,7 @@ function parseWebhookArgs(words: string[]): WebhookArgs {
   if (sub !== "add" && sub !== "status" && sub !== "test" && sub !== "remove")
     throw new ArgsError(WEBHOOK_USAGE);
   let json = false;
+  let wallets = false;
   let events: string[] | undefined;
   let secret: string | undefined;
   const positional: string[] = [];
@@ -229,6 +233,7 @@ function parseWebhookArgs(words: string[]): WebhookArgs {
       return v;
     };
     if (w === "--json") json = true;
+    else if (w === "--wallets") wallets = true;
     else if (w === "--events" || w.startsWith("--events="))
       events = value("--events")
         .split(",")
@@ -245,7 +250,19 @@ function parseWebhookArgs(words: string[]): WebhookArgs {
     if (secret)
       throw new ArgsError("--secret is for status, test and remove; add creates a new one.");
     const bad = tokens.filter((t) => !ADDRESS.test(t));
-    if (bad.length) throw new ArgsError(`Not a token address: ${bad.join(", ")}`);
+    if (bad.length) throw new ArgsError(`Not an address: ${bad.join(", ")}`);
+    if (wallets) {
+      if (tokens.length > 3) throw new ArgsError("A wallet webhook can watch up to 3 wallets.");
+      return {
+        command: "webhook",
+        sub,
+        json,
+        url,
+        tokens: [],
+        wallets: tokens.map((t) => t.toLowerCase()),
+        ...(events && { events }),
+      };
+    }
     if (tokens.length > 10) throw new ArgsError("A webhook can watch up to 10 tokens.");
     return {
       command: "webhook",
@@ -256,9 +273,10 @@ function parseWebhookArgs(words: string[]): WebhookArgs {
       ...(events && { events }),
     };
   }
-  if (positional.length !== 1 || !/^wh_[0-9a-f]{24}$/.test(positional[0]!))
-    throw new ArgsError(`mofu webhook ${sub} needs a webhook id (wh_…).\n${WEBHOOK_USAGE}`);
+  if (positional.length !== 1 || !/^w[hw]_[0-9a-f]{24}$/.test(positional[0]!))
+    throw new ArgsError(`mofu webhook ${sub} needs a webhook id (wh_… or ww_…).\n${WEBHOOK_USAGE}`);
   if (events) throw new ArgsError("--events only applies to mofu webhook add.");
+  if (wallets) throw new ArgsError("--wallets only applies to mofu webhook add.");
   return { command: "webhook", sub, json, id: positional[0]!, ...(secret && { secret }) };
 }
 

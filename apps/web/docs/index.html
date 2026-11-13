@@ -557,12 +557,50 @@ npx mofu-cli scan 0xTOKEN --fail-on risky        # exit code 2 if the verdict is
               </tbody>
             </table>
           </div>
-          <p>Create one with the CLI or the API. Leave out <code>events</code> to get all six.</p>
+          <p>Create one with the CLI or the API. Leave out <code>events</code> to get all seven.</p>
           <pre><code>npx mofu-cli webhook add https://your.domain/mofu 0xTOKEN --events owner_changed,liquidity_dropped
 
 curl -X POST https://mofu.works/api/v1/webhooks \
   -H "Content-Type: application/json" \
   -d '{"url":"https://your.domain/mofu","tokens":["0xTOKEN"]}'</code></pre>
+          <h4 id="wallet-watch">Wallet Watch</h4>
+          <p>
+            Send <code>wallets</code> instead of <code>tokens</code> (up to 3 per webhook) and Mofu
+            re-checks each wallet about every 30 minutes. The first check is the baseline; after
+            that you get an event when something new and bad shows up:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Event</th>
+                  <th scope="col">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>risky_approval</code></td>
+                  <td>
+                    A new approval to a plain wallet or a brand-new little-used contract, for a
+                    token or a whole NFT collection
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>poisoning</code></td>
+                  <td>A lookalike address was planted in the wallet's history</td>
+                </tr>
+                <tr>
+                  <td><code>holding_risky</code></td>
+                  <td>A token the wallet holds is now rated risky by Mofu</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <pre><code>curl -X POST https://mofu.works/api/v1/webhooks   -H "Content-Type: application/json"   -d '{"url":"https://your.domain/mofu","wallets":["0xYOUR_WALLET"]}'</code></pre>
+          <p>
+            Wallet events carry <code>"wallet": "0x…"</code> instead of a token. Everything else
+            (the ping, the secret, signatures, status, test and delete) works the same.
+          </p>
           <p>
             Mofu first sends a <code>ping</code> event and saves the webhook only if your URL
             answers with a 2xx status. The answer includes the webhook's <code>id</code> and a
@@ -635,6 +673,20 @@ function fromMofu(header, rawBody, secret) {
             It renders inside a closed shadow root, so it won't touch your page's styles. The data
             comes from <code>https://mofu.works/token/0x….json</code> (open to any site, cached for
             five minutes). Every token page has the snippet ready to copy.
+          </p>
+          <h3 id="radar">New Token Radar</h3>
+          <p>
+            <a href="/radar/">mofu.works/radar</a> lists every token launched on the Pons launchpad,
+            scanned about three minutes after launch with every check: the sell test, linked launch
+            buyers, the creator's record and the way to graduation. Bots can read the same list at
+            <code>GET https://mofu.works/api/v1/radar</code>.
+          </p>
+          <h3 id="timeline">Token timelines</h3>
+          <p>
+            Every scan leaves a snapshot, and the next one records what changed: the verdict, the
+            owner, the supply, graduation, a 30% or bigger drop in liquidity, the sell test. Token
+            pages, the app and the API show it as a timeline next to the launch. A verdict change
+            has to show up on two scans in a row before it's written down.
           </p>
           <h3 id="creators">Token creators</h3>
           <p>

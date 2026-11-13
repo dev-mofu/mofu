@@ -255,7 +255,8 @@ export async function runChain(
 interface Hook {
   id: string;
   url: string;
-  tokens: string[];
+  tokens?: string[];
+  wallets?: string[];
   events: string[];
   status: string;
   delivered: number;
@@ -269,7 +270,8 @@ function printHook(h: Hook, printer: Printer) {
     `${pc.bold(h.id)}  ${h.status === "active" ? pc.green("active") : pc.red(h.status)}`,
   );
   printer.line(`  URL:     ${h.url}`);
-  printer.line(`  Tokens:  ${h.tokens.join(", ")}`);
+  if (h.wallets?.length) printer.line(`  Wallets: ${h.wallets.join(", ")}`);
+  else printer.line(`  Tokens:  ${(h.tokens ?? []).join(", ")}`);
   printer.line(`  Events:  ${h.events.join(", ")}`);
   printer.line(
     pc.dim(
@@ -289,7 +291,7 @@ export async function runWebhook(
         method: "POST",
         body: JSON.stringify({
           url: args.url,
-          tokens: args.tokens,
+          ...(args.wallets?.length ? { wallets: args.wallets } : { tokens: args.tokens }),
           ...(args.events && { events: args.events }),
         }),
       });

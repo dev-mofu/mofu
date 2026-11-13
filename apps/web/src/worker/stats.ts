@@ -72,6 +72,8 @@ export interface TokenIndex {
   creatorBoard?(): Promise<CreatorSummary[]>;
   /** The tokens filed under one creator, newest first. */
   creatorRecords?(creator: string): Promise<CreatorEntry[]>;
+  /** The verdict of each token's latest full scan, for the tokens Mofu has scanned. */
+  knownVerdicts?(tokens: string[]): Promise<Record<string, IndexedToken["verdict"]>>;
   /**
    * Records a scan in the token's timeline (the first events when it's new) and returns the
    * timeline, newest first.

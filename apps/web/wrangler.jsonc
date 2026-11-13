@@ -39,6 +39,7 @@
       { "name": "WEBHOOKS", "class_name": "WebhookStore" },
       { "name": "PUBLISHER", "class_name": "VerdictPublisher" },
       { "name": "RADAR", "class_name": "RadarStore" },
+      { "name": "WALLET_WATCH", "class_name": "WalletWatchStore" },
     ],
   },
   "migrations": [
@@ -48,6 +49,7 @@
     { "tag": "v4", "new_sqlite_classes": ["WebhookStore"] },
     { "tag": "v5", "new_sqlite_classes": ["VerdictPublisher"] },
     { "tag": "v6", "new_sqlite_classes": ["RadarStore"] },
+    { "tag": "v7", "new_sqlite_classes": ["WalletWatchStore"] },
   ],
   "vars": {
     // New Token Radar: "false" stops it. Scans per run (a run every 2 min, every 45 s with a backlog);

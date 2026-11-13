@@ -1,6 +1,6 @@
 {
   "name": "mofu-cli",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "An AI agent in your terminal: coding tasks, code review, secret scanning, Solidity checks, and Robinhood Chain token and wallet checks.",
   "license": "MIT",
   "homepage": "https://mofu.works",

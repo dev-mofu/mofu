@@ -188,7 +188,7 @@ export function tokenMain(r: TokenScanReport, scannedAt: number): string {
         <section id="more">
           <h2>Check another token</h2>
           ${lookupForm()}
-          <p>Recently scanned: <a href="/token/">all tokens</a>. Who launches what: <a href="/creators/">token creators</a>. Mofu Guard runs the same check before you sign: <a href="/guard/">get the extension</a>.</p>
+          <p>Recently scanned: <a href="/token/">all tokens</a>. Who launches what: <a href="/creators/">token creators</a>. Fresh launches: <a href="/radar/">the radar</a>. Mofu Guard runs the same check before you sign: <a href="/guard/">get the extension</a>.</p>
         </section>`;
 }
 
@@ -342,7 +342,7 @@ export function radarMain(entries: RadarEntry[], queued: number, now: number): s
   const rows = entries
     .map(
       (e) =>
-        `<tr><td>${minutesAgo(e.launchedAt, now)}</td><td><a href="/token/${e.address}">${escapeHtml(tokenTitle(e, e.address))}</a></td><td><span class="verify-verdict--${VERDICT_CLASS[e.verdict]}">${VERDICT_TEXT[e.verdict]}</span></td><td>${e.sell === "passed" ? `<span class="verify-verdict--ok">sells</span>` : e.sell === "failed" ? `<span class="verify-verdict--bad">sell failed</span>` : "–"}</td><td>${level(e.bundle)}</td><td><a href="/creator/${e.creator}">${level(e.deployer)}</a></td><td>${e.progress === null ? "–" : `${Number(e.progress.toFixed(1))}%`}</td></tr>`,
+        `<tr><td>${minutesAgo(e.launchedAt, now)}</td><td><a href="/token/${e.address}">${escapeHtml(tokenTitle(e, e.address))}</a></td><td><span class="verify-verdict--${VERDICT_CLASS[e.verdict]}">${e.verdict}</span></td><td>${e.sell === "passed" ? `<span class="verify-verdict--ok">sells</span>` : e.sell === "failed" ? `<span class="verify-verdict--bad">sell failed</span>` : "–"}</td><td>${level(e.bundle)}</td><td><a href="/creator/${e.creator}">${level(e.deployer)}</a></td><td>${e.progress === null ? "–" : `${Number(e.progress.toFixed(1))}%`}</td></tr>`,
     )
     .join("\n");
   return `<header class="docs-hero">

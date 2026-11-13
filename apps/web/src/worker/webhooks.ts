@@ -114,9 +114,11 @@ export const emptySnapshot = (address: string): TokenSnapshot => ({
 
 export interface WebhookEvent {
   id: string;
-  type: WebhookEventType | "ping" | "test";
+  type: WebhookEventType | "risky_approval" | "poisoning" | "holding_risky" | "ping" | "test";
   createdAt: string;
   token: { address: string; name: string | null; symbol: string | null } | null;
+  /** For wallet webhooks: the wallet the event is about. */
+  wallet?: string | null;
   /** One sentence a person can read. */
   summary: string;
   before: unknown;

@@ -9,6 +9,7 @@ export { StatsStore } from "./stats-store.js";
 export { WebhookStore } from "./webhook-store.js";
 export { VerdictPublisher } from "./verdict-store.js";
 export { RadarStore } from "./radar.js";
+export { WalletWatchStore } from "./wallet-watch.js";
 
 const app = createApp();
 const mcp = createMcpApp(defaultDeps);

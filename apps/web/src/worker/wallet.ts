@@ -12,14 +12,76 @@ import type {
 } from "../shared/api.js";
 import { findPoisoning, type HistoryTx } from "./poisoning.js";
 import { callOf, rpcBatch, rpcCall } from "./chain.js";
-import { recentTransactions, type ChainDataOptions } from "./chain-data.js";
+import { goldrushGet, recentTransactions, type ChainDataOptions } from "./chain-data.js";
 import { decodeString } from "./token-scan.js";
-import { describeActivity, describeAddresses } from "./known.js";
+import { addressSummary, describeActivity, describeAddresses, KNOWN } from "./known.js";
 
 const NATIVE = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 /** At or above this, an allowance is treated as unlimited (2^128 tokens of the smallest unit). */
 const UNLIMITED = 1n << 128n;
 const MAX_APPROVALS = 40;
+/** Wallet Watch's lighter check: the newest approvals (new ones are always among them). */
+const LIGHT_APPROVALS = 10;
+const LIGHT_NFT = 4;
+const LIGHT_SUMMARIES = 4;
+
+/**
+ * Spenders by their code and, for unknown contracts, their age and activity: enough to tell a
+ * plain wallet or a brand-new contract from an established one. One call each, plus a few
+ * GoldRush summaries.
+ */
+async function describeLight(
+  o: ChainDataOptions & { now: number },
+  addresses: string[],
+): Promise<Map<string, AddressInfo>> {
+  const out = new Map<string, AddressInfo>();
+  const todo = addresses.filter((a) => {
+    const k = KNOWN[a];
+    if (k)
+      out.set(a, {
+        address: a,
+        kind: k.kind,
+        label: k.label,
+        known: true,
+        txCount: null,
+        firstSeen: null,
+        ageDays: null,
+      });
+    return !k;
+  });
+  const codes = await rpcBatch(
+    o.rpcUrls,
+    todo.map((a) => ({ method: "eth_getCode", params: [a, "latest"] })),
+    o.fetch,
+  ).catch(() => todo.map(() => null));
+  let summaries = 0;
+  await Promise.all(
+    todo.map(async (a, i) => {
+      const code = codes[i];
+      const isContract = !!code && code !== "0x" && !code.toLowerCase().startsWith("0xef0100");
+      const info: AddressInfo = {
+        address: a,
+        kind: isContract ? "contract" : "wallet",
+        label: null,
+        known: false,
+        txCount: null,
+        firstSeen: null,
+        ageDays: null,
+      };
+      if (code === null) info.kind = "contract"; // unknown: don't call it a wallet
+      if (isContract && summaries++ < LIGHT_SUMMARIES) {
+        const s = await addressSummary(o, a);
+        info.txCount = s.txCount;
+        info.firstSeen = s.firstSeen;
+        info.ageDays = s.firstSeen
+          ? Math.max(0, Math.floor((o.now - Date.parse(s.firstSeen)) / 86_400_000))
+          : null;
+      }
+      out.set(a, info);
+    }),
+  );
+  return out;
+}
 const MAX_HOLDINGS = 25;
 
 interface BalanceItem {
@@ -171,10 +233,7 @@ export function judgeNftApproval(
 
 async function gr<T>(o: ChainDataOptions, path: string): Promise<T | null> {
   try {
-    const res = await o.fetch(`https://api.covalenthq.com/v1/${o.chain}/${path}`, {
-      headers: { Authorization: `Bearer ${o.apiKey}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(15_000),
-    });
+    const res = await goldrushGet(o, `https://api.covalenthq.com/v1/${o.chain}/${path}`, 15_000);
     const body = (await res.json()) as { data?: T; error?: boolean };
     return res.ok && !body.error && body.data ? body.data : null;
   } catch {
@@ -256,11 +315,19 @@ export function judgeApproval(
 
 const RANK = { risk: 0, warn: 1, ok: 2 } as const;
 
+/**
+ * light: for Wallet Watch, which runs inside one Workers invocation (50 subrequests, and RPC
+ * batches that may fall back to single calls). Only the most recent approvals, no extra name
+ * lookups, and spenders described by their code and age alone.
+ */
 export async function walletReport(
   o: ChainDataOptions & { now: number },
   address: string,
+  opts: { light?: boolean } = {},
 ): Promise<WalletReport> {
   const wallet = address.toLowerCase();
+  const light = opts.light === true;
+  const maxApprovals = light ? LIGHT_APPROVALS : MAX_APPROVALS;
   const limits = [
     "Approvals come from GoldRush's index and the wallet's recent transactions, and are re-checked on the chain; a very recent one can be missing for a few minutes.",
     "NFT approvals cover whole collections (setApprovalForAll); approvals for single NFTs aren't listed.",
@@ -335,9 +402,9 @@ export async function walletReport(
     )
     .filter((p) => /^0x[0-9a-f]{40}$/.test(p.token) && /^0x[0-9a-f]{40}$/.test(p.spender))
     .sort((a, b) => Date.parse(b.approvedAt ?? "0") - Date.parse(a.approvedAt ?? "0"));
-  if (pairs.length > MAX_APPROVALS)
-    limits.push(`Checked the ${MAX_APPROVALS} most recent of ${pairs.length} approvals.`);
-  const recent = pairs.slice(0, MAX_APPROVALS);
+  if (pairs.length > maxApprovals)
+    limits.push(`Checked the ${maxApprovals} most recent of ${pairs.length} approvals.`);
+  const recent = pairs.slice(0, maxApprovals);
 
   const live = await rpcBatch(
     o.rpcUrls,
@@ -353,7 +420,9 @@ export async function walletReport(
     .filter((p) => p.allowance !== null && p.allowance > 0n);
 
   // Names, tickers and decimals for approval tokens we don't know yet.
-  const unknown = [...new Set(active.map((p) => p.token))].filter((t) => !meta.has(t)).slice(0, 20);
+  const unknown = light
+    ? []
+    : [...new Set(active.map((p) => p.token))].filter((t) => !meta.has(t)).slice(0, 20);
   if (unknown.length) {
     const r = await rpcBatch(
       o.rpcUrls,
@@ -375,29 +444,34 @@ export async function walletReport(
   }
 
   // Collection-wide NFT approvals, kept only when isApprovedForAll still says yes.
-  const nftCandidates = nftApprovalCandidates(wallet, nftIndex?.items ?? null, history);
+  const nftCandidates = nftApprovalCandidates(wallet, nftIndex?.items ?? null, history).slice(
+    0,
+    light ? LIGHT_NFT : Infinity,
+  );
   const nftLive = await rpcBatch(
     o.rpcUrls,
     nftCandidates.flatMap((c) => [
       callOf(c.collection, `0xe985e9c5${pad(wallet)}${pad(c.operator)}`),
-      callOf(c.collection, "0x06fdde03"),
-      callOf(c.collection, "0x95d89b41"),
+      // light: names come from GoldRush or not at all
+      ...(light ? [] : [callOf(c.collection, "0x06fdde03"), callOf(c.collection, "0x95d89b41")]),
     ]),
     o.fetch,
-  ).catch(() => nftCandidates.flatMap(() => [null, null, null]));
+  ).catch(() => nftCandidates.flatMap(() => (light ? [null] : [null, null, null])));
+  const per = light ? 1 : 3;
   const nftActive = nftCandidates
     .map((c, i) => ({
       ...c,
-      on: /^0x0*1$/i.test(nftLive[i * 3] ?? ""),
-      name: c.name ?? str(nftLive[i * 3 + 1] ?? null),
-      symbol: c.symbol ?? str(nftLive[i * 3 + 2] ?? null),
+      on: /^0x0*1$/i.test(nftLive[i * per] ?? ""),
+      name: c.name ?? (light ? null : str(nftLive[i * 3 + 1] ?? null)),
+      symbol: c.symbol ?? (light ? null : str(nftLive[i * 3 + 2] ?? null)),
     }))
     .filter((c) => c.on);
 
-  const spenders = await describeAddresses(
-    o,
-    [...new Set([...active.map((p) => p.spender), ...nftActive.map((c) => c.operator)])],
-    8,
+  const spenderList = [
+    ...new Set([...active.map((p) => p.spender), ...nftActive.map((c) => c.operator)]),
+  ];
+  const spenders = await (
+    light ? describeLight(o, spenderList) : describeAddresses(o, spenderList, 8)
   ).catch(() => new Map<string, AddressInfo>());
   const nftApprovals: WalletNftApproval[] = nftActive.map((c) => {
     const operator: AddressInfo = spenders.get(c.operator) ?? {
